@@ -1,0 +1,16 @@
+name = "requisition-system"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "requisition-db"
+database_id   = "YOUR_D1_DATABASE_ID"
+
+[vars]
+# Set your own admin password here. Do NOT commit a real one.
+# For production prefer a Cloudflare secret: `wrangler secret put ADMIN_PASSWORD`
+ADMIN_PASSWORD = "change-me"

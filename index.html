@@ -378,10 +378,11 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="zone-hint" id="zoneHint">กดเพื่อถ่ายรูปหรือเลือกรูปภาพ<br><small>รองรับ JPG, PNG, WebP</small></div>
       <img id="previewImg" style="display:none" alt="preview">
     </div>
-    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="onFileSelect(this)">
+    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="onFileSelect(this)">
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="flex:1">📷 ถ่าย/เลือกรูป</button>
-      <button class="btn btn-outline" onclick="clearImage()" style="flex:1" id="btnClear" disabled>🗑️ ล้างรูป</button>
+      <button class="btn btn-primary" onclick="openCamera(setScanImage)" style="flex:1;min-width:140px">📷 เปิดกล้อง</button>
+      <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
+      <button class="btn btn-gray" onclick="clearImage()" id="btnClear" disabled>🗑️ ล้าง</button>
       <button class="btn btn-success btn-block" onclick="doMatch()" id="btnMatch" disabled>🔍 ค้นหาอุปกรณ์ด้วย AI</button>
     </div>
   </div>
@@ -539,10 +540,14 @@ textarea { resize: vertical; min-height: 70px; }
       </div>
       <div class="form-group">
         <label>รูปภาพอุปกรณ์ <span class="req">*</span> <span style="font-weight:400;color:var(--sub)">(ใช้สำหรับ AI matching)</span></label>
-        <div class="img-zone" id="adminImgZone" onclick="document.getElementById('adminFileInput').click()">
-          <div class="zone-icon" id="adminZoneIcon">🖼️</div>
-          <div class="zone-hint">คลิกเพื่ออัปโหลดรูป<br><small>ถ่ายในที่แสงดี เห็นอุปกรณ์ชัดเจน</small></div>
+        <div class="img-zone" id="adminImgZone" onclick="openCamera(setAdminImage)">
+          <div class="zone-icon" id="adminZoneIcon">📸</div>
+          <div class="zone-hint">แตะเพื่อเปิดกล้องถ่ายรูป<br><small>ถ่ายในที่แสงดี เห็นอุปกรณ์ชัดเจน</small></div>
           <img id="adminPreview" style="display:none;width:100%;height:180px;object-fit:contain" alt="preview">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary btn-sm" onclick="openCamera(setAdminImage)" style="flex:1;min-width:140px">📷 เปิดกล้องถ่ายรูป</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('adminFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกไฟล์รูป</button>
         </div>
         <input type="file" id="adminFileInput" accept="image/*" style="display:none" onchange="onAdminFileSelect(this)">
         <div id="adminImgWarning" class="alert alert-warning" style="display:none;margin-top:8px">
@@ -757,6 +762,26 @@ textarea { resize: vertical; min-height: 70px; }
   </div>
 </div>
 
+<!-- CAMERA MODAL -->
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">📷 ถ่ายรูปอุปกรณ์</span>
+      <button class="modal-close" onclick="closeCamera()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;background:#000;position:relative">
+      <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain"></video>
+      <div id="cameraLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:rgba(0,0,0,.6)">
+        <div><div class="spinner" style="border-top-color:#fff"></div><div style="margin-top:8px">กำลังเปิดกล้อง...</div></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-gray" onclick="flipCamera()" id="btnFlipCam">🔄 สลับกล้อง</button>
+      <button class="btn btn-primary" onclick="capturePhoto()" id="btnCapture">📸 ถ่ายรูปนี้</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -891,25 +916,60 @@ function switchTab(tab) {
 }
 
 // ============================================================
-// IMAGE
+// IMAGE — compression + capture pipeline
 // ============================================================
-function onFileSelect(input) {
+// Downscale + re-encode any image to keep payloads small. Large phone
+// photos (multi-MB base64) otherwise crash the Worker's CLIP embedding
+// step and bloat D1 rows, which made "add item" fail.
+function compressImageDataUrl(dataUrl, maxDim = 1024, quality = 0.85) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      if (!w || !h) { resolve(dataUrl); return; }
+      if (w > maxDim || h > maxDim) {
+        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); // flatten transparency for JPEG
+      ctx.drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', quality)); }
+      catch { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+function fileToCompressedDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => compressImageDataUrl(e.target.result).then(resolve);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Apply a finished image (data URL) to the scan/requisition flow
+function setScanImage(dataUrl) {
+  selectedImage = dataUrl;
+  const img = document.getElementById('previewImg');
+  img.src = dataUrl; img.style.display = 'block';
+  document.getElementById('zoneIcon').style.display = 'none';
+  document.getElementById('zoneHint').style.display = 'none';
+  document.getElementById('imgZone').classList.add('has-img');
+  document.getElementById('btnMatch').disabled = false;
+  document.getElementById('btnClear').disabled = false;
+  document.getElementById('matchSection').style.display = 'none';
+  document.getElementById('scanEmpty').style.display = 'none';
+  selectedItemId = null;
+}
+async function onFileSelect(input) {
   const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    selectedImage = e.target.result;
-    const img = document.getElementById('previewImg');
-    img.src = selectedImage; img.style.display = 'block';
-    document.getElementById('zoneIcon').style.display = 'none';
-    document.getElementById('zoneHint').style.display = 'none';
-    document.getElementById('imgZone').classList.add('has-img');
-    document.getElementById('btnMatch').disabled = false;
-    document.getElementById('btnClear').disabled = false;
-    document.getElementById('matchSection').style.display = 'none';
-    document.getElementById('scanEmpty').style.display = 'none';
-    selectedItemId = null;
-  };
-  reader.readAsDataURL(file);
+  try { setScanImage(await fileToCompressedDataUrl(file)); }
+  catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
 }
 function clearImage() {
   selectedImage = null; selectedItemId = null;
@@ -924,17 +984,84 @@ function clearImage() {
   document.getElementById('scanEmpty').style.display = '';
   document.getElementById('fileInput').value = '';
 }
-function onEditFileSelect(input) {
+async function onEditFileSelect(input) {
   const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    editImageB64 = e.target.result;
+  try {
+    editImageB64 = await fileToCompressedDataUrl(file);
     const img = document.getElementById('editPreview');
     img.src = editImageB64; img.style.display = 'block';
     document.getElementById('editZoneIcon').style.display = 'none';
     document.getElementById('editImgZone').classList.add('has-img');
-  };
-  reader.readAsDataURL(file);
+  } catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+}
+
+// ============================================================
+// IN-APP CAMERA (getUserMedia) — used by scan & admin add
+// ============================================================
+let _cameraStream = null;
+let _cameraFacing = 'environment';
+let _cameraCapture = null;
+
+function openCamera(onCapture) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
+    return;
+  }
+  _cameraCapture = onCapture;
+  openModal('cameraModal');
+  startCameraStream();
+}
+async function startCameraStream() {
+  stopCameraStream();
+  const video = document.getElementById('cameraVideo');
+  const loading = document.getElementById('cameraLoading');
+  loading.style.display = 'flex';
+  try {
+    _cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: _cameraFacing } }, audio: false
+    });
+    video.srcObject = _cameraStream;
+    await video.play().catch(() => {});
+    loading.style.display = 'none';
+  } catch (e) {
+    loading.style.display = 'none';
+    closeCamera();
+    const msg = (e && e.name === 'NotAllowedError')
+      ? 'ไม่ได้รับอนุญาตให้ใช้กล้อง — อนุญาตในเบราว์เซอร์ หรือใช้ "เลือกรูป"'
+      : 'เปิดกล้องไม่ได้ (ต้องเปิดผ่าน https) — ใช้ "เลือกรูป" แทน';
+    showToast('❌ ' + msg, 'error');
+  }
+}
+function flipCamera() {
+  _cameraFacing = _cameraFacing === 'environment' ? 'user' : 'environment';
+  startCameraStream();
+}
+function capturePhoto() {
+  const video = document.getElementById('cameraVideo');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) { showToast('⏳ กล้องยังไม่พร้อม', 'error'); return; }
+  const maxDim = 1024;
+  let w = vw, h = vh;
+  if (w > maxDim || h > maxDim) {
+    if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+    else { w = Math.round(w * maxDim / h); h = maxDim; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  const cb = _cameraCapture;
+  closeCamera();
+  if (cb) cb(dataUrl);
+}
+function closeCamera() {
+  stopCameraStream();
+  closeModal('cameraModal');
+}
+function stopCameraStream() {
+  if (_cameraStream) { _cameraStream.getTracks().forEach(t => t.stop()); _cameraStream = null; }
+  const video = document.getElementById('cameraVideo');
+  if (video) video.srcObject = null;
 }
 
 // ============================================================
@@ -1285,17 +1412,17 @@ async function loadStats() {
   } catch {}
 }
 
-function onAdminFileSelect(input) {
+function setAdminImage(dataUrl) {
+  document.getElementById('adminPreview').src = dataUrl;
+  document.getElementById('adminPreview').style.display = 'block';
+  document.getElementById('adminZoneIcon').style.display = 'none';
+  document.getElementById('adminImgZone').classList.add('has-img');
+  document.getElementById('adminImgWarning').style.display = 'none';
+}
+async function onAdminFileSelect(input) {
   const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('adminPreview').src = e.target.result;
-    document.getElementById('adminPreview').style.display = 'block';
-    document.getElementById('adminZoneIcon').style.display = 'none';
-    document.getElementById('adminImgZone').classList.add('has-img');
-    document.getElementById('adminImgWarning').style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  try { setAdminImage(await fileToCompressedDataUrl(file)); }
+  catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
 }
 
 async function addItem() {
@@ -1533,7 +1660,9 @@ function resolveConfirm(result) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  m.addEventListener('click', e => {
+    if (e.target === m) { m.classList.remove('open'); if (m.id === 'cameraModal') stopCameraStream(); }
+  });
 });
 
 // ============================================================

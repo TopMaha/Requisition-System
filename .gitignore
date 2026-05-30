@@ -1,0 +1,23 @@
+# --- Secrets & local diagnostic dumps (NEVER commit) ---
+cf_token.txt
+tokens.txt
+cfconfig.txt
+*.vbs
+deploy_log.txt
+sub_enable_result.json
+sub_info_result.json
+
+# Local credential/token caches
+*.token
+.dev.vars
+.wrangler/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+wrangler.toml
