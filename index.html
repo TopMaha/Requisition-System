@@ -40,22 +40,31 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color
 .api-status.online { background: rgba(22,163,74,.3); }
 .api-status.offline { background: rgba(220,38,38,.3); }
 
+/* Bottom navigation bar (mobile-app style, always visible) */
 .nav-tabs {
-  display: flex; background: var(--card); border-bottom: 2px solid var(--border);
-  overflow-x: auto; position: sticky; top: 57px; z-index: 99;
-  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+  display: flex; background: var(--card);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .nav-tab {
-  flex: 1; min-width: 80px; padding: 12px 8px; border: none; background: none;
-  font-size: 13px; font-weight: 600; color: var(--sub); cursor: pointer;
-  border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap;
+  flex: 1; min-width: 0; padding: 8px 4px 10px; border: none; background: none;
+  font-size: 11px; font-weight: 600; color: var(--sub); cursor: pointer;
+  transition: color .2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative;
 }
-.nav-tab:hover { color: var(--primary); background: #f1f5f9; }
-.nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-.nav-tab .tab-icon { display: block; font-size: 18px; margin-bottom: 2px; }
+.nav-tab::before {
+  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: transparent;
+  transition: background .2s;
+}
+.nav-tab:hover { color: var(--primary); }
+.nav-tab.active { color: var(--primary); }
+.nav-tab.active::before { background: var(--primary); }
+.nav-tab .tab-icon { display: block; font-size: 20px; margin-bottom: 3px; }
 .tab-badge {
-  position: absolute; top: 6px; right: 10px;
+  position: absolute; top: 4px; right: 50%; margin-right: -22px;
   background: var(--danger); color: #fff;
   font-size: 10px; font-weight: 800;
   min-width: 18px; height: 18px; border-radius: 9px;
@@ -63,8 +72,22 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color
 }
 .tab-badge.show { display: flex; }
 
-.page { display: none; padding: 16px; max-width: 900px; margin: 0 auto; }
+.page { display: none; padding: 16px; max-width: 900px; margin: 0 auto;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 .page.active { display: block; }
+
+/* Scroll-to-top floating button */
+#scrollTopBtn {
+  position: fixed; right: 16px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: var(--primary); color: #fff; font-size: 20px; line-height: 1;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25); cursor: pointer; z-index: 150;
+  display: none; align-items: center; justify-content: center;
+  opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s;
+}
+#scrollTopBtn.show { display: flex; opacity: 1; transform: translateY(0); }
+#scrollTopBtn:active { transform: scale(.92); }
 
 /* ======= CARDS ======= */
 .card {
@@ -830,6 +853,7 @@ textarea { resize: vertical; min-height: 70px; }
 </div>
 
 <div id="toast"></div>
+<button id="scrollTopBtn" onclick="scrollPageTop()" title="ขึ้นบนสุด" aria-label="เลื่อนขึ้นบนสุด">↑</button>
 
 <script>
 // ============================================================
@@ -1087,7 +1111,15 @@ function switchTab(tab) {
     loadStats(); loadAdminItems(); loadPending();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
+
+// ===== Scroll-to-top floating button =====
+function scrollPageTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+window.addEventListener('scroll', () => {
+  const btn = document.getElementById('scrollTopBtn');
+  if (btn) btn.classList.toggle('show', window.scrollY > 300);
+}, { passive: true });
 
 // ============================================================
 // IMAGE — compression + capture pipeline
