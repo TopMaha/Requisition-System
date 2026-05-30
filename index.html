@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบเบิกอุปกรณ์ — Factory Requisition</title>
+<style>
+/* ======= ROOT & RESET ======= */
+:root {
+  --primary:    #1a56db;
+  --primary-dk: #1e429f;
+  --accent:     #0ea5e9;
+  --success:    #16a34a;
+  --warning:    #d97706;
+  --danger:     #dc2626;
+  --bg:         #f0f4f8;
+  --card:       #ffffff;
+  --border:     #e2e8f0;
+  --text:       #1e293b;
+  --sub:        #64748b;
+  --radius:     12px;
+  --shadow:     0 2px 12px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ======= LAYOUT ======= */
+.app-header {
+  background: linear-gradient(135deg, var(--primary-dk), var(--primary));
+  color: #fff; padding: 14px 20px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  position: sticky; top: 0; z-index: 100;
+}
+.app-header .logo { font-size: 24px; }
+.app-header h1 { font-size: 18px; font-weight: 700; }
+.app-header .sub { font-size: 12px; opacity: .75; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.api-status { font-size: 11px; background: rgba(255,255,255,.15); padding: 4px 10px; border-radius: 20px; }
+.api-status.online { background: rgba(22,163,74,.3); }
+.api-status.offline { background: rgba(220,38,38,.3); }
+
+.nav-tabs {
+  display: flex; background: var(--card); border-bottom: 2px solid var(--border);
+  overflow-x: auto; position: sticky; top: 57px; z-index: 99;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+}
+.nav-tab {
+  flex: 1; min-width: 80px; padding: 12px 8px; border: none; background: none;
+  font-size: 13px; font-weight: 600; color: var(--sub); cursor: pointer;
+  border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap;
+}
+.nav-tab:hover { color: var(--primary); background: #f1f5f9; }
+.nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.nav-tab .tab-icon { display: block; font-size: 18px; margin-bottom: 2px; }
+
+.page { display: none; padding: 16px; max-width: 900px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* ======= CARDS ======= */
+.card {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px;
+}
+.card-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+/* ======= FORMS ======= */
+.form-group { margin-bottom: 12px; }
+label { font-size: 13px; font-weight: 600; color: var(--sub); display: block; margin-bottom: 4px; }
+input, select, textarea {
+  width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+  border-radius: 8px; font-size: 14px; color: var(--text);
+  background: #f8fafc; transition: border-color .2s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+textarea { resize: vertical; min-height: 70px; }
+
+/* ======= BUTTONS ======= */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 8px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-primary  { background: var(--primary); color: #fff; }
+.btn-primary:hover  { background: var(--primary-dk); transform: translateY(-1px); }
+.btn-success  { background: var(--success); color: #fff; }
+.btn-success:hover  { filter: brightness(1.1); }
+.btn-danger   { background: var(--danger); color: #fff; }
+.btn-danger:hover   { filter: brightness(1.1); }
+.btn-outline  { background: #fff; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-outline:hover  { background: #eef2ff; }
+.btn-gray     { background: #e2e8f0; color: var(--text); }
+.btn-gray:hover     { background: #cbd5e1; }
+.btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
+.btn-block { width: 100%; justify-content: center; }
+
+/* ======= BADGES ======= */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+}
+.badge-pending   { background: #fef9c3; color: #854d0e; }
+.badge-approved  { background: #d1fae5; color: #065f46; }
+.badge-rejected  { background: #fee2e2; color: #7f1d1d; }
+.badge-completed { background: #dbeafe; color: #1e40af; }
+
+/* ======= IMAGE ZONE ======= */
+.img-zone {
+  border: 2.5px dashed var(--border); border-radius: var(--radius);
+  min-height: 200px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer; transition: all .2s; position: relative; overflow: hidden;
+  background: #f8fafc;
+}
+.img-zone:hover { border-color: var(--primary); background: #eef2ff; }
+.img-zone.has-img { border-style: solid; border-color: var(--primary); }
+.img-zone img { width: 100%; height: 220px; object-fit: contain; border-radius: 8px; }
+.img-zone .zone-hint { font-size: 13px; color: var(--sub); text-align: center; pointer-events: none; }
+.img-zone .zone-icon { font-size: 40px; pointer-events: none; }
+
+/* ======= MATCH RESULTS ======= */
+.match-list { display: flex; flex-direction: column; gap: 10px; }
+.match-item {
+  display: flex; align-items: center; gap: 12px;
+  border: 2px solid var(--border); border-radius: 10px; padding: 10px;
+  cursor: pointer; transition: all .15s;
+}
+.match-item:hover, .match-item.selected {
+  border-color: var(--primary); background: #eef2ff;
+}
+.match-item.selected { box-shadow: 0 0 0 3px rgba(26,86,219,.2); }
+.match-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; background: #f0f4f8; }
+.match-info { flex: 1; min-width: 0; }
+.match-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match-code { font-size: 12px; color: var(--sub); }
+.match-conf { font-size: 12px; margin-top: 4px; }
+.conf-bar { height: 5px; background: var(--border); border-radius: 4px; margin-top: 3px; }
+.conf-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--primary)); }
+.match-stock { font-size: 12px; font-weight: 700; color: var(--success); white-space: nowrap; }
+.match-stock.low { color: var(--danger); }
+
+/* ======= ITEM GRID ======= */
+.item-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
+}
+.item-card {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; cursor: pointer; transition: all .2s; border: 2px solid transparent;
+}
+.item-card:hover { transform: translateY(-3px); border-color: var(--primary); }
+.item-card-img { width: 100%; height: 120px; object-fit: cover; background: #f0f4f8; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+.item-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.item-card-body { padding: 10px; }
+.item-card-name { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 4px; }
+.item-card-code { font-size: 11px; color: var(--sub); }
+.item-card-stock { font-size: 12px; font-weight: 700; color: var(--success); margin-top: 6px; }
+.item-card-stock.low { color: var(--danger); }
+
+/* ======= REQUISITION LIST ======= */
+.req-card {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 14px; margin-bottom: 10px; background: var(--card);
+}
+.req-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+.req-no { font-weight: 700; font-size: 15px; color: var(--primary); }
+.req-meta { font-size: 12px; color: var(--sub); margin-top: 2px; }
+.req-items-list { font-size: 13px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
+.req-item-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.req-item-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; background: #f0f4f8; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.req-item-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+
+/* ======= STATS ROW ======= */
+.stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+@media(min-width: 600px) { .stats-row { grid-template-columns: repeat(4, 1fr); } }
+.stat-card { background: var(--card); border-radius: var(--radius); padding: 16px; text-align: center; box-shadow: var(--shadow); }
+.stat-num { font-size: 28px; font-weight: 800; }
+.stat-label { font-size: 12px; color: var(--sub); margin-top: 2px; }
+.stat-card.danger .stat-num { color: var(--danger); }
+.stat-card.warning .stat-num { color: var(--warning); }
+.stat-card.primary .stat-num { color: var(--primary); }
+
+/* ======= MODAL ======= */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card); border-radius: var(--radius); width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card);
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--sub); }
+
+/* ======= TOAST ======= */
+#toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast-item {
+  background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 10px;
+  font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  animation: slideIn .3s ease; pointer-events: none;
+  border-left: 4px solid var(--primary);
+}
+.toast-item.success { border-color: var(--success); }
+.toast-item.error   { border-color: var(--danger); }
+@keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ======= SEARCH BAR ======= */
+.search-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.search-bar input { flex: 1; min-width: 180px; }
+.search-bar select { width: auto; min-width: 120px; }
+
+/* ======= MISC ======= */
+.divider { border: none; border-top: 1.5px solid var(--border); margin: 14px 0; }
+.text-sub { font-size: 12px; color: var(--sub); }
+.text-center { text-align: center; }
+.empty { text-align: center; padding: 40px 20px; color: var(--sub); font-size: 14px; }
+.empty .empty-icon { font-size: 48px; margin-bottom: 10px; }
+.row { display: flex; gap: 10px; align-items: flex-start; }
+.col { flex: 1; }
+.loading { text-align: center; padding: 30px; color: var(--sub); }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.admin-only { display: none; }
+
+/* ======= CONFIG PANEL ======= */
+.config-section { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; }
+.config-section h4 { color: #856404; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ======= HEADER ======= -->
+<div class="app-header">
+  <div class="logo">🏭</div>
+  <div>
+    <h1>ระบบเบิกอุปกรณ์</h1>
+    <div class="sub">Factory Requisition System</div>
+  </div>
+  <div class="header-right">
+    <span class="api-status offline" id="apiStatus">● offline</span>
+    <button class="btn btn-outline btn-sm" onclick="showSettings()" style="border-color:rgba(255,255,255,.4);color:#fff">⚙️</button>
+  </div>
+</div>
+
+<!-- ======= TABS ======= -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('scan')" id="tab-scan">
+    <span class="tab-icon">📷</span>สแกน/เบิก
+  </button>
+  <button class="nav-tab" onclick="switchTab('history')" id="tab-history">
+    <span class="tab-icon">📋</span>ประวัติ
+  </button>
+  <button class="nav-tab" onclick="switchTab('inventory')" id="tab-inventory">
+    <span class="tab-icon">📦</span>คลังอุปกรณ์
+  </button>
+  <button class="nav-tab" onclick="switchTab('admin')" id="tab-admin">
+    <span class="tab-icon">🔧</span>Admin
+  </button>
+</div>
+
+<!-- ========================================
+     PAGE 1 : SCAN / REQUISITION
+     ======================================== -->
+<div class="page active" id="page-scan">
+
+  <div class="card">
+    <div class="card-title">📷 ถ่ายรูปหรือเลือกรูปอุปกรณ์</div>
+    <div class="img-zone" id="imgZone" onclick="document.getElementById('fileInput').click()">
+      <div class="zone-icon" id="zoneIcon">📸</div>
+      <div class="zone-hint" id="zoneHint">กดเพื่อถ่ายรูปหรือเลือกรูปภาพ<br><small>รองรับ JPG, PNG, WebP</small></div>
+      <img id="previewImg" style="display:none" alt="preview">
+    </div>
+    <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" onchange="onFileSelect(this)">
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="flex:1">📷 ถ่าย/เลือกรูป</button>
+      <button class="btn btn-outline" onclick="clearImage()" style="flex:1" id="btnClear" disabled>🗑️ ล้างรูป</button>
+      <button class="btn btn-success btn-block" onclick="doMatch()" id="btnMatch" disabled>🔍 ค้นหาอุปกรณ์ด้วย AI</button>
+    </div>
+  </div>
+
+  <!-- Match results -->
+  <div id="matchSection" style="display:none">
+    <div class="card">
+      <div class="card-title">🎯 ผลการค้นหา — เลือกอุปกรณ์ที่ตรงกัน</div>
+      <div class="match-list" id="matchList"></div>
+    </div>
+
+    <!-- Requisition Form -->
+    <div class="card" id="reqForm" style="display:none">
+      <div class="card-title">📝 กรอกข้อมูลการเบิก</div>
+      <div class="form-group">
+        <label>อุปกรณ์ที่เลือก</label>
+        <div id="selectedItemDisplay" style="background:#f0f4f8;border-radius:8px;padding:10px;font-weight:700;font-size:14px;color:var(--primary)"></div>
+      </div>
+      <div class="row">
+        <div class="col form-group">
+          <label>จำนวนที่เบิก *</label>
+          <input type="number" id="reqQty" min="1" value="1">
+        </div>
+        <div class="col form-group">
+          <label>หน่วย</label>
+          <input type="text" id="reqUnit" readonly style="background:#f8fafc">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ชื่อผู้เบิก *</label>
+        <input type="text" id="reqRequester" placeholder="ระบุชื่อ-นามสกุล">
+      </div>
+      <div class="form-group">
+        <label>แผนก / หน่วยงาน</label>
+        <input type="text" id="reqDept" placeholder="เช่น ฝ่ายซ่อมบำรุง">
+      </div>
+      <div class="form-group">
+        <label>วัตถุประสงค์</label>
+        <textarea id="reqPurpose" placeholder="ระบุจุดประสงค์การใช้งาน"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="submitRequisition()" id="btnSubmitReq">✅ ส่งใบเบิก</button>
+    </div>
+  </div>
+
+  <div id="scanEmpty" class="empty">
+    <div class="empty-icon">📷</div>
+    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด "ค้นหาอุปกรณ์ด้วย AI"</div>
+  </div>
+</div>
+
+<!-- ========================================
+     PAGE 2 : HISTORY
+     ======================================== -->
+<div class="page" id="page-history">
+  <div class="search-bar">
+    <select id="histStatus" onchange="loadHistory()">
+      <option value="">ทุกสถานะ</option>
+      <option value="pending">รอดำเนินการ</option>
+      <option value="approved">อนุมัติแล้ว</option>
+      <option value="completed">เบิกแล้ว</option>
+      <option value="rejected">ปฏิเสธ</option>
+    </select>
+    <button class="btn btn-outline" onclick="loadHistory()">🔄 รีเฟรช</button>
+  </div>
+  <div id="historyList"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ========================================
+     PAGE 3 : INVENTORY
+     ======================================== -->
+<div class="page" id="page-inventory">
+  <div class="search-bar">
+    <input type="text" id="invSearch" placeholder="ค้นหาชื่อ หรือ รหัสอุปกรณ์..." oninput="debounceSearch()">
+    <select id="invCategory" onchange="loadInventory()">
+      <option value="">ทุกหมวด</option>
+    </select>
+    <button class="btn btn-outline" onclick="loadInventory()">🔄</button>
+  </div>
+  <div id="inventoryGrid" class="item-grid"></div>
+</div>
+
+<!-- ========================================
+     PAGE 4 : ADMIN
+     ======================================== -->
+<div class="page" id="page-admin">
+  <div id="adminLoginSection" class="card">
+    <div class="card-title">🔐 เข้าสู่ระบบ Admin</div>
+    <div class="form-group">
+      <label>รหัสผ่าน Admin</label>
+      <input type="password" id="adminPwd" placeholder="กรอกรหัสผ่าน" onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="adminLogin()">🔓 เข้าสู่ระบบ</button>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card primary"><div class="stat-num" id="statItems">—</div><div class="stat-label">อุปกรณ์ทั้งหมด</div></div>
+      <div class="stat-card"><div class="stat-num" id="statReqs">—</div><div class="stat-label">ใบเบิกทั้งหมด</div></div>
+      <div class="stat-card warning"><div class="stat-num" id="statPending">—</div><div class="stat-label">รออนุมัติ</div></div>
+      <div class="stat-card danger"><div class="stat-num" id="statLow">—</div><div class="stat-label">Stock ต่ำ</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">➕ เพิ่มอุปกรณ์/อะไหล่ใหม่</div>
+      <div class="row">
+        <div class="col form-group">
+          <label>รหัสอุปกรณ์ (Part Code) *</label>
+          <input type="text" id="newPartCode" placeholder="เช่น EQ-001">
+        </div>
+        <div class="col form-group">
+          <label>ชื่ออุปกรณ์ *</label>
+          <input type="text" id="newName" placeholder="ชื่ออุปกรณ์">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col form-group">
+          <label>หมวดหมู่</label>
+          <select id="newCategory"><option value="">-- เลือกหมวด --</option></select>
+        </div>
+        <div class="col form-group">
+          <label>หน่วย</label>
+          <input type="text" id="newUnit" value="ชิ้น">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col form-group">
+          <label>จำนวนเริ่มต้น (Stock)</label>
+          <input type="number" id="newStock" value="0" min="0">
+        </div>
+        <div class="col form-group">
+          <label>Stock ขั้นต่ำ (แจ้งเตือน)</label>
+          <input type="number" id="newMinStock" value="5" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>รายละเอียด</label>
+        <textarea id="newDesc" placeholder="รายละเอียดอุปกรณ์ (ไม่บังคับ)"></textarea>
+      </div>
+      <div class="form-group">
+        <label>รูปภาพอุปกรณ์ <span style="color:var(--danger)">*</span> (ใช้สำหรับ AI matching)</label>
+        <div class="img-zone" id="adminImgZone" onclick="document.getElementById('adminFileInput').click()">
+          <div class="zone-icon" id="adminZoneIcon">🖼️</div>
+          <div class="zone-hint">คลิกเพื่ออัปโหลดรูป</div>
+          <img id="adminPreview" style="display:none;width:100%;height:180px;object-fit:contain" alt="preview">
+        </div>
+        <input type="file" id="adminFileInput" accept="image/*" style="display:none" onchange="onAdminFileSelect(this)">
+        <div id="adminImgWarning" style="color:var(--warning);font-size:12px;margin-top:4px;display:none">⚠️ ไม่มีรูป — ระบบจะเพิ่มอุปกรณ์ได้ แต่ AI matching จะไม่ทำงานกับรายการนี้</div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="addItem()" id="btnAddItem">➕ เพิ่มอุปกรณ์</button>
+    </div>
+
+    <!-- Items management -->
+    <div class="card">
+      <div class="card-title">📋 จัดการอุปกรณ์</div>
+      <div class="search-bar">
+        <input type="text" id="adminSearch" placeholder="ค้นหา..." oninput="debounceAdminSearch()">
+        <button class="btn btn-outline" onclick="loadAdminItems()">🔄</button>
+      </div>
+      <div id="adminItemList"></div>
+    </div>
+
+    <!-- Pending requisitions -->
+    <div class="card">
+      <div class="card-title">⏳ ใบเบิกรอดำเนินการ</div>
+      <div id="pendingList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <button class="btn btn-gray btn-block" onclick="adminLogout()" style="margin-top:8px">🚪 ออกจาก Admin</button>
+  </div>
+</div>
+
+<!-- ======= SETTINGS MODAL ======= -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⚙️ ตั้งค่าการเชื่อมต่อ</span>
+      <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="config-section">
+        <h4>⚠️ วิธีตั้งค่า</h4>
+        1. สร้าง Cloudflare D1 database ชื่อ <b>requisition-db</b><br>
+        2. รัน <code>deploy.bat</code> เพื่อ deploy Worker<br>
+        3. วาง Worker URL ด้านล่าง<br>
+        4. วาง Admin Password ที่กำหนดใน <code>wrangler.toml</code>
+      </div>
+      <div class="form-group">
+        <label>Worker URL (API Endpoint)</label>
+        <input type="text" id="settingUrl" placeholder="https://xxx.workers.dev">
+      </div>
+      <div class="form-group">
+        <label>Admin Password</label>
+        <input type="password" id="settingAdminPwd" placeholder="admin1234">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('settingsModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= ITEM DETAIL MODAL ======= -->
+<div class="modal-overlay" id="itemModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="itemModalTitle">รายละเอียดอุปกรณ์</span>
+      <button class="modal-close" onclick="closeModal('itemModal')">✕</button>
+    </div>
+    <div class="modal-body" id="itemModalBody"></div>
+    <div class="modal-footer" id="itemModalFooter"></div>
+  </div>
+</div>
+
+<!-- ======= APPROVE MODAL ======= -->
+<div class="modal-overlay" id="approveModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✅ ดำเนินการใบเบิก</span>
+      <button class="modal-close" onclick="closeModal('approveModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="approveModalInfo" style="margin-bottom:14px;font-size:14px;"></div>
+      <div class="form-group">
+        <label>ดำเนินการ</label>
+        <select id="approveStatus">
+          <option value="approved">✅ อนุมัติ</option>
+          <option value="completed">✅ อนุมัติ + จ่ายของ (ตัด Stock)</option>
+          <option value="rejected">❌ ปฏิเสธ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ผู้ดำเนินการ</label>
+        <input type="text" id="approveBy" placeholder="ชื่อผู้อนุมัติ">
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุ</label>
+        <textarea id="approveNote" placeholder="(ถ้ามี)"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('approveModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmApprove()">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= STOCK ADJUST MODAL ======= -->
+<div class="modal-overlay" id="stockModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📦 ปรับ Stock</span>
+      <button class="modal-close" onclick="closeModal('stockModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="stockModalInfo" style="margin-bottom:14px;font-size:14px;font-weight:700;color:var(--primary)"></div>
+      <div class="form-group">
+        <label>ประเภท</label>
+        <select id="stockMovement">
+          <option value="in">รับเข้า (+)</option>
+          <option value="out">จ่ายออก (-)</option>
+          <option value="adjust">ปรับยอด (ตั้งค่าใหม่)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>จำนวน</label>
+        <input type="number" id="stockQty" min="0" value="1">
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุ</label>
+        <input type="text" id="stockNote" placeholder="เช่น รับของใหม่จากซัพพลายเออร์">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('stockModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmStockAdjust()">✅ บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ======= JAVASCRIPT ======= -->
+<script>
+// ============================================================
+// CONFIG & STATE
+// ============================================================
+let API_URL = localStorage.getItem('req_api_url') || 'https://requisition-system.wiphawas-sketchup.workers.dev';
+let ADMIN_PWD = localStorage.getItem('req_admin_pwd') || 'admin1234';
+let isAdmin = false;
+let selectedImage = null;   // base64
+let selectedItemId = null;
+let selectedMatchScore = null;
+let pendingApproveId = null;
+let pendingStockItemId = null;
+let searchTimer = null;
+let categories = [];
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  if (!API_URL) {
+    setTimeout(() => {
+      showToast('⚙️ กรุณาตั้งค่า Worker URL ก่อนใช้งาน', 'error');
+      showSettings();
+    }, 800);
+  } else {
+    checkHealth();
+  }
+  loadCategories();
+});
+
+// ============================================================
+// API HELPER
+// ============================================================
+async function api(method, path, body, adminKey) {
+  if (!API_URL) { showToast('❌ ยังไม่ได้ตั้งค่า Worker URL', 'error'); throw new Error('No API URL'); }
+  const headers = { 'Content-Type': 'application/json' };
+  if (adminKey || isAdmin) headers['X-Admin-Key'] = ADMIN_PWD;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(API_URL + path, opts);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'API error');
+    return data;
+  } catch (e) {
+    if (e.message !== 'No API URL') showToast('❌ ' + e.message, 'error');
+    throw e;
+  }
+}
+
+async function checkHealth() {
+  try {
+    const el = document.getElementById('apiStatus');
+    await api('GET', '/api/health');
+    el.textContent = '● online';
+    el.className = 'api-status online';
+  } catch {
+    const el = document.getElementById('apiStatus');
+    el.textContent = '● offline';
+    el.className = 'api-status offline';
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function showSettings() {
+  document.getElementById('settingUrl').value = API_URL;
+  document.getElementById('settingAdminPwd').value = ADMIN_PWD;
+  openModal('settingsModal');
+}
+function saveSettings() {
+  const url = document.getElementById('settingUrl').value.trim().replace(/\/$/, '');
+  const pwd = document.getElementById('settingAdminPwd').value.trim();
+  if (!url) { showToast('❌ กรุณากรอก Worker URL', 'error'); return; }
+  API_URL = url; ADMIN_PWD = pwd || 'admin1234';
+  localStorage.setItem('req_api_url', API_URL);
+  localStorage.setItem('req_admin_pwd', ADMIN_PWD);
+  closeModal('settingsModal');
+  showToast('✅ บันทึกการตั้งค่าแล้ว');
+  checkHealth();
+  loadCategories();
+}
+
+// ============================================================
+// CATEGORIES
+// ============================================================
+async function loadCategories() {
+  try {
+    const data = await api('GET', '/api/categories');
+    categories = data.data || [];
+    const selects = ['newCategory', 'invCategory'];
+    selects.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const isFilter = id === 'invCategory';
+      el.innerHTML = isFilter ? '<option value="">ทุกหมวด</option>' : '<option value="">-- เลือกหมวด --</option>';
+      categories.forEach(c => {
+        el.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
+    });
+  } catch {}
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'history') loadHistory();
+  if (tab === 'inventory') loadInventory();
+  if (tab === 'admin' && isAdmin) { loadStats(); loadAdminItems(); loadPending(); }
+}
+
+// ============================================================
+// IMAGE HANDLING
+// ============================================================
+function onFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    selectedImage = e.target.result;
+    const img = document.getElementById('previewImg');
+    img.src = selectedImage;
+    img.style.display = 'block';
+    document.getElementById('zoneIcon').style.display = 'none';
+    document.getElementById('zoneHint').style.display = 'none';
+    document.getElementById('imgZone').classList.add('has-img');
+    document.getElementById('btnMatch').disabled = false;
+    document.getElementById('btnClear').disabled = false;
+    // Reset match section
+    document.getElementById('matchSection').style.display = 'none';
+    document.getElementById('scanEmpty').style.display = 'none';
+    selectedItemId = null;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  selectedImage = null; selectedItemId = null;
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('zoneIcon').style.display = '';
+  document.getElementById('zoneHint').style.display = '';
+  document.getElementById('imgZone').classList.remove('has-img');
+  document.getElementById('btnMatch').disabled = true;
+  document.getElementById('btnClear').disabled = true;
+  document.getElementById('matchSection').style.display = 'none';
+  document.getElementById('scanEmpty').style.display = '';
+  document.getElementById('fileInput').value = '';
+}
+
+// ============================================================
+// AI MATCHING
+// ============================================================
+async function doMatch() {
+  if (!selectedImage) return;
+  const btn = document.getElementById('btnMatch');
+  btn.disabled = true; btn.textContent = '⏳ กำลังวิเคราะห์...';
+  document.getElementById('matchSection').style.display = 'none';
+  document.getElementById('scanEmpty').style.display = 'none';
+
+  try {
+    const data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5 });
+    const matches = data.matches || [];
+
+    if (!matches.length) {
+      showToast('⚠️ ไม่พบอุปกรณ์ที่ตรงกันในฐานข้อมูล', 'error');
+      document.getElementById('scanEmpty').style.display = '';
+      return;
+    }
+
+    renderMatches(matches);
+    document.getElementById('matchSection').style.display = 'block';
+    document.getElementById('reqForm').style.display = 'none';
+    selectedItemId = null;
+  } catch (e) {
+    document.getElementById('scanEmpty').style.display = '';
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 ค้นหาอุปกรณ์ด้วย AI';
+  }
+}
+
+// Store match data by id to avoid passing strings through onclick (XSS-safe)
+let _matchStore = {};
+
+function renderMatches(matches) {
+  _matchStore = {};
+  const list = document.getElementById('matchList');
+  list.innerHTML = matches.map((m) => {
+    _matchStore[m.id] = m;  // Store full object, no string escaping in onclick needed
+    const confColor = m.confidence >= 70 ? 'var(--success)' : m.confidence >= 40 ? 'var(--warning)' : 'var(--danger)';
+    const thumbSrc = m.image_b64 ? m.image_b64 : '';
+    const stockClass = m.stock_qty <= 0 ? 'low' : '';
+    const stockText = m.stock_qty <= 0 ? '⚠️ หมด Stock' : `📦 คงเหลือ: ${m.stock_qty}`;
+    return `
+      <div class="match-item" id="match-${m.id}" onclick="selectMatch(${m.id})">
+        ${thumbSrc ? `<img class="match-thumb" src="${thumbSrc}" alt="${escHtml(m.name)}">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
+        <div class="match-info">
+          <div class="match-name">${escHtml(m.name)}</div>
+          <div class="match-code">${escHtml(m.part_code)}</div>
+          <div class="match-conf" style="color:${confColor}">ความมั่นใจ: ${m.confidence}%</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
+        </div>
+        <div class="match-stock ${stockClass}">${stockText}</div>
+      </div>`;
+  }).join('');
+}
+
+function selectMatch(id) {
+  const m = _matchStore[id];
+  if (!m) return;
+  const name = m.name, unit = m.unit, confidence = m.confidence, stockQty = m.stock_qty;
+  document.querySelectorAll('.match-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('match-' + id)?.classList.add('selected');
+  selectedItemId = id;
+  selectedMatchScore = confidence;
+  document.getElementById('selectedItemDisplay').textContent = name;
+  document.getElementById('reqUnit').value = unit;
+  if (stockQty <= 0) {
+    document.getElementById('reqQty').max = 0;
+    showToast('⚠️ อุปกรณ์นี้หมด Stock — ยังสามารถส่งใบเบิกได้ รอ Admin อนุมัติ', 'error');
+  } else {
+    document.getElementById('reqQty').max = stockQty;
+  }
+  document.getElementById('reqForm').style.display = 'block';
+  document.getElementById('reqForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================================
+// SUBMIT REQUISITION
+// ============================================================
+async function submitRequisition() {
+  if (!selectedItemId) { showToast('❌ กรุณาเลือกอุปกรณ์ก่อน', 'error'); return; }
+  const requester = document.getElementById('reqRequester').value.trim();
+  const qty = parseFloat(document.getElementById('reqQty').value) || 1;
+  if (!requester) { showToast('❌ กรุณากรอกชื่อผู้เบิก', 'error'); return; }
+  if (qty <= 0) { showToast('❌ จำนวนต้องมากกว่า 0', 'error'); return; }
+
+  const btn = document.getElementById('btnSubmitReq');
+  btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
+  try {
+    const data = await api('POST', '/api/requisitions', {
+      requester_name: requester,
+      dept: document.getElementById('reqDept').value.trim(),
+      purpose: document.getElementById('reqPurpose').value.trim(),
+      items: [{ item_id: selectedItemId, qty, match_score: selectedMatchScore }],
+    });
+    showToast(`✅ ส่งใบเบิกสำเร็จ! เลขที่: ${data.req_no}`);
+    clearImage();
+    // save requester for next time
+    localStorage.setItem('req_last_requester', requester);
+    localStorage.setItem('req_last_dept', document.getElementById('reqDept').value.trim());
+  } catch {} finally {
+    btn.disabled = false; btn.textContent = '✅ ส่งใบเบิก';
+  }
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+async function loadHistory() {
+  const status = document.getElementById('histStatus').value;
+  const el = document.getElementById('historyList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const data = await api('GET', `/api/requisitions?status=${status}&limit=30`);
+    const reqs = data.data || [];
+    if (!reqs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>ไม่มีใบเบิก</div>'; return; }
+    el.innerHTML = reqs.map(r => renderReqCard(r)).join('');
+  } catch { el.innerHTML = '<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>'; }
+}
+
+function renderReqCard(r) {
+  const badgeMap = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected', completed: 'badge-completed' };
+  const labelMap = { pending: '⏳ รอดำเนินการ', approved: '✅ อนุมัติ', rejected: '❌ ปฏิเสธ', completed: '📦 เบิกแล้ว' };
+  const itemsHtml = (r.items || []).map(item => `
+    <div class="req-item-row">
+      <div class="req-item-thumb">
+        ${item.image_b64 ? `<img src="${item.image_b64}" alt="">` : '🔧'}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${escHtml(item.item_name)}</div>
+        <div style="font-size:12px;color:var(--sub)">${escHtml(item.part_code)} | จำนวน: ${item.qty_requested} ${escHtml(item.unit)}</div>
+      </div>
+    </div>`).join('');
+  const adminBtns = isAdmin && r.status === 'pending'
+    ? `<button class="btn btn-success btn-sm" onclick="openApprove(${r.id},'${escHtml(r.req_no)}')">✅ ดำเนินการ</button>`
+    : '';
+  return `
+    <div class="req-card">
+      <div class="req-header">
+        <div>
+          <div class="req-no">${escHtml(r.req_no)}</div>
+          <div class="req-meta">👤 ${escHtml(r.requester_name)} ${r.dept ? '· ' + escHtml(r.dept) : ''} · 🕒 ${fmtDate(r.created_at)}</div>
+          ${r.purpose ? `<div class="req-meta">📝 ${escHtml(r.purpose)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${badgeMap[r.status] || ''}">${labelMap[r.status] || r.status}</span>
+          ${adminBtns}
+        </div>
+      </div>
+      <div class="req-items-list">${itemsHtml}</div>
+      ${r.note ? `<div style="font-size:12px;color:var(--sub);margin-top:6px">💬 ${escHtml(r.note)}</div>` : ''}
+    </div>`;
+}
+
+// ============================================================
+// INVENTORY
+// ============================================================
+async function loadInventory() {
+  const search = document.getElementById('invSearch').value.trim();
+  const cat = document.getElementById('invCategory').value;
+  const grid = document.getElementById('inventoryGrid');
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1"><div class="spinner"></div></div>';
+  try {
+    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&category=${cat}&limit=100`);
+    const items = data.data || [];
+    if (!items.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📦</div>ไม่พบอุปกรณ์</div>'; return; }
+    grid.innerHTML = items.map(item => {
+      const stockClass = item.stock_qty <= item.min_stock ? 'low' : '';
+      return `
+        <div class="item-card" onclick="showItemDetail(${item.id})">
+          <div class="item-card-img">
+            ${item.image_b64 ? `<img src="${item.image_b64}" alt="${escHtml(item.name)}">` : '🔧'}
+          </div>
+          <div class="item-card-body">
+            <div class="item-card-name">${escHtml(item.name)}</div>
+            <div class="item-card-code">${escHtml(item.part_code)}</div>
+            <div class="item-card-stock ${stockClass}">📦 ${item.stock_qty} ${escHtml(item.unit)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">โหลดข้อมูลไม่สำเร็จ</div>'; }
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadInventory, 400);
+}
+
+async function showItemDetail(id) {
+  try {
+    // Fetch single item directly — efficient O(1) call
+    const resp = await api('GET', `/api/items/${id}`);
+    const item = resp.data;
+    if (!item) return;
+    document.getElementById('itemModalTitle').textContent = item.name;
+    document.getElementById('itemModalBody').innerHTML = `
+      ${item.image_b64 ? `<img src="${item.image_b64}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-bottom:14px">` : ''}
+      <table style="width:100%;font-size:14px;border-collapse:collapse">
+        <tr><td style="padding:5px 0;color:var(--sub);width:40%">รหัสอุปกรณ์</td><td><b>${escHtml(item.part_code)}</b></td></tr>
+        <tr><td style="padding:5px 0;color:var(--sub)">ชื่ออุปกรณ์</td><td><b>${escHtml(item.name)}</b></td></tr>
+        <tr><td style="padding:5px 0;color:var(--sub)">หมวดหมู่</td><td>${escHtml(item.category_name || '—')}</td></tr>
+        <tr><td style="padding:5px 0;color:var(--sub)">คงเหลือ</td><td><b style="color:${item.stock_qty<=item.min_stock?'var(--danger)':'var(--success)'}">${item.stock_qty} ${escHtml(item.unit)}</b></td></tr>
+        <tr><td style="padding:5px 0;color:var(--sub)">Stock ขั้นต่ำ</td><td>${item.min_stock} ${escHtml(item.unit)}</td></tr>
+        ${item.description ? `<tr><td style="padding:5px 0;color:var(--sub)">รายละเอียด</td><td>${escHtml(item.description)}</td></tr>` : ''}
+        <tr><td style="padding:5px 0;color:var(--sub)">AI Matching</td><td>${item.has_embedding ? '✅ พร้อมใช้งาน' : '⚠️ ยังไม่มี (ต้องเพิ่มรูปอีกครั้ง)'}</td></tr>
+      </table>`;
+    document.getElementById('itemModalFooter').innerHTML = isAdmin
+      ? `<button class="btn btn-gray" onclick="closeModal('itemModal')">ปิด</button>
+         <button class="btn btn-outline" onclick="closeModal('itemModal');openStockAdjust(${item.id},'${escHtml(item.name)}')">📦 ปรับ Stock</button>`
+      : `<button class="btn btn-primary" onclick="closeModal('itemModal')">ปิด</button>`;
+    openModal('itemModal');
+  } catch {}
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function adminLogin() {
+  const pwd = document.getElementById('adminPwd').value;
+  if (pwd === ADMIN_PWD) {
+    isAdmin = true;
+    document.getElementById('adminLoginSection').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
+    loadStats(); loadAdminItems(); loadPending();
+    loadCategories();
+  } else {
+    showToast('❌ รหัสผ่านไม่ถูกต้อง', 'error');
+    document.getElementById('adminPwd').value = '';
+  }
+}
+function adminLogout() {
+  isAdmin = false;
+  document.getElementById('adminLoginSection').style.display = 'block';
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('adminPwd').value = '';
+  showToast('👋 ออกจาก Admin แล้ว');
+}
+
+async function loadStats() {
+  try {
+    const d = await api('GET', '/api/stats');
+    document.getElementById('statItems').textContent = d.items;
+    document.getElementById('statReqs').textContent = d.requisitions;
+    document.getElementById('statPending').textContent = d.pending;
+    document.getElementById('statLow').textContent = d.low_stock;
+  } catch {}
+}
+
+function onAdminFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('adminPreview').src = e.target.result;
+    document.getElementById('adminPreview').style.display = 'block';
+    document.getElementById('adminZoneIcon').style.display = 'none';
+    document.getElementById('adminImgZone').classList.add('has-img');
+    document.getElementById('adminImgWarning').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function addItem() {
+  const part_code = document.getElementById('newPartCode').value.trim();
+  const name = document.getElementById('newName').value.trim();
+  const description = document.getElementById('newDesc').value.trim();
+  const category_id = document.getElementById('newCategory').value || null;
+  const unit = document.getElementById('newUnit').value.trim() || 'ชิ้น';
+  const stock_qty = parseFloat(document.getElementById('newStock').value) || 0;
+  const min_stock = parseFloat(document.getElementById('newMinStock').value) || 0;
+  const image_b64 = document.getElementById('adminPreview').src || null;
+
+  if (!part_code || !name) { showToast('❌ กรุณากรอก รหัสและชื่ออุปกรณ์', 'error'); return; }
+  if (!image_b64 || !image_b64.startsWith('data:')) {
+    document.getElementById('adminImgWarning').style.display = 'block';
+  }
+
+  const btn = document.getElementById('btnAddItem');
+  btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม... (AI กำลังสร้าง embedding)';
+  try {
+    await api('POST', '/api/items', {
+      part_code, name, description, category_id,
+      unit, stock_qty, min_stock,
+      image_b64: (image_b64 && image_b64.startsWith('data:')) ? image_b64 : null,
+    }, true);
+    showToast(`✅ เพิ่ม "${name}" สำเร็จ`);
+    // Reset form
+    ['newPartCode','newName','newDesc','newUnit'].forEach(id => document.getElementById(id).value = id==='newUnit'?'ชิ้น':'');
+    document.getElementById('newStock').value = '0';
+    document.getElementById('newMinStock').value = '5';
+    document.getElementById('adminPreview').style.display = 'none';
+    document.getElementById('adminPreview').src = '';
+    document.getElementById('adminZoneIcon').style.display = '';
+    document.getElementById('adminImgZone').classList.remove('has-img');
+    document.getElementById('adminFileInput').value = '';
+    loadAdminItems(); loadStats();
+  } catch {} finally {
+    btn.disabled = false; btn.textContent = '➕ เพิ่มอุปกรณ์';
+  }
+}
+
+async function loadAdminItems() {
+  const search = document.getElementById('adminSearch').value.trim();
+  const el = document.getElementById('adminItemList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&limit=50`);
+    const items = data.data || [];
+    if (!items.length) { el.innerHTML = '<div class="empty">ไม่พบอุปกรณ์</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#f0f4f8">
+        <th style="padding:8px;text-align:left">รหัส</th>
+        <th style="padding:8px;text-align:left">ชื่อ</th>
+        <th style="padding:8px;text-align:center">Stock</th>
+        <th style="padding:8px;text-align:center">AI</th>
+        <th style="padding:8px;text-align:center">จัดการ</th>
+      </tr></thead>
+      <tbody>${items.map(item => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:7px 8px;font-weight:700;color:var(--primary)">${escHtml(item.part_code)}</td>
+          <td style="padding:7px 8px">${escHtml(item.name)}</td>
+          <td style="padding:7px 8px;text-align:center;font-weight:700;color:${item.stock_qty<=item.min_stock?'var(--danger)':'var(--success)'}">${item.stock_qty} ${escHtml(item.unit)}</td>
+          <td style="padding:7px 8px;text-align:center">${item.has_embedding ? '✅' : '⚠️'}</td>
+          <td style="padding:7px 8px;text-align:center">
+            <button class="btn btn-outline btn-sm" onclick="openStockAdjust(${item.id},'${escHtml(item.name)}')">📦</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id},'${escHtml(item.name)}')">🗑️</button>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch { el.innerHTML = '<div class="empty">โหลดไม่สำเร็จ</div>'; }
+}
+
+function debounceAdminSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadAdminItems, 400);
+}
+
+async function deleteItem(id, name) {
+  if (!confirm(`ลบ "${name}" ออกจากระบบ?`)) return;
+  try {
+    await api('DELETE', `/api/items/${id}`, null, true);
+    showToast(`🗑️ ลบ "${name}" แล้ว`);
+    loadAdminItems(); loadStats();
+  } catch {}
+}
+
+async function loadPending() {
+  const el = document.getElementById('pendingList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const data = await api('GET', '/api/requisitions?status=pending&limit=20');
+    const reqs = data.data || [];
+    if (!reqs.length) { el.innerHTML = '<div class="empty">ไม่มีใบเบิกรอดำเนินการ ✅</div>'; return; }
+    el.innerHTML = reqs.map(r => renderReqCard(r)).join('');
+  } catch { el.innerHTML = '<div class="empty">โหลดไม่สำเร็จ</div>'; }
+}
+
+// ============================================================
+// APPROVE
+// ============================================================
+function openApprove(id, reqNo) {
+  pendingApproveId = id;
+  document.getElementById('approveModalInfo').innerHTML = `ใบเบิก: <b style="color:var(--primary)">${escHtml(reqNo)}</b>`;
+  document.getElementById('approveBy').value = '';
+  document.getElementById('approveNote').value = '';
+  openModal('approveModal');
+}
+async function confirmApprove() {
+  const status = document.getElementById('approveStatus').value;
+  const approved_by = document.getElementById('approveBy').value.trim();
+  const note = document.getElementById('approveNote').value.trim();
+  if (!approved_by) { showToast('❌ กรุณากรอกชื่อผู้ดำเนินการ', 'error'); return; }
+  try {
+    await api('PUT', `/api/requisitions/${pendingApproveId}/status`, { status, approved_by, note }, true);
+    showToast('✅ ดำเนินการเรียบร้อย');
+    closeModal('approveModal');
+    loadPending(); loadHistory(); loadStats();
+  } catch {}
+}
+
+// ============================================================
+// STOCK ADJUST
+// ============================================================
+function openStockAdjust(itemId, itemName) {
+  pendingStockItemId = itemId;
+  document.getElementById('stockModalInfo').textContent = itemName;
+  document.getElementById('stockQty').value = '1';
+  document.getElementById('stockNote').value = '';
+  openModal('stockModal');
+}
+async function confirmStockAdjust() {
+  const movement = document.getElementById('stockMovement').value;
+  const qty = parseFloat(document.getElementById('stockQty').value);
+  const note = document.getElementById('stockNote').value.trim();
+  if (!qty || qty <= 0) { showToast('❌ กรุณากรอกจำนวน', 'error'); return; }
+  try {
+    const data = await api('POST', '/api/stock/adjust', { item_id: pendingStockItemId, movement, qty, note }, true);
+    showToast(`✅ ปรับ Stock แล้ว คงเหลือ: ${data.balance}`);
+    closeModal('stockModal');
+    loadAdminItems(); loadStats();
+  } catch {}
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  toast.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtDate(str) {
+  if (!str) return '—';
+  try {
+    const d = new Date(str);
+    return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  } catch { return str; }
+}
+
+// Restore last requester
+const lastReq = localStorage.getItem('req_last_requester');
+const lastDept = localStorage.getItem('req_last_dept');
+if (lastReq) document.getElementById('reqRequester').value = lastReq;
+if (lastDept) document.getElementById('reqDept').value = lastDept;
+</script>
+</body>
+</html>
