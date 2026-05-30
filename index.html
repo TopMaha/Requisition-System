@@ -424,14 +424,29 @@ textarea { resize: vertical; min-height: 70px; }
       </div>
 
       <div class="form-group">
+        <label>รหัสพนักงาน <span class="req">*</span></label>
+        <input type="text" id="reqEmpCode" list="empCodeList" autocomplete="off" placeholder="สแกน/พิมพ์รหัสพนักงาน — ชื่อจะเติมอัตโนมัติ" oninput="lookupEmployee()">
+        <datalist id="empCodeList"></datalist>
+        <div class="field-hint" id="empCodeHint"></div>
+        <div class="field-error" id="errEmpCode">กรุณากรอกรหัสพนักงาน</div>
+      </div>
+
+      <div class="form-group">
         <label>ชื่อผู้เบิก <span class="req">*</span></label>
-        <input type="text" id="reqRequester" placeholder="ระบุชื่อ-นามสกุล" oninput="clearFieldError('reqRequester','errRequester')">
+        <input type="text" id="reqRequester" placeholder="เติมอัตโนมัติจากรหัสพนักงาน (หรือพิมพ์เอง)" oninput="clearFieldError('reqRequester','errRequester')">
         <div class="field-error" id="errRequester">กรุณากรอกชื่อผู้เบิก</div>
       </div>
 
       <div class="form-group">
-        <label>แผนก / หน่วยงาน</label>
-        <input type="text" id="reqDept" placeholder="เช่น ฝ่ายซ่อมบำรุง">
+        <label>หมายเลขเครื่องจักร</label>
+        <input type="text" id="reqMachine" list="machineList" autocomplete="off" placeholder="สแกน/พิมพ์หมายเลขเครื่อง — Zone จะเติมอัตโนมัติ" oninput="lookupMachine()">
+        <datalist id="machineList"></datalist>
+        <div class="field-hint" id="machineHint"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Zone / พื้นที่</label>
+        <input type="text" id="reqZone" readonly placeholder="เติมอัตโนมัติจากหมายเลขเครื่อง" style="background:#f0f4f8;color:var(--sub)">
       </div>
 
       <div class="form-group">
@@ -565,6 +580,38 @@ textarea { resize: vertical; min-height: 70px; }
         <button class="btn btn-outline" onclick="loadAdminItems()">🔄</button>
       </div>
       <div id="adminItemList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 ฐานข้อมูลพนักงาน <span style="font-weight:400;font-size:12px;color:var(--sub)">(รหัส ↔ ชื่อ — ใช้เติมชื่อผู้เบิกอัตโนมัติ)</span></div>
+      <div class="row">
+        <div class="col form-group">
+          <label>รหัสพนักงาน</label>
+          <input type="text" id="empCode" placeholder="เช่น E001" onkeydown="if(event.key==='Enter')addEmployee()">
+        </div>
+        <div class="col form-group">
+          <label>ชื่อพนักงาน</label>
+          <input type="text" id="empName" placeholder="ชื่อ-นามสกุล" onkeydown="if(event.key==='Enter')addEmployee()">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addEmployee()" id="btnAddEmp">➕ เพิ่มพนักงาน</button>
+      <div id="employeeList" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏭 ฐานข้อมูลเครื่องจักร <span style="font-weight:400;font-size:12px;color:var(--sub)">(หมายเลข ↔ Zone — ใช้เติม Zone อัตโนมัติ)</span></div>
+      <div class="row">
+        <div class="col form-group">
+          <label>หมายเลขเครื่องจักร</label>
+          <input type="text" id="machineNo" placeholder="เช่น M-01" onkeydown="if(event.key==='Enter')addMachine()">
+        </div>
+        <div class="col form-group">
+          <label>Zone / พื้นที่</label>
+          <input type="text" id="machineZone" placeholder="เช่น Zone A" onkeydown="if(event.key==='Enter')addMachine()">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addMachine()" id="btnAddMachine">➕ เพิ่มเครื่องจักร</button>
+      <div id="machineListAdmin" style="margin-top:12px"></div>
     </div>
 
     <div class="card">
@@ -801,6 +848,8 @@ let pendingStockItemId = null;
 let editImageB64 = null;
 let searchTimer = null;
 let categories = [];
+let employees = [];
+let machines = [];
 let _confirmResolve = null;
 
 // ============================================================
@@ -814,10 +863,13 @@ document.addEventListener('DOMContentLoaded', () => {
     checkLowStockNotif();
   }
   loadCategories();
+  loadMasterData();
+  const lastEmp = localStorage.getItem('req_last_emp_code');
   const lastReq = localStorage.getItem('req_last_requester');
-  const lastDept = localStorage.getItem('req_last_dept');
+  const lastMachine = localStorage.getItem('req_last_machine');
+  if (lastEmp) document.getElementById('reqEmpCode').value = lastEmp;
   if (lastReq) document.getElementById('reqRequester').value = lastReq;
-  if (lastDept) document.getElementById('reqDept').value = lastDept;
+  if (lastMachine) document.getElementById('reqMachine').value = lastMachine;
 });
 
 // ============================================================
@@ -903,6 +955,125 @@ async function loadCategories() {
 }
 
 // ============================================================
+// MASTER DATA — employees & machines (shared via D1)
+// ============================================================
+async function loadMasterData() {
+  try { const e = await api('GET', '/api/employees'); employees = e.data || []; } catch { employees = []; }
+  try { const m = await api('GET', '/api/machines'); machines = m.data || []; } catch { machines = []; }
+  // Populate the requisition-form autocomplete lists
+  const ecl = document.getElementById('empCodeList');
+  if (ecl) ecl.innerHTML = employees.map(e => `<option value="${escHtml(e.emp_code)}">${escHtml(e.emp_name)}</option>`).join('');
+  const mcl = document.getElementById('machineList');
+  if (mcl) mcl.innerHTML = machines.map(m => `<option value="${escHtml(m.machine_no)}">${escHtml(m.zone || '')}</option>`).join('');
+}
+
+// Requisition form: รหัสพนักงาน → เติมชื่อผู้เบิกอัตโนมัติ
+function lookupEmployee() {
+  const code = document.getElementById('reqEmpCode').value.trim();
+  const hint = document.getElementById('empCodeHint');
+  clearFieldError('reqEmpCode', 'errEmpCode');
+  const emp = employees.find(e => (e.emp_code || '').toLowerCase() === code.toLowerCase());
+  if (emp) {
+    document.getElementById('reqRequester').value = emp.emp_name;
+    clearFieldError('reqRequester', 'errRequester');
+    hint.textContent = '✅ ' + emp.emp_name; hint.style.color = 'var(--success)';
+  } else {
+    hint.textContent = code ? '⚠️ ไม่พบรหัสนี้ — กรอกชื่อผู้เบิกเองด้านล่างได้' : '';
+    hint.style.color = 'var(--sub)';
+  }
+}
+
+// Requisition form: หมายเลขเครื่อง → เติม Zone อัตโนมัติ
+function lookupMachine() {
+  const no = document.getElementById('reqMachine').value.trim();
+  const hint = document.getElementById('machineHint');
+  const zoneEl = document.getElementById('reqZone');
+  const mc = machines.find(m => (m.machine_no || '').toLowerCase() === no.toLowerCase());
+  if (mc) {
+    zoneEl.value = mc.zone || '';
+    hint.textContent = '✅ ' + (mc.zone || '(ไม่ระบุ Zone)'); hint.style.color = 'var(--success)';
+  } else {
+    zoneEl.value = '';
+    hint.textContent = no ? '⚠️ ไม่พบหมายเลขเครื่องนี้' : '';
+    hint.style.color = 'var(--sub)';
+  }
+}
+
+// ── Admin: manage employees ──
+async function addEmployee() {
+  const emp_code = document.getElementById('empCode').value.trim();
+  const emp_name = document.getElementById('empName').value.trim();
+  if (!emp_code || !emp_name) { showToast('❌ กรอกรหัสและชื่อพนักงาน', 'error'); return; }
+  const btn = document.getElementById('btnAddEmp');
+  btn.disabled = true;
+  try {
+    await api('POST', '/api/employees', { emp_code, emp_name }, true);
+    showToast(`✅ เพิ่มพนักงาน "${emp_name}" แล้ว`);
+    document.getElementById('empCode').value = '';
+    document.getElementById('empName').value = '';
+    await loadMasterData(); renderEmployeeList();
+  } catch {} finally { btn.disabled = false; }
+}
+function renderEmployeeList() {
+  const el = document.getElementById('employeeList');
+  if (!el) return;
+  if (!employees.length) { el.innerHTML = '<div class="text-sub">ยังไม่มีข้อมูลพนักงาน</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
+    <thead><tr><th>รหัส</th><th>ชื่อพนักงาน</th><th style="text-align:center">ลบ</th></tr></thead>
+    <tbody>${employees.map(e => `<tr>
+      <td style="font-weight:700;color:var(--primary)">${escHtml(e.emp_code)}</td>
+      <td>${escHtml(e.emp_name)}</td>
+      <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="deleteEmployee(${e.id},'${escHtml(e.emp_name)}')">🗑️</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+async function deleteEmployee(id, name) {
+  const ok = await showConfirm('🗑️', `ลบพนักงาน "${name}"?`, 'จะลบออกจากฐานข้อมูลถาวร', 'ลบเลย', 'danger');
+  if (!ok) return;
+  try {
+    await api('DELETE', `/api/employees/${id}`, null, true);
+    showToast(`🗑️ ลบ "${name}" แล้ว`);
+    await loadMasterData(); renderEmployeeList();
+  } catch {}
+}
+
+// ── Admin: manage machines ──
+async function addMachine() {
+  const machine_no = document.getElementById('machineNo').value.trim();
+  const zone = document.getElementById('machineZone').value.trim();
+  if (!machine_no) { showToast('❌ กรอกหมายเลขเครื่องจักร', 'error'); return; }
+  const btn = document.getElementById('btnAddMachine');
+  btn.disabled = true;
+  try {
+    await api('POST', '/api/machines', { machine_no, zone }, true);
+    showToast(`✅ เพิ่มเครื่อง "${machine_no}" แล้ว`);
+    document.getElementById('machineNo').value = '';
+    document.getElementById('machineZone').value = '';
+    await loadMasterData(); renderMachineList();
+  } catch {} finally { btn.disabled = false; }
+}
+function renderMachineList() {
+  const el = document.getElementById('machineListAdmin');
+  if (!el) return;
+  if (!machines.length) { el.innerHTML = '<div class="text-sub">ยังไม่มีข้อมูลเครื่องจักร</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
+    <thead><tr><th>หมายเลขเครื่อง</th><th>Zone / พื้นที่</th><th style="text-align:center">ลบ</th></tr></thead>
+    <tbody>${machines.map(m => `<tr>
+      <td style="font-weight:700;color:var(--primary)">${escHtml(m.machine_no)}</td>
+      <td>${escHtml(m.zone || '—')}</td>
+      <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id},'${escHtml(m.machine_no)}')">🗑️</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+async function deleteMachine(id, no) {
+  const ok = await showConfirm('🗑️', `ลบเครื่อง "${no}"?`, 'จะลบออกจากฐานข้อมูลถาวร', 'ลบเลย', 'danger');
+  if (!ok) return;
+  try {
+    await api('DELETE', `/api/machines/${id}`, null, true);
+    showToast(`🗑️ ลบ "${no}" แล้ว`);
+    await loadMasterData(); renderMachineList();
+  } catch {}
+}
+
+// ============================================================
 // TABS
 // ============================================================
 function switchTab(tab) {
@@ -912,7 +1083,10 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
-  if (tab === 'admin' && isAdmin) { loadStats(); loadAdminItems(); loadPending(); }
+  if (tab === 'admin' && isAdmin) {
+    loadStats(); loadAdminItems(); loadPending();
+    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+  }
 }
 
 // ============================================================
@@ -1198,24 +1372,32 @@ function validateField(inputId, errId, label) {
 async function submitRequisition() {
   if (!selectedItemId) { showToast('❌ กรุณาเลือกอุปกรณ์ก่อน', 'error'); return; }
   let valid = true;
+  if (!validateField('reqEmpCode', 'errEmpCode', 'รหัสพนักงาน')) valid = false;
   if (!validateField('reqRequester', 'errRequester', 'ชื่อผู้เบิก')) valid = false;
   if (!validateQtyInput()) valid = false;
   if (!valid) return;
 
   const qty = parseInt(document.getElementById('reqQty').value);
+  const empCode = document.getElementById('reqEmpCode').value.trim();
   const requester = document.getElementById('reqRequester').value.trim();
+  const machine = document.getElementById('reqMachine').value.trim();
+  const zone = document.getElementById('reqZone').value.trim();
+  // requester_name เก็บชื่อพร้อมรหัสพนักงาน; dept = หมายเลขเครื่อง + Zone
+  const requesterFull = empCode ? `${requester} (${empCode})` : requester;
+  const dept = machine ? (zone ? `${machine} · ${zone}` : machine) : '';
   const btn = document.getElementById('btnSubmitReq');
   btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
   try {
     const data = await api('POST', '/api/requisitions', {
-      requester_name: requester,
-      dept: document.getElementById('reqDept').value.trim(),
+      requester_name: requesterFull,
+      dept,
       purpose: document.getElementById('reqPurpose').value.trim(),
       items: [{ item_id: selectedItemId, qty, match_score: selectedMatchScore }],
     });
     showToast(`✅ ส่งใบเบิกสำเร็จ! เลขที่: ${data.req_no}`);
+    localStorage.setItem('req_last_emp_code', empCode);
     localStorage.setItem('req_last_requester', requester);
-    localStorage.setItem('req_last_dept', document.getElementById('reqDept').value.trim());
+    localStorage.setItem('req_last_machine', machine);
     clearImage();
     checkLowStockNotif();
   } catch {} finally { btn.disabled = false; btn.textContent = '✅ ส่งใบเบิก'; }
@@ -1340,18 +1522,38 @@ async function showItemDetail(id) {
 // ============================================================
 // ADMIN
 // ============================================================
-function adminLogin() {
+// Verify the password against the SERVER (not just a client-side compare).
+// The old client-only check let the stored password drift from the real
+// server password, so login "succeeded" but every admin API returned 401.
+async function adminLogin() {
   const pwd = document.getElementById('adminPwd').value;
-  if (pwd === ADMIN_PWD) {
+  if (!pwd) { showFieldError('adminPwd', 'errAdminPwd', 'กรุณากรอกรหัสผ่าน'); return; }
+  const btn = document.querySelector('#adminLoginSection .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...'; }
+  try {
+    const res = await fetch(API_URL + '/api/admin/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error('invalid');
+    // Correct password — persist it so all admin API calls use the right key
     isAdmin = true;
+    ADMIN_PWD = pwd;
+    localStorage.setItem('req_admin_pwd', pwd);
+    document.getElementById('adminPwd').value = '';
+    clearFieldError('adminPwd', 'errAdminPwd');
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
     loadStats(); loadAdminItems(); loadPending(); loadCategories();
-  } else {
+    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+  } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
     document.getElementById('adminPwd').value = '';
     showToast('❌ รหัสผ่านไม่ถูกต้อง', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔓 เข้าสู่ระบบ'; }
   }
 }
 function adminLogout() {

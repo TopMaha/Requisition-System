@@ -15,6 +15,15 @@
  *  POST   /api/requisitions
  *  PUT    /api/requisitions/:id/status  (admin)
  *  GET    /api/stats
+ *  POST   /api/admin/verify   (admin)  - server-side login check
+ *  GET    /api/employees
+ *  POST   /api/employees      (admin)
+ *  PUT    /api/employees/:id  (admin)
+ *  DELETE /api/employees/:id  (admin)
+ *  GET    /api/machines
+ *  POST   /api/machines       (admin)
+ *  PUT    /api/machines/:id   (admin)
+ *  DELETE /api/machines/:id   (admin)
  */
 
 const CORS = {
@@ -106,7 +115,16 @@ export default {
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
-      return json({ ok: true, version: '1.0.0', ts: new Date().toISOString() });
+      return json({ ok: true, version: '1.1.0', ts: new Date().toISOString() });
+    }
+
+    // ── Admin: verify password (server-side login check) ─────
+    // The SPA used to check the admin password purely client-side, which
+    // silently drifts from the real server password and makes every admin
+    // API call 401. This endpoint lets the login verify against the server.
+    if (path === '/api/admin/verify' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('รหัสผ่านไม่ถูกต้อง', 401);
+      return json({ ok: true });
     }
 
     // ── Categories ──────────────────────────────────────────
@@ -414,6 +432,72 @@ export default {
         low_stock: lowStock?.n ?? 0,
         recent_movements: movements.results || [],
       });
+    }
+
+    // ── Employees (master data, shared in D1) ────────────────
+    if (path === '/api/employees' && method === 'GET') {
+      const rows = await env.DB.prepare('SELECT id, emp_code, emp_name FROM employees ORDER BY emp_code').all();
+      return json({ ok: true, data: rows.results || [] });
+    }
+    if (path === '/api/employees' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { emp_code, emp_name } = await request.json();
+      if (!emp_code || !emp_name) return err('กรุณากรอกรหัสและชื่อพนักงาน');
+      try {
+        const res = await env.DB.prepare('INSERT INTO employees (emp_code, emp_name) VALUES (?, ?)')
+          .bind(emp_code, emp_name).run();
+        return json({ ok: true, id: res.meta.last_row_id });
+      } catch (e) {
+        if (e.message?.includes('UNIQUE')) return err('รหัสพนักงานนี้มีในระบบแล้ว');
+        throw e;
+      }
+    }
+    const empMatch = path.match(/^\/api\/employees\/(\d+)$/);
+    if (empMatch && method === 'PUT') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { emp_code, emp_name } = await request.json();
+      if (!emp_code || !emp_name) return err('ข้อมูลไม่ครบ');
+      await env.DB.prepare('UPDATE employees SET emp_code=?, emp_name=? WHERE id=?')
+        .bind(emp_code, emp_name, empMatch[1]).run();
+      return json({ ok: true });
+    }
+    if (empMatch && method === 'DELETE') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      await env.DB.prepare('DELETE FROM employees WHERE id=?').bind(empMatch[1]).run();
+      return json({ ok: true });
+    }
+
+    // ── Machines (master data, shared in D1) ─────────────────
+    if (path === '/api/machines' && method === 'GET') {
+      const rows = await env.DB.prepare('SELECT id, machine_no, zone FROM machines ORDER BY machine_no').all();
+      return json({ ok: true, data: rows.results || [] });
+    }
+    if (path === '/api/machines' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { machine_no, zone } = await request.json();
+      if (!machine_no) return err('กรุณากรอกหมายเลขเครื่องจักร');
+      try {
+        const res = await env.DB.prepare('INSERT INTO machines (machine_no, zone) VALUES (?, ?)')
+          .bind(machine_no, zone || null).run();
+        return json({ ok: true, id: res.meta.last_row_id });
+      } catch (e) {
+        if (e.message?.includes('UNIQUE')) return err('หมายเลขเครื่องนี้มีในระบบแล้ว');
+        throw e;
+      }
+    }
+    const machineMatch = path.match(/^\/api\/machines\/(\d+)$/);
+    if (machineMatch && method === 'PUT') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { machine_no, zone } = await request.json();
+      if (!machine_no) return err('ข้อมูลไม่ครบ');
+      await env.DB.prepare('UPDATE machines SET machine_no=?, zone=? WHERE id=?')
+        .bind(machine_no, zone || null, machineMatch[1]).run();
+      return json({ ok: true });
+    }
+    if (machineMatch && method === 'DELETE') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      await env.DB.prepare('DELETE FROM machines WHERE id=?').bind(machineMatch[1]).run();
+      return json({ ok: true });
     }
 
     return err('Not found', 404);

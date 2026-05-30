@@ -64,6 +64,22 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
+-- ตารางพนักงาน (master data — รหัสพนักงาน ↔ ชื่อพนักงาน, ใช้ autofill ผู้เบิก)
+CREATE TABLE IF NOT EXISTS employees (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  emp_code   TEXT NOT NULL UNIQUE,
+  emp_name   TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+-- ตารางเครื่องจักร (master data — หมายเลขเครื่อง ↔ zone/พื้นที่)
+CREATE TABLE IF NOT EXISTS machines (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  machine_no TEXT NOT NULL UNIQUE,
+  zone       TEXT,
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
 -- seed categories
 INSERT OR IGNORE INTO categories (name) VALUES
   ('ชิ้นส่วนเครื่องจักร'),
