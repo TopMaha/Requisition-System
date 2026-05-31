@@ -198,6 +198,8 @@ textarea { resize: vertical; min-height: 70px; }
 .match-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .match-code { font-size: 12px; color: var(--sub); }
 .match-conf { font-size: 12px; margin-top: 4px; }
+.learned-badge { display: inline-block; font-size: 10px; font-weight: 700; color: #7c3aed;
+  background: #ede9fe; border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
 .conf-bar { height: 5px; background: var(--border); border-radius: 4px; margin-top: 3px; }
 .conf-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--primary)); }
 .match-stock { font-size: 12px; font-weight: 700; color: var(--success); white-space: nowrap; }
@@ -535,6 +537,7 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="stat-card" onclick="switchTab('history')"><div class="stat-num" id="statReqs">—</div><div class="stat-label">ใบเบิกทั้งหมด</div></div>
       <div class="stat-card warning"><div class="stat-num" id="statPending">—</div><div class="stat-label">รออนุมัติ</div></div>
       <div class="stat-card danger"><div class="stat-num" id="statLow">—</div><div class="stat-label">⚠️ Stock ต่ำ</div></div>
+      <div class="stat-card" style="background:#ede9fe"><div class="stat-num" id="statLearned" style="color:#7c3aed">—</div><div class="stat-label">🧠 AI เรียนรู้ (ครั้ง)</div></div>
     </div>
 
     <div class="card">
@@ -865,6 +868,7 @@ let isAdmin = false;
 let selectedImage = null;
 let selectedItemId = null;
 let selectedMatchScore = null;
+let selectedFromScan = false; // true when the item was picked from an AI scan match (enables ML feedback)
 let selectedItemStock = 0;
 let selectedItemMinStock = 0;
 let pendingApproveId = null;
@@ -1178,7 +1182,7 @@ async function onFileSelect(input) {
   catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
 }
 function clearImage() {
-  selectedImage = null; selectedItemId = null;
+  selectedImage = null; selectedItemId = null; selectedFromScan = false;
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('previewImg').src = '';
   document.getElementById('zoneIcon').style.display = '';
@@ -1308,7 +1312,7 @@ function renderMatches(matches) {
       <div class="match-item" id="match-${m.id}" onclick="selectMatch(${m.id})">
         ${m.image_b64 ? `<img class="match-thumb" src="${m.image_b64}" alt="${escHtml(m.name)}">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
         <div class="match-info">
-          <div class="match-name">${escHtml(m.name)}</div>
+          <div class="match-name">${escHtml(m.name)}${m.learned ? ' <span class="learned-badge" title="แม่นขึ้นจากการเรียนรู้ของผู้ใช้">🧠 เรียนรู้แล้ว</span>' : ''}</div>
           <div class="match-code">${escHtml(m.part_code)}</div>
           <div class="match-conf" style="color:${confColor}">ความมั่นใจ: ${m.confidence}%</div>
           <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
@@ -1323,6 +1327,7 @@ function selectMatch(id) {
   document.querySelectorAll('.match-item').forEach(el => el.classList.remove('selected'));
   document.getElementById('match-' + id)?.classList.add('selected');
   selectedItemId = id;
+  selectedFromScan = true;
   selectedItemStock = m.stock_qty;
   selectedItemMinStock = m.min_stock || 0;
   selectedMatchScore = m.confidence;
@@ -1430,6 +1435,13 @@ async function submitRequisition() {
     localStorage.setItem('req_last_emp_code', empCode);
     localStorage.setItem('req_last_requester', requester);
     localStorage.setItem('req_last_machine', machine);
+    // 🧠 Machine learning: teach the system that this scanned photo = this item.
+    // Fire-and-forget so it never blocks or breaks the requisition flow.
+    if (selectedImage && selectedItemId && selectedFromScan) {
+      api('POST', '/api/match/feedback', { image_b64: selectedImage, item_id: selectedItemId })
+        .then(() => showToast('🧠 ระบบจดจำรูปนี้แล้ว — ครั้งหน้าจะแม่นขึ้น'))
+        .catch(() => {});
+    }
     clearImage();
     checkLowStockNotif();
   } catch {} finally { btn.disabled = false; btn.textContent = '✅ ส่งใบเบิก'; }
@@ -1604,6 +1616,8 @@ async function loadStats() {
     document.getElementById('statReqs').textContent = d.requisitions;
     document.getElementById('statPending').textContent = d.pending;
     document.getElementById('statLow').textContent = d.low_stock;
+    const sl = document.getElementById('statLearned');
+    if (sl) sl.textContent = d.learned_examples ?? 0;
 
     const alertEl = document.getElementById('lowStockAlert');
     if (d.low_stock > 0) {

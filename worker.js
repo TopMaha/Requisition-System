@@ -344,9 +344,33 @@ export default {
         return json({ ok: true, matches: [], message: 'ยังไม่มีอุปกรณ์ที่ทำดัชนี AI แล้ว — กดปุ่มทำดัชนีในหน้าแอดมิน' });
       }
 
+      // Base score: similarity to each item's canonical (admin) photo.
       const scored = items.map(it => {
-        return { ...it, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)) };
+        return { ...it, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)), learned: false };
       });
+
+      // ===== Machine-learning boost (online k-NN over confirmed photos) =====
+      // Every confirmed user scan is an extra reference photo. An item's score
+      // becomes the best similarity to ANY of its reference photos (canonical
+      // OR user-confirmed), so matching gets sharper the more people use it.
+      try {
+        const exRows = await env.DB.prepare(
+          `SELECT item_id, labels, vec FROM match_examples`
+        ).all();
+        const bestByItem = {};
+        for (const ex of exRows.results || []) {
+          let labels = {}, vec = null;
+          try { labels = ex.labels ? JSON.parse(ex.labels) : {}; } catch {}
+          try { vec = ex.vec ? JSON.parse(ex.vec) : null; } catch {}
+          const s = fingerprintScore(queryFp, { labels, vec });
+          if (bestByItem[ex.item_id] == null || s > bestByItem[ex.item_id]) bestByItem[ex.item_id] = s;
+        }
+        for (const row of scored) {
+          const exb = bestByItem[row.id];
+          if (exb != null && exb > row.score) { row.score = exb; row.learned = true; }
+        }
+      } catch (e) { console.error('Example boost error:', e); }
+
       scored.sort((a, b) => b.score - a.score);
 
       const matches = scored.slice(0, top_k).map(m => ({
@@ -358,9 +382,38 @@ export default {
         stock_qty: m.stock_qty,
         image_b64: m.image_b64,
         confidence: Math.round(m.score * 100),
+        learned: m.learned,
       }));
 
       return json({ ok: true, matches });
+    }
+
+    // ── ML feedback: record a user-confirmed scan as a training example ──
+    // Called when a user scans a photo and confirms which item it is (e.g. on
+    // requisition submit). Stores the photo's fingerprint as an extra reference
+    // for that item so future matches improve. Capped per item to stay bounded.
+    if (path === '/api/match/feedback' && method === 'POST') {
+      const { image_b64, item_id } = await request.json().catch(() => ({}));
+      if (!image_b64 || !item_id) return err('image_b64 และ item_id จำเป็น');
+      const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1').bind(item_id).first();
+      if (!item) return err('ไม่พบอุปกรณ์', 404);
+
+      const fp = await buildFingerprint(env, image_b64);
+      if (!fp) return err('วิเคราะห์รูปไม่สำเร็จ', 502);
+
+      await env.DB.prepare(
+        `INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)`
+      ).bind(item_id, JSON.stringify(fp.labels || {}), fp.vec ? JSON.stringify(fp.vec) : null, fp.caption || '').run();
+
+      // Keep only the most recent 30 examples per item (bounds match-time cost).
+      await env.DB.prepare(
+        `DELETE FROM match_examples WHERE item_id=? AND id NOT IN (
+           SELECT id FROM match_examples WHERE item_id=? ORDER BY id DESC LIMIT 30
+         )`
+      ).bind(item_id, item_id).run();
+
+      const cnt = await env.DB.prepare('SELECT COUNT(*) n FROM match_examples WHERE item_id=?').bind(item_id).first();
+      return json({ ok: true, learned: true, examples: cnt?.n || 0 });
     }
 
     // ── Reindex: (re)compute AI label vectors for all items ──
@@ -519,12 +572,13 @@ export default {
 
     // ── Stats ────────────────────────────────────────────────
     if (path === '/api/stats' && method === 'GET') {
-      const [items, reqs, pending, lowStock, movements] = await Promise.all([
+      const [items, reqs, pending, lowStock, movements, learned] = await Promise.all([
         env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1').first(),
         env.DB.prepare('SELECT COUNT(*) as n FROM requisitions').first(),
         env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='pending'").first(),
         env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1 AND stock_qty <= min_stock').first(),
         env.DB.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 10').all(),
+        env.DB.prepare('SELECT COUNT(*) as n FROM match_examples').first().catch(() => ({ n: 0 })),
       ]);
       return json({
         ok: true,
@@ -532,6 +586,7 @@ export default {
         requisitions: reqs?.n ?? 0,
         pending: pending?.n ?? 0,
         low_stock: lowStock?.n ?? 0,
+        learned_examples: learned?.n ?? 0,
         recent_movements: movements.results || [],
       });
     }

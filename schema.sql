@@ -80,6 +80,19 @@ CREATE TABLE IF NOT EXISTS machines (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
+-- ตารางตัวอย่างที่ผู้ใช้ยืนยัน (machine-learning feedback / online k-NN)
+-- ทุกครั้งที่ผู้ใช้สแกนรูปแล้วยืนยันว่าเป็นอุปกรณ์ชิ้นใด เก็บ fingerprint ของรูปนั้น
+-- ไว้เป็น "ตัวอย่างอ้างอิงเพิ่มเติม" ของอุปกรณ์ชิ้นนั้น → การ match ครั้งถัดไปแม่นขึ้น
+CREATE TABLE IF NOT EXISTS match_examples (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id    INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  labels     TEXT,              -- JSON resnet label map
+  vec        TEXT,              -- JSON dense embedding vector
+  caption    TEXT,              -- คำบรรยายรูป (debug)
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_match_examples_item ON match_examples(item_id);
+
 -- seed categories
 INSERT OR IGNORE INTO categories (name) VALUES
   ('ชิ้นส่วนเครื่องจักร'),
