@@ -86,6 +86,89 @@ function labelCosine(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
+// ===== Second AI signal: image caption -> dense text embedding =====
+// resnet-50 alone only yields coarse top-5 ImageNet labels, which is weak for
+// look-alike industrial parts. We add a semantic signal: caption the photo with
+// an image-to-text model, then embed that caption into a 768-d dense vector.
+// The final match score is an ensemble of the dense (semantic) and label
+// (visual) cosines, which lifts accuracy past the single-model ceiling.
+const CAPTION_MODEL = '@cf/unum/uform-gen2-qwen-500m'; // fast image-to-text
+const EMBED_MODEL = '@cf/baai/bge-base-en-v1.5';       // 768-d text embedding
+const DENSE_WEIGHT = 0.55;                              // semantic vs visual mix
+
+// Describe an image as a short English phrase (object type, shape, color,
+// material). Returns a trimmed string, or null on failure.
+async function getImageCaption(env, imageB64) {
+  try {
+    const r = await env.AI.run(CAPTION_MODEL, {
+      image: imageBytes(imageB64),
+      prompt: 'Identify this industrial part or hand tool. Name its type, shape, color and material in one short phrase.',
+      max_tokens: 64,
+    });
+    const txt = (r && (r.description || r.response || r.text)) ||
+                (Array.isArray(r) ? (r[0]?.generated_text || r[0]?.description) : '') || '';
+    const out = String(txt).replace(/\s+/g, ' ').trim();
+    return out || null;
+  } catch (e) {
+    console.error('Caption error:', e);
+    return null;
+  }
+}
+
+// Embed a text string into a dense float vector. Returns number[] or null.
+async function embedText(env, text) {
+  if (!text) return null;
+  try {
+    const r = await env.AI.run(EMBED_MODEL, { text: [text] });
+    const v = r?.data?.[0];
+    return Array.isArray(v) && v.length ? v : null;
+  } catch (e) {
+    console.error('Embed error:', e);
+    return null;
+  }
+}
+
+// Cosine similarity between two dense float vectors.
+function cosineDense(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+// Build the combined fingerprint for one image: resnet label vector + caption +
+// dense embedding of the caption. Stored as JSON in the items.embedding column.
+// Returns { v:2, labels, caption, vec } or null if BOTH signals fail.
+async function buildFingerprint(env, imageB64) {
+  const labels = await getImageLabels(env, imageB64);
+  const caption = await getImageCaption(env, imageB64);
+  const vec = caption ? await embedText(env, caption) : null;
+  if (!labels && !vec) return null;
+  return { v: 2, labels: labels || {}, caption: caption || '', vec: vec || null };
+}
+
+// Parse a stored embedding cell into a fingerprint, tolerating the legacy
+// format where the whole object was a flat { label: score } map.
+function parseFingerprint(raw) {
+  if (!raw) return null;
+  let o = null;
+  try { o = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
+  if (!o || typeof o !== 'object') return null;
+  if (o.labels || o.v) return { labels: o.labels || {}, vec: o.vec || null, caption: o.caption || '' };
+  return { labels: o, vec: null, caption: '' }; // legacy: flat label map
+}
+
+// Ensemble score between a query fingerprint and a stored fingerprint.
+// Uses both signals when available, else degrades to the visual label cosine.
+function fingerprintScore(q, stored) {
+  if (!q || !stored) return 0;
+  const labelSim = labelCosine(q.labels, stored.labels);
+  if (!q.vec || !stored.vec) return labelSim;
+  const denseSim = cosineDense(q.vec, stored.vec);
+  return DENSE_WEIGHT * denseSim + (1 - DENSE_WEIGHT) * labelSim;
+}
+
 // ===== Generate req_no =====
 function genReqNo() {
   const d = new Date();
@@ -190,8 +273,8 @@ export default {
 
       let embeddingJson = null;
       if (image_b64) {
-        const labels = await getImageLabels(env, image_b64);
-        if (labels) embeddingJson = JSON.stringify(labels);
+        const fp = await buildFingerprint(env, image_b64);
+        if (fp) embeddingJson = JSON.stringify(fp);
       }
 
       try {
@@ -225,9 +308,9 @@ export default {
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
       if (image_b64) {
-        const labels = await getImageLabels(env, image_b64);
+        const fp = await buildFingerprint(env, image_b64);
         sets.push('image_b64=?', 'embedding=?');
-        vals.push(image_b64, labels ? JSON.stringify(labels) : null);
+        vals.push(image_b64, fp ? JSON.stringify(fp) : null);
       }
       vals.push(id);
 
@@ -249,9 +332,9 @@ export default {
       const { image_b64, top_k = 5 } = body;
       if (!image_b64) return err('image_b64 จำเป็น');
 
-      // Fingerprint the query photo, then cosine-match against indexed items
-      const queryLabels = await getImageLabels(env, image_b64);
-      if (!queryLabels) return err('ไม่สามารถวิเคราะห์รูปได้ — ตรวจสอบ Workers AI binding', 502);
+      // Fingerprint the query photo (visual + semantic), then ensemble-match.
+      const queryFp = await buildFingerprint(env, image_b64);
+      if (!queryFp) return err('ไม่สามารถวิเคราะห์รูปได้ — ตรวจสอบ Workers AI binding', 502);
 
       const rows = await env.DB.prepare(
         `SELECT id, part_code, name, description, unit, stock_qty, image_b64, embedding, category_id FROM items WHERE is_active=1 AND embedding IS NOT NULL`
@@ -262,9 +345,7 @@ export default {
       }
 
       const scored = items.map(it => {
-        let lab = null;
-        try { lab = JSON.parse(it.embedding); } catch {}
-        return { ...it, score: labelCosine(queryLabels, lab) };
+        return { ...it, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)) };
       });
       scored.sort((a, b) => b.score - a.score);
 
@@ -288,18 +369,39 @@ export default {
       const rows = await env.DB.prepare(
         `SELECT id, image_b64 FROM items WHERE is_active=1 AND image_b64 IS NOT NULL`
       ).all();
-      let indexed = 0, failed = 0;
+      let indexed = 0, failed = 0, semantic = 0;
       for (const it of rows.results || []) {
-        const labels = await getImageLabels(env, it.image_b64);
-        if (labels) {
+        const fp = await buildFingerprint(env, it.image_b64);
+        if (fp) {
           await env.DB.prepare(`UPDATE items SET embedding=? WHERE id=?`)
-            .bind(JSON.stringify(labels), it.id).run();
+            .bind(JSON.stringify(fp), it.id).run();
           indexed++;
+          if (fp.vec) semantic++;
         } else {
           failed++;
         }
       }
-      return json({ ok: true, indexed, failed, total: (rows.results || []).length });
+      return json({ ok: true, indexed, semantic, failed, total: (rows.results || []).length });
+    }
+
+    // ── AI self-test: confirm caption + embedding models work ──
+    if (path === '/api/ai-selftest' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { image_b64 } = await request.json().catch(() => ({}));
+      const out = { caption_model: CAPTION_MODEL, embed_model: EMBED_MODEL };
+      // text embedding probe (no image needed)
+      const probeVec = await embedText(env, 'steel hex bolt');
+      out.embed_ok = !!probeVec;
+      out.embed_dims = probeVec ? probeVec.length : 0;
+      if (image_b64) {
+        const caption = await getImageCaption(env, image_b64);
+        out.caption_ok = !!caption;
+        out.caption = caption;
+        const labels = await getImageLabels(env, image_b64);
+        out.label_ok = !!labels;
+        out.top_labels = labels ? Object.keys(labels).slice(0, 5) : [];
+      }
+      return json({ ok: true, ...out });
     }
 
     // ── Stock Adjust ─────────────────────────────────────────
