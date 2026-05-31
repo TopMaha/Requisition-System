@@ -200,6 +200,36 @@ textarea { resize: vertical; min-height: 70px; }
 .match-conf { font-size: 12px; margin-top: 4px; }
 .learned-badge { display: inline-block; font-size: 10px; font-weight: 700; color: #7c3aed;
   background: #ede9fe; border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+
+/* ======= LOGIN GATE ======= */
+.login-overlay { position: fixed; inset: 0; z-index: 4000;
+  background: linear-gradient(135deg, var(--primary-dk), var(--primary));
+  display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-overlay.hidden { display: none; }
+.login-box { background: var(--card); border-radius: 20px; padding: 30px 24px; width: 100%;
+  max-width: 360px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.login-logo { font-size: 52px; line-height: 1; }
+.login-title { font-size: 21px; font-weight: 800; margin-top: 8px; color: var(--text); }
+.login-sub { font-size: 12px; color: var(--sub); }
+.btn-link { background: none; border: none; color: var(--primary); font-size: 13px;
+  cursor: pointer; width: 100%; padding: 8px; margin-top: 8px; }
+.user-chip { font-size: 12px; background: rgba(255,255,255,.18); color: #fff;
+  padding: 4px 10px; border-radius: 20px; white-space: nowrap; max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis; }
+
+/* ======= SCAN REPORT (admin queue + link picker) ======= */
+.report-card { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 10px; background: #fff; }
+.report-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
+  flex-shrink: 0; border: 1px solid var(--border); }
+.report-info { flex: 1; min-width: 0; }
+.report-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.link-item { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px;
+  cursor: pointer; border: 1px solid var(--border); margin-bottom: 6px; }
+.link-item:hover { background: #f1f5f9; border-color: var(--primary); }
+.link-thumb { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; background: #f0f4f8; font-size: 22px; }
+.link-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .conf-bar { height: 5px; background: var(--border); border-radius: 4px; margin-top: 3px; }
 .conf-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--primary)); }
 .match-stock { font-size: 12px; font-weight: 700; color: var(--success); white-space: nowrap; }
@@ -361,6 +391,39 @@ textarea { resize: vertical; min-height: 70px; }
 </head>
 <body>
 
+<!-- ======= LOGIN GATE ======= -->
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">🏭</div>
+    <div class="login-title">ระบบเบิกอุปกรณ์</div>
+    <div class="login-sub">Factory Requisition System</div>
+
+    <div id="loginUserBox">
+      <div class="form-group" style="margin-top:18px;text-align:left">
+        <label>รหัสพนักงาน</label>
+        <input type="text" id="loginEmpCode" placeholder="กรอกรหัสพนักงาน เช่น E001" autocomplete="off"
+               oninput="clearFieldError('loginEmpCode','errLogin')"
+               onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="field-error" id="errLogin">ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin</div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnLogin" onclick="doLogin()">เข้าสู่ระบบ</button>
+      <button class="btn-link" onclick="toggleAdminGate(true)">🔧 เข้าระบบในฐานะผู้ดูแล (Admin)</button>
+    </div>
+
+    <div id="loginAdminBox" style="display:none">
+      <div class="form-group" style="margin-top:18px;text-align:left">
+        <label>รหัสผ่านผู้ดูแล (Admin)</label>
+        <input type="password" id="loginAdminPwd" placeholder="กรอกรหัสผ่าน"
+               oninput="clearFieldError('loginAdminPwd','errLoginAdmin')"
+               onkeydown="if(event.key==='Enter')doAdminGateLogin()">
+        <div class="field-error" id="errLoginAdmin">รหัสผ่านไม่ถูกต้อง</div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="doAdminGateLogin()">เข้าสู่ระบบ Admin</button>
+      <button class="btn-link" onclick="toggleAdminGate(false)">← กลับไปเข้าด้วยรหัสพนักงาน</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======= HEADER ======= -->
 <div class="app-header">
   <div class="logo">🏭</div>
@@ -369,11 +432,13 @@ textarea { resize: vertical; min-height: 70px; }
     <div class="sub">Factory Requisition System</div>
   </div>
   <div class="header-right">
+    <span class="user-chip" id="userChip" style="display:none"></span>
     <span class="api-status offline" id="apiStatus">● offline</span>
     <button class="notif-btn" onclick="switchTab('admin')" title="แจ้งเตือน Stock ต่ำ" id="notifBtn">
       🔔<span class="notif-dot" id="notifDot"></span>
     </button>
     <button class="btn btn-outline btn-sm" onclick="showSettings()" style="border-color:rgba(255,255,255,.4);color:#fff">⚙️</button>
+    <button class="btn btn-outline btn-sm" id="logoutBtn" onclick="logout()" title="ออกจากระบบ" style="display:none;border-color:rgba(255,255,255,.4);color:#fff">🚪</button>
   </div>
 </div>
 
@@ -420,6 +485,10 @@ textarea { resize: vertical; min-height: 70px; }
         <div>กดเลือกรายการที่ตรงกับอุปกรณ์ที่ต้องการเบิก แล้วกรอกข้อมูลด้านล่าง</div>
       </div>
       <div class="match-list" id="matchList"></div>
+      <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+        <div style="font-size:13px;color:var(--sub);margin-bottom:8px">ไม่มีอุปกรณ์ที่ต้องการในรายการนี้?</div>
+        <button class="btn btn-outline btn-block" onclick="openReportModal()">❓ แจ้ง Admin ว่าไม่พบอุปกรณ์นี้</button>
+      </div>
     </div>
 
     <div class="card" id="reqForm" style="display:none">
@@ -641,6 +710,11 @@ textarea { resize: vertical; min-height: 70px; }
     </div>
 
     <div class="card">
+      <div class="card-title">📨 รายการที่ผู้ใช้แจ้งว่าไม่พบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบ → เพิ่มของใหม่ หรือ ผูกกับของที่มี)</span></div>
+      <div id="scanReportList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <div class="card">
       <div class="card-title">⏳ ใบเบิกรอดำเนินการ</div>
       <div id="pendingList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -855,6 +929,49 @@ textarea { resize: vertical; min-height: 70px; }
   </div>
 </div>
 
+<!-- REPORT NOT-FOUND MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">❓ แจ้ง Admin: ไม่พบอุปกรณ์นี้</span>
+      <button class="modal-close" onclick="closeModal('reportModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:12px">
+        <span class="alert-icon">💡</span>
+        <div>ส่งรูปนี้ให้ Admin ตรวจสอบ — ถ้ายังไม่มีในระบบ Admin จะเพิ่มและสั่งซื้อให้ ถ้ามีอยู่แล้วระบบจะเรียนรู้ให้แม่นขึ้นในครั้งถัดไป</div>
+      </div>
+      <img id="reportPreview" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#f8fafc" alt="">
+      <div class="form-group" style="margin-top:12px">
+        <label>รายละเอียดเพิ่มเติม (ชื่อ / ลักษณะ / จุดที่ใช้)</label>
+        <textarea id="reportNote" placeholder="เช่น น็อตหัวจม M8, ใช้กับเครื่อง M-01" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-gray" onclick="closeModal('reportModal')">ยกเลิก</button>
+      <button class="btn btn-primary" id="btnSendReport" onclick="sendReport()">📨 ส่งให้ Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- LINK-TO-EXISTING-ITEM MODAL (admin resolves a report) -->
+<div class="modal-overlay" id="linkItemModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🔗 เลือกอุปกรณ์ที่ตรงกัน</span>
+      <button class="modal-close" onclick="closeModal('linkItemModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:10px">
+        <span class="alert-icon">🧠</span>
+        <div>เลือกอุปกรณ์ที่ใช่ — ระบบจะจำรูปนี้ไว้ ครั้งหน้าถ่ายแบบนี้มาจะแม่นขึ้น</div>
+      </div>
+      <div class="search-bar"><input type="text" id="linkSearch" placeholder="ค้นหาชื่อ / รหัสอุปกรณ์..." oninput="loadLinkItems()"></div>
+      <div id="linkItemList" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <button id="scrollTopBtn" onclick="scrollPageTop()" title="ขึ้นบนสุด" aria-label="เลื่อนขึ้นบนสุด">↑</button>
 
@@ -879,6 +996,11 @@ let categories = [];
 let employees = [];
 let machines = [];
 let _confirmResolve = null;
+let currentUser = null;       // { code, name, isAdmin }
+let _lastTopGuess = '';       // best AI guess from last scan (context for reports)
+let _reportStore = {};        // id -> report (admin queue)
+let _reportContext = null;    // { id } when admin is adding an item from a report
+let _linkReportId = null;     // report id being linked to an existing item
 
 // ============================================================
 // INIT
@@ -898,7 +1020,89 @@ document.addEventListener('DOMContentLoaded', () => {
   if (lastEmp) document.getElementById('reqEmpCode').value = lastEmp;
   if (lastReq) document.getElementById('reqRequester').value = lastReq;
   if (lastMachine) document.getElementById('reqMachine').value = lastMachine;
+  restoreSession();
 });
+
+// ============================================================
+// LOGIN GATE (employee-code sign-in)
+// ============================================================
+function restoreSession() {
+  const saved = localStorage.getItem('req_user');
+  if (saved) { try { currentUser = JSON.parse(saved); } catch {} }
+  if (currentUser) applyLogin(currentUser, true);
+  else showLoginGate();
+}
+function showLoginGate() {
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  toggleAdminGate(false);
+  setTimeout(() => document.getElementById('loginEmpCode')?.focus(), 100);
+}
+function toggleAdminGate(showAdmin) {
+  document.getElementById('loginUserBox').style.display = showAdmin ? 'none' : 'block';
+  document.getElementById('loginAdminBox').style.display = showAdmin ? 'block' : 'none';
+  if (showAdmin) setTimeout(() => document.getElementById('loginAdminPwd')?.focus(), 50);
+}
+async function doLogin() {
+  const code = document.getElementById('loginEmpCode').value.trim();
+  if (!code) return showFieldError('loginEmpCode', 'errLogin', 'กรุณากรอกรหัสพนักงาน');
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...';
+  try {
+    if (!employees.length) await loadMasterData();
+    const emp = employees.find(e => String(e.emp_code).toLowerCase() === code.toLowerCase());
+    if (!emp) { showFieldError('loginEmpCode', 'errLogin', 'ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin'); return; }
+    applyLogin({ code: emp.emp_code, name: emp.emp_name, isAdmin: false }, false);
+  } finally { btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; }
+}
+async function doAdminGateLogin() {
+  const pwd = document.getElementById('loginAdminPwd').value;
+  if (!pwd) return showFieldError('loginAdminPwd', 'errLoginAdmin', 'กรุณากรอกรหัสผ่าน');
+  try {
+    const res = await fetch(API_URL + '/api/admin/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error('invalid');
+    isAdmin = true; ADMIN_PWD = pwd; localStorage.setItem('req_admin_pwd', pwd);
+    document.getElementById('loginAdminPwd').value = '';
+    // unlock the in-panel admin UI too
+    document.getElementById('adminLoginSection').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadCategories();
+    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+  } catch {
+    showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
+  }
+}
+function applyLogin(u, restored) {
+  currentUser = u;
+  localStorage.setItem('req_user', JSON.stringify(u));
+  document.getElementById('loginOverlay').classList.add('hidden');
+  const chip = document.getElementById('userChip');
+  chip.style.display = ''; chip.textContent = (u.isAdmin ? '🔧 ' : '👤 ') + u.name;
+  document.getElementById('logoutBtn').style.display = '';
+  document.getElementById('loginEmpCode').value = '';
+  // prefill requester fields for regular employees
+  if (!u.isAdmin) {
+    const ec = document.getElementById('reqEmpCode');
+    const rn = document.getElementById('reqRequester');
+    if (ec && !ec.value) ec.value = u.code;
+    if (rn && !rn.value) rn.value = u.name;
+  }
+  if (!restored) showToast('✅ ยินดีต้อนรับ ' + u.name);
+}
+function logout() {
+  localStorage.removeItem('req_user');
+  currentUser = null; isAdmin = false;
+  document.getElementById('userChip').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('adminLoginSection').style.display = 'block';
+  document.getElementById('adminPanel').style.display = 'none';
+  switchTab('scan');
+  showLoginGate();
+  showToast('👋 ออกจากระบบแล้ว');
+}
 
 // ============================================================
 // API
@@ -937,7 +1141,7 @@ async function checkHealth() {
 async function checkLowStockNotif() {
   try {
     const d = await api('GET', '/api/stats');
-    const count = d.low_stock || 0;
+    const count = (d.low_stock || 0) + (d.open_reports || 0);
     document.getElementById('notifDot').classList.toggle('show', count > 0);
     const badge = document.getElementById('adminBadge');
     if (count > 0) { badge.textContent = count; badge.classList.add('show'); }
@@ -1112,7 +1316,7 @@ function switchTab(tab) {
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1287,8 +1491,14 @@ async function doMatch() {
     const data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5 });
     const matches = data.matches || [];
     if (!matches.length) {
-      showToast('⚠️ ไม่พบอุปกรณ์ที่ตรงกันในฐานข้อมูล', 'error');
-      document.getElementById('scanEmpty').style.display = '';
+      // No match — still show the section so the user can report it to Admin.
+      _lastTopGuess = '';
+      document.getElementById('matchList').innerHTML =
+        '<div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>ไม่พบอุปกรณ์ที่ตรงกันในระบบ<br><small>แจ้ง Admin เพื่อเพิ่มเข้าระบบได้ด้านล่าง</small></div>';
+      document.getElementById('matchSection').style.display = 'block';
+      document.getElementById('reqForm').style.display = 'none';
+      document.getElementById('scanEmpty').style.display = 'none';
+      selectedItemId = null;
       return;
     }
     renderMatches(matches);
@@ -1302,6 +1512,8 @@ async function doMatch() {
 let _matchStore = {};
 function renderMatches(matches) {
   _matchStore = {};
+  // Remember the best guess to give Admin context if the user reports it.
+  _lastTopGuess = matches[0] ? `${matches[0].name} (${matches[0].confidence}%)` : '';
   const list = document.getElementById('matchList');
   list.innerHTML = matches.map(m => {
     _matchStore[m.id] = m;
@@ -1448,6 +1660,116 @@ async function submitRequisition() {
 }
 
 // ============================================================
+// REPORT "NOT FOUND" → ADMIN  (user side)
+// ============================================================
+function openReportModal() {
+  if (!selectedImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
+  document.getElementById('reportPreview').src = selectedImage;
+  document.getElementById('reportNote').value = '';
+  openModal('reportModal');
+}
+async function sendReport() {
+  if (!selectedImage) return;
+  const note = document.getElementById('reportNote').value.trim();
+  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})` : '';
+  const btn = document.getElementById('btnSendReport');
+  btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
+  try {
+    await api('POST', '/api/scan-reports', { image_b64: selectedImage, note, reporter, top_guess: _lastTopGuess });
+    closeModal('reportModal');
+    showToast('✅ แจ้ง Admin แล้ว รอตรวจสอบ — ขอบคุณครับ');
+  } catch {} finally { btn.disabled = false; btn.textContent = '📨 ส่งให้ Admin'; }
+}
+
+// ============================================================
+// SCAN REPORTS QUEUE  (admin side)
+// ============================================================
+async function loadScanReports() {
+  const el = document.getElementById('scanReportList');
+  if (!el) return;
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', '/api/scan-reports?status=pending', null, true);
+    const reports = d.data || [];
+    _reportStore = {};
+    if (!reports.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่มีรายการแจ้ง 🎉</div>'; return; }
+    el.innerHTML = reports.map(r => { _reportStore[r.id] = r; return renderReportCard(r); }).join('');
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+function renderReportCard(r) {
+  return `<div class="report-card" id="report-${r.id}">
+    <img class="report-thumb" src="${r.image_b64}" alt="">
+    <div class="report-info">
+      <div style="font-size:12px;color:var(--sub)">👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)}</div>
+      ${r.note ? `<div style="font-size:13px;margin-top:2px">📝 ${escHtml(r.note)}</div>` : ''}
+      ${r.top_guess ? `<div style="font-size:11px;color:var(--sub);margin-top:2px">🤖 AI เดา: ${escHtml(r.top_guess)}</div>` : ''}
+      <div class="report-actions">
+        <button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่มของใหม่</button>
+        <button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว</button>
+        <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>
+      </div>
+    </div>
+  </div>`;
+}
+function reportAddNew(id) {
+  const r = _reportStore[id]; if (!r) return;
+  setAdminImage(r.image_b64);          // load photo into the add-item form
+  _reportContext = { id };
+  if (r.note) document.getElementById('newName').value = r.note.slice(0, 60);
+  showToast('📸 ใส่รูปในฟอร์ม "เพิ่มอุปกรณ์" แล้ว — กรอกรหัส/ชื่อ แล้วกดเพิ่ม');
+  document.getElementById('newPartCode').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => document.getElementById('newPartCode').focus(), 300);
+}
+function reportLink(id) {
+  _linkReportId = id;
+  document.getElementById('linkSearch').value = '';
+  openModal('linkItemModal');
+  loadLinkItems();
+}
+async function loadLinkItems() {
+  const el = document.getElementById('linkItemList');
+  const s = document.getElementById('linkSearch').value.trim();
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=30`);
+    const items = d.data || [];
+    if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบอุปกรณ์</div>'; return; }
+    el.innerHTML = items.map(it => `
+      <div class="link-item" onclick="confirmLink(${it.id})">
+        <div class="link-thumb">${it.image_b64 ? `<img src="${it.image_b64}" alt="">` : '🔧'}</div>
+        <div style="min-width:0">
+          <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
+          <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
+        </div>
+      </div>`).join('');
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+function confirmLink(itemId) {
+  if (!_linkReportId) return;
+  const id = _linkReportId; _linkReportId = null;
+  closeModal('linkItemModal');
+  resolveReport(id, 'linked', itemId);
+}
+async function reportDismiss(id) {
+  const ok = await showConfirm('🗑️', 'ปิดรายการแจ้งนี้?', 'จะไม่แสดงในคิวอีก', 'ปิดรายการ', 'gray');
+  if (!ok) return;
+  resolveReport(id, 'dismissed', null);
+}
+async function resolveReport(id, status, item_id) {
+  try {
+    await api('POST', `/api/scan-reports/${id}/resolve`, { status, item_id }, true);
+    document.getElementById('report-' + id)?.remove();
+    delete _reportStore[id];
+    if (!Object.keys(_reportStore).length) {
+      const el = document.getElementById('scanReportList');
+      if (el) el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่มีรายการแจ้ง 🎉</div>';
+    }
+    loadStats();
+    showToast(status === 'dismissed' ? '🗑️ ปิดรายการแล้ว' : '✅ ดำเนินการแล้ว — AI เรียนรู้เพิ่ม');
+  } catch {}
+}
+
+// ============================================================
 // HISTORY
 // ============================================================
 async function loadHistory() {
@@ -1590,7 +1912,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
@@ -1689,7 +2011,7 @@ async function addItem() {
   const btn = document.getElementById('btnAddItem');
   btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
   try {
-    await api('POST', '/api/items', {
+    const resp = await api('POST', '/api/items', {
       part_code, name,
       description: document.getElementById('newDesc').value.trim(),
       category_id: document.getElementById('newCategory').value || null,
@@ -1698,6 +2020,11 @@ async function addItem() {
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
       image_b64: (image_b64 && image_b64.startsWith('data:')) ? image_b64 : null,
     }, true);
+    // If this item was created from a user report, mark the report resolved.
+    if (_reportContext && resp && resp.id) {
+      resolveReport(_reportContext.id, 'added', resp.id);
+      _reportContext = null;
+    }
     showToast(`✅ เพิ่ม "${name}" สำเร็จ`);
     ['newPartCode','newName','newDesc'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('newUnit').value = 'ชิ้น';

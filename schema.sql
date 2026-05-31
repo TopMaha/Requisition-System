@@ -93,6 +93,25 @@ CREATE TABLE IF NOT EXISTS match_examples (
 );
 CREATE INDEX IF NOT EXISTS idx_match_examples_item ON match_examples(item_id);
 
+-- ตารางแจ้ง "ไม่พบอุปกรณ์" (ผู้ใช้สแกนแล้วไม่ตรงกับชิ้นใดในระบบ → แจ้ง Admin)
+-- Admin ตรวจสอบ: ถ้าไม่มีจริง → เพิ่มเป็นอุปกรณ์ใหม่ (status=added);
+-- ถ้ามีแต่รูปไม่ชัด → ผูกกับชิ้นที่ใช่ (status=linked) แล้วสอน AI ด้วย fingerprint นี้
+CREATE TABLE IF NOT EXISTS scan_reports (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  image_b64        TEXT NOT NULL,
+  labels           TEXT,           -- JSON resnet label map (fingerprint)
+  vec              TEXT,           -- JSON dense embedding (fingerprint)
+  caption          TEXT,           -- คำบรรยายรูปจาก AI
+  reporter         TEXT,           -- ผู้แจ้ง (รหัส/ชื่อพนักงาน)
+  note             TEXT,           -- รายละเอียดที่ผู้ใช้พิมพ์
+  top_guess        TEXT,           -- AI เดาว่าอาจเป็นอะไร (context ให้ Admin)
+  status           TEXT DEFAULT 'pending',  -- pending | added | linked | dismissed
+  resolved_item_id INTEGER REFERENCES items(id),
+  created_at       TEXT DEFAULT (datetime('now','localtime')),
+  resolved_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_scan_reports_status ON scan_reports(status);
+
 -- seed categories
 INSERT OR IGNORE INTO categories (name) VALUES
   ('ชิ้นส่วนเครื่องจักร'),

@@ -416,6 +416,65 @@ export default {
       return json({ ok: true, learned: true, examples: cnt?.n || 0 });
     }
 
+    // ── Scan report: user couldn't find the item -> notify Admin ──
+    // Stores the unmatched photo + its fingerprint so Admin can review and
+    // either add it as a new item or link it to an existing one (training AI).
+    if (path === '/api/scan-reports' && method === 'POST') {
+      const { image_b64, note, reporter, top_guess } = await request.json().catch(() => ({}));
+      if (!image_b64) return err('image_b64 จำเป็น');
+      const fp = await buildFingerprint(env, image_b64); // best-effort; may be null
+      const res = await env.DB.prepare(
+        `INSERT INTO scan_reports (image_b64, labels, vec, caption, reporter, note, top_guess)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        image_b64,
+        fp ? JSON.stringify(fp.labels || {}) : null,
+        fp && fp.vec ? JSON.stringify(fp.vec) : null,
+        fp ? (fp.caption || '') : null,
+        reporter || null, note || null, top_guess || null
+      ).run();
+      return json({ ok: true, id: res.meta.last_row_id });
+    }
+
+    // ── Scan reports: list (admin) ──
+    if (path === '/api/scan-reports' && method === 'GET') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const status = url.searchParams.get('status') || 'pending';
+      const rows = await env.DB.prepare(
+        `SELECT id, image_b64, caption, reporter, note, top_guess, status, resolved_item_id, created_at
+         FROM scan_reports WHERE status=? ORDER BY id DESC LIMIT 50`
+      ).bind(status).all();
+      return json({ ok: true, data: rows.results || [] });
+    }
+
+    // ── Scan report: resolve (admin) ──
+    // status: 'added' (new item created) | 'linked' (matched existing) | 'dismissed'.
+    // When item_id is given, the report's fingerprint is also stored as a
+    // training example for that item, so the same photo matches next time.
+    const reportMatch = path.match(/^\/api\/scan-reports\/(\d+)\/resolve$/);
+    if (reportMatch && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const id = reportMatch[1];
+      const { status, item_id } = await request.json().catch(() => ({}));
+      if (!['added', 'linked', 'dismissed'].includes(status)) return err('status ไม่ถูกต้อง');
+
+      const rep = await env.DB.prepare('SELECT labels, vec, caption FROM scan_reports WHERE id=?').bind(id).first();
+      if (!rep) return err('ไม่พบรายการแจ้ง', 404);
+
+      if (item_id && (status === 'added' || status === 'linked')) {
+        const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1').bind(item_id).first();
+        if (item) {
+          await env.DB.prepare(
+            `INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)`
+          ).bind(item_id, rep.labels || '{}', rep.vec || null, rep.caption || '').run();
+        }
+      }
+      await env.DB.prepare(
+        `UPDATE scan_reports SET status=?, resolved_item_id=?, resolved_at=datetime('now','localtime') WHERE id=?`
+      ).bind(status, item_id || null, id).run();
+      return json({ ok: true });
+    }
+
     // ── Reindex: (re)compute AI label vectors for all items ──
     if (path === '/api/reindex' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
@@ -580,6 +639,7 @@ export default {
         env.DB.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 10').all(),
         env.DB.prepare('SELECT COUNT(*) as n FROM match_examples').first().catch(() => ({ n: 0 })),
       ]);
+      const reports = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending'").first().catch(() => ({ n: 0 }));
       return json({
         ok: true,
         items: items?.n ?? 0,
@@ -587,6 +647,7 @@ export default {
         pending: pending?.n ?? 0,
         low_stock: lowStock?.n ?? 0,
         learned_examples: learned?.n ?? 0,
+        open_reports: reports?.n ?? 0,
         recent_movements: movements.results || [],
       });
     }
