@@ -22,6 +22,10 @@
   --shadow:     0 2px 12px rgba(0,0,0,.08);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Kill any horizontal scrolling/overflow (overflow-x:clip keeps sticky header working). */
+html { overflow-x: hidden; }
+body { overflow-x: clip; max-width: 100%; }
+img, video, canvas, table { max-width: 100%; }
 body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
 /* ======= LAYOUT ======= */
@@ -343,16 +347,16 @@ textarea { resize: vertical; min-height: 70px; }
 
 /* ======= SEARCH BAR ======= */
 .search-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.search-bar input { flex: 1; min-width: 180px; }
-.search-bar select { width: auto; min-width: 120px; }
+.search-bar input { flex: 1 1 140px; min-width: 0; }
+.search-bar select { flex: 0 1 auto; min-width: 110px; }
 
 /* ======= MISC ======= */
 .divider { border: none; border-top: 1.5px solid var(--border); margin: 14px 0; }
 .text-sub { font-size: 12px; color: var(--sub); }
 .empty { text-align: center; padding: 40px 20px; color: var(--sub); font-size: 14px; }
 .empty .empty-icon { font-size: 48px; margin-bottom: 10px; }
-.row { display: flex; gap: 10px; align-items: flex-start; }
-.col { flex: 1; }
+.row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.col { flex: 1 1 140px; min-width: 0; }
 .loading { text-align: center; padding: 30px; color: var(--sub); }
 .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
