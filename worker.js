@@ -336,8 +336,11 @@ export default {
       const queryFp = await buildFingerprint(env, image_b64);
       if (!queryFp) return err('ไม่สามารถวิเคราะห์รูปได้ — ตรวจสอบ Workers AI binding', 502);
 
+      // Scan only id + embedding (small) for scoring — NOT the heavy base64
+      // images. Pulling every item's image into the Worker just to score them
+      // wastes memory/payload; we fetch images only for the final winners below.
       const rows = await env.DB.prepare(
-        `SELECT id, part_code, name, description, unit, stock_qty, image_b64, embedding, category_id FROM items WHERE is_active=1 AND embedding IS NOT NULL`
+        `SELECT id, embedding FROM items WHERE is_active=1 AND embedding IS NOT NULL`
       ).all();
       const items = rows.results || [];
       if (!items.length) {
@@ -346,7 +349,7 @@ export default {
 
       // Base score: similarity to each item's canonical (admin) photo.
       const scored = items.map(it => {
-        return { ...it, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)), learned: false };
+        return { id: it.id, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)), learned: false };
       });
 
       // ===== Machine-learning boost (online k-NN over confirmed photos) =====
@@ -372,18 +375,33 @@ export default {
       } catch (e) { console.error('Example boost error:', e); }
 
       scored.sort((a, b) => b.score - a.score);
+      const top = scored.slice(0, top_k);
+      if (!top.length) return json({ ok: true, matches: [] });
 
-      const matches = scored.slice(0, top_k).map(m => ({
-        id: m.id,
-        part_code: m.part_code,
-        name: m.name,
-        description: m.description,
-        unit: m.unit,
-        stock_qty: m.stock_qty,
-        image_b64: m.image_b64,
-        confidence: Math.round(m.score * 100),
-        learned: m.learned,
-      }));
+      // Fetch full details (incl. the image) ONLY for the winning few.
+      const ids = top.map(t => t.id);
+      const ph = ids.map(() => '?').join(',');
+      const detailRows = await env.DB.prepare(
+        `SELECT id, part_code, name, description, unit, stock_qty, min_stock, image_b64 FROM items WHERE id IN (${ph})`
+      ).bind(...ids).all();
+      const byId = {};
+      for (const d of detailRows.results || []) byId[d.id] = d;
+
+      const matches = top.map(t => {
+        const d = byId[t.id] || {};
+        return {
+          id: t.id,
+          part_code: d.part_code,
+          name: d.name,
+          description: d.description,
+          unit: d.unit,
+          stock_qty: d.stock_qty,
+          min_stock: d.min_stock,
+          image_b64: d.image_b64,
+          confidence: Math.round(t.score * 100),
+          learned: t.learned,
+        };
+      });
 
       return json({ ok: true, matches });
     }
