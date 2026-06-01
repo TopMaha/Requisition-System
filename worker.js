@@ -216,6 +216,28 @@ export default {
       return json({ ok: true, data: rows.results });
     }
 
+    // ── Item image (binary, cached) ─────────────────────────
+    // Serves the image as real bytes so lists/history/match can carry a tiny
+    // URL instead of a fat base64 blob. Reads from D1 today; when R2 is enabled
+    // this is the single place to swap to env.BUCKET.get(key). The ?v= version
+    // token (item.updated_at) lets us cache hard yet refresh on edit.
+    const itemImageMatch = path.match(/^\/api\/items\/(\d+)\/image$/);
+    if (itemImageMatch && method === 'GET') {
+      const id = itemImageMatch[1];
+      const row = await env.DB.prepare('SELECT image_b64 FROM items WHERE id=?').bind(id).first();
+      if (!row || !row.image_b64) return new Response('Not found', { status: 404, headers: CORS });
+      const m = /^data:(image\/[\w.+-]+);base64,(.*)$/s.exec(row.image_b64);
+      const contentType = m ? m[1] : 'image/jpeg';
+      const b64 = m ? m[2] : row.image_b64.replace(/^data:[^,]*,/, '');
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Response(bytes, {
+        status: 200,
+        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS },
+      });
+    }
+
     // ── Items: get single ───────────────────────────────────
     const itemSingleMatch = path.match(/^\/api\/items\/(\d+)$/);
     if (itemSingleMatch && method === 'GET') {
@@ -255,11 +277,15 @@ export default {
         `SELECT COUNT(*) as n FROM items WHERE is_active=1 ${search ? 'AND (name LIKE ? OR part_code LIKE ?)' : ''}`
       ).bind(...(search ? [`%${search}%`, `%${search}%`] : [])).first();
 
-      // has_embedding = item has been AI-indexed (resnet label vector stored).
+      // Strip the heavy fields from the list: send a small image URL instead of
+      // base64, so big inventories load fast. has_embedding = AI-indexed.
       const data = (rows.results || []).map(r => {
         const has_embedding = !!r.embedding;
+        const has_image = !!r.image_b64;
+        const image_url = has_image ? `/api/items/${r.id}/image?v=${encodeURIComponent(r.updated_at || '')}` : null;
         delete r.embedding;
-        return { ...r, has_embedding };
+        delete r.image_b64;
+        return { ...r, has_embedding, has_image, image_url };
       });
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
     }
@@ -382,7 +408,8 @@ export default {
       const ids = top.map(t => t.id);
       const ph = ids.map(() => '?').join(',');
       const detailRows = await env.DB.prepare(
-        `SELECT id, part_code, name, description, unit, stock_qty, min_stock, image_b64 FROM items WHERE id IN (${ph})`
+        `SELECT id, part_code, name, description, unit, stock_qty, min_stock, updated_at,
+                (image_b64 IS NOT NULL) AS has_image FROM items WHERE id IN (${ph})`
       ).bind(...ids).all();
       const byId = {};
       for (const d of detailRows.results || []) byId[d.id] = d;
@@ -397,7 +424,7 @@ export default {
           unit: d.unit,
           stock_qty: d.stock_qty,
           min_stock: d.min_stock,
-          image_b64: d.image_b64,
+          image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
           confidence: Math.round(t.score * 100),
           learned: t.learned,
         };
@@ -580,11 +607,16 @@ export default {
       // Load items for each req
       const data = await Promise.all((rows.results || []).map(async req => {
         const items = await env.DB.prepare(`
-          SELECT ri.*, i.name as item_name, i.part_code, i.unit, i.image_b64
+          SELECT ri.*, i.name as item_name, i.part_code, i.unit, i.updated_at as item_updated_at,
+                 (i.image_b64 IS NOT NULL) AS has_image
           FROM requisition_items ri JOIN items i ON ri.item_id = i.id
           WHERE ri.req_id = ?
         `).bind(req.id).all();
-        return { ...req, items: items.results || [] };
+        const itemList = (items.results || []).map(it => ({
+          ...it,
+          image_url: it.has_image ? `/api/items/${it.item_id}/image?v=${encodeURIComponent(it.item_updated_at || '')}` : null,
+        }));
+        return { ...req, items: itemList };
       }));
 
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
