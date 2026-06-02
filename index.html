@@ -2162,8 +2162,8 @@ async function openEditItem(id) {
     catSel.innerHTML = '<option value="">-- เลือกหมวด --</option>';
     categories.forEach(c => { catSel.innerHTML += `<option value="${c.id}" ${c.id == item.category_id ? 'selected' : ''}>${c.name}</option>`; });
     const preview = document.getElementById('editPreview');
-    if (item.image_b64) {
-      preview.src = item.image_b64; preview.style.display = 'block';
+    if (imgSrc(item)) {
+      preview.src = imgSrc(item); preview.style.display = 'block';
       document.getElementById('editZoneIcon').style.display = 'none';
       document.getElementById('editImgZone').classList.add('has-img');
     } else {

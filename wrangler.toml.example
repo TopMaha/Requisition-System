@@ -10,6 +10,11 @@ binding = "DB"
 database_name = "requisition-db"
 database_id   = "YOUR_D1_DATABASE_ID"
 
+# R2 bucket for item images (create: `wrangler r2 bucket create requisition-images`)
+[[r2_buckets]]
+binding      = "BUCKET"
+bucket_name  = "requisition-images"
+
 [vars]
 # Set your own admin password here. Do NOT commit a real one.
 # For production prefer a Cloudflare secret: `wrangler secret put ADMIN_PASSWORD`

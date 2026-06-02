@@ -52,6 +52,35 @@ function imageBytes(imageB64) {
   return Array.from(bytes);
 }
 
+// ===== R2 image storage helpers =====
+// Decode a data-URL into { bytes, contentType }.
+function decodeDataUrl(dataUrl) {
+  const m = /^data:(image\/[\w.+-]+);base64,(.*)$/s.exec(dataUrl);
+  const contentType = m ? m[1] : 'image/jpeg';
+  const b64 = m ? m[2] : dataUrl.replace(/^data:[^,]*,/, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, contentType };
+}
+// Upload a data-URL image to R2 under a fresh key; returns the key.
+async function putItemImage(env, dataUrl) {
+  const { bytes, contentType } = decodeDataUrl(dataUrl);
+  const ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+  const key = `items/${crypto.randomUUID()}.${ext}`;
+  await env.BUCKET.put(key, bytes, {
+    httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
+  });
+  return key;
+}
+// Convert an ArrayBuffer to a base64 data-URL (for re-fingerprinting R2 images).
+function bufToDataUrl(buf, contentType = 'image/jpeg') {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return `data:${contentType};base64,${btoa(bin)}`;
+}
+
 // Visual fingerprint of an image as a sparse ImageNet label vector.
 // CLIP is gated on this account, so we use @cf/microsoft/resnet-50 (image
 // classification) and treat its label->score distribution as the image's
@@ -92,7 +121,11 @@ function labelCosine(a, b) {
 // an image-to-text model, then embed that caption into a 768-d dense vector.
 // The final match score is an ensemble of the dense (semantic) and label
 // (visual) cosines, which lifts accuracy past the single-model ceiling.
-const CAPTION_MODEL = '@cf/unum/uform-gen2-qwen-500m'; // fast image-to-text
+// NOTE: @cf/unum/uform-gen2-qwen-500m was DEPRECATED 2026-05-30 (AI error 5028),
+// which silently killed the semantic signal and tanked match accuracy. llava is
+// the accessible replacement (llama-3.2-vision needs a license 'agree'; CLIP is
+// account-gated). llava is a 7B model (slower) but far more descriptive.
+const CAPTION_MODEL = '@cf/llava-hf/llava-1.5-7b-hf';  // image-to-text (caption)
 const EMBED_MODEL = '@cf/baai/bge-base-en-v1.5';       // 768-d text embedding
 const DENSE_WEIGHT = 0.55;                              // semantic vs visual mix
 
@@ -102,8 +135,8 @@ async function getImageCaption(env, imageB64) {
   try {
     const r = await env.AI.run(CAPTION_MODEL, {
       image: imageBytes(imageB64),
-      prompt: 'Identify this industrial part or hand tool. Name its type, shape, color and material in one short phrase.',
-      max_tokens: 64,
+      prompt: 'Describe the main object in this photo in one detailed sentence: its type/name, shape, color, and material. Focus on the part or tool, ignore the background.',
+      max_tokens: 100,
     });
     const txt = (r && (r.description || r.response || r.text)) ||
                 (Array.isArray(r) ? (r[0]?.generated_text || r[0]?.description) : '') || '';
@@ -224,18 +257,30 @@ export default {
     const itemImageMatch = path.match(/^\/api\/items\/(\d+)\/image$/);
     if (itemImageMatch && method === 'GET') {
       const id = itemImageMatch[1];
-      const row = await env.DB.prepare('SELECT image_b64 FROM items WHERE id=?').bind(id).first();
-      if (!row || !row.image_b64) return new Response('Not found', { status: 404, headers: CORS });
-      const m = /^data:(image\/[\w.+-]+);base64,(.*)$/s.exec(row.image_b64);
-      const contentType = m ? m[1] : 'image/jpeg';
-      const b64 = m ? m[2] : row.image_b64.replace(/^data:[^,]*,/, '');
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return new Response(bytes, {
-        status: 200,
-        headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS },
-      });
+      const row = await env.DB.prepare('SELECT image_key, image_b64 FROM items WHERE id=?').bind(id).first();
+      // Preferred: stream from R2.
+      if (row && row.image_key && env.BUCKET) {
+        const obj = await env.BUCKET.get(row.image_key);
+        if (obj) {
+          return new Response(obj.body, {
+            status: 200,
+            headers: {
+              'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              ...CORS,
+            },
+          });
+        }
+      }
+      // Fallback: legacy inline base64 in D1.
+      if (row && row.image_b64) {
+        const { bytes, contentType } = decodeDataUrl(row.image_b64);
+        return new Response(bytes, {
+          status: 200,
+          headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS },
+        });
+      }
+      return new Response('Not found', { status: 404, headers: CORS });
     }
 
     // ── Items: get single ───────────────────────────────────
@@ -249,8 +294,11 @@ export default {
       `).bind(id).first();
       if (!row) return err('ไม่พบอุปกรณ์', 404);
       const has_embedding = !!row.embedding; // AI-indexed (resnet label vector stored)
+      const has_image = !!(row.image_key || row.image_b64);
+      const image_url = has_image ? `/api/items/${row.id}/image?v=${encodeURIComponent(row.updated_at || '')}` : null;
       delete row.embedding;
-      return json({ ok: true, data: { ...row, has_embedding } });
+      delete row.image_key;
+      return json({ ok: true, data: { ...row, has_embedding, has_image, image_url } });
     }
 
     // ── Items: list ─────────────────────────────────────────
@@ -281,10 +329,11 @@ export default {
       // base64, so big inventories load fast. has_embedding = AI-indexed.
       const data = (rows.results || []).map(r => {
         const has_embedding = !!r.embedding;
-        const has_image = !!r.image_b64;
+        const has_image = !!(r.image_key || r.image_b64);
         const image_url = has_image ? `/api/items/${r.id}/image?v=${encodeURIComponent(r.updated_at || '')}` : null;
         delete r.embedding;
         delete r.image_b64;
+        delete r.image_key;
         return { ...r, has_embedding, has_image, image_url };
       });
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
@@ -297,18 +346,25 @@ export default {
       const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64 } = body;
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
 
-      let embeddingJson = null;
+      let embeddingJson = null, imageKey = null, imageB64Store = null;
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64);
         if (fp) embeddingJson = JSON.stringify(fp);
+        // Store the image in R2 (preferred); fall back to inline D1 base64.
+        if (env.BUCKET) {
+          try { imageKey = await putItemImage(env, image_b64); }
+          catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; }
+        } else {
+          imageB64Store = image_b64;
+        }
       }
 
       try {
         const res = await env.DB.prepare(`
-          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, embedding)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, embedding)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, image_b64 || null, embeddingJson).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, embeddingJson).run();
 
         if (stock_qty > 0) {
           await env.DB.prepare(`
@@ -335,8 +391,20 @@ export default {
       const vals = [name, description, category_id, unit, min_stock];
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64);
-        sets.push('image_b64=?', 'embedding=?');
-        vals.push(image_b64, fp ? JSON.stringify(fp) : null);
+        let imageKey = null, imageB64Store = null;
+        if (env.BUCKET) {
+          try { imageKey = await putItemImage(env, image_b64); }
+          catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; }
+        } else {
+          imageB64Store = image_b64;
+        }
+        // Delete the previous R2 object so we don't leak orphans.
+        if (imageKey && env.BUCKET) {
+          const prev = await env.DB.prepare('SELECT image_key FROM items WHERE id=?').bind(id).first();
+          if (prev?.image_key) { try { await env.BUCKET.delete(prev.image_key); } catch {} }
+        }
+        sets.push('image_b64=?', 'image_key=?', 'embedding=?');
+        vals.push(imageB64Store, imageKey, fp ? JSON.stringify(fp) : null);
       }
       vals.push(id);
 
@@ -409,7 +477,7 @@ export default {
       const ph = ids.map(() => '?').join(',');
       const detailRows = await env.DB.prepare(
         `SELECT id, part_code, name, description, unit, stock_qty, min_stock, updated_at,
-                (image_b64 IS NOT NULL) AS has_image FROM items WHERE id IN (${ph})`
+                (image_b64 IS NOT NULL OR image_key IS NOT NULL) AS has_image FROM items WHERE id IN (${ph})`
       ).bind(...ids).all();
       const byId = {};
       for (const d of detailRows.results || []) byId[d.id] = d;
@@ -524,11 +592,18 @@ export default {
     if (path === '/api/reindex' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const rows = await env.DB.prepare(
-        `SELECT id, image_b64 FROM items WHERE is_active=1 AND image_b64 IS NOT NULL`
+        `SELECT id, image_b64, image_key FROM items WHERE is_active=1 AND (image_b64 IS NOT NULL OR image_key IS NOT NULL)`
       ).all();
       let indexed = 0, failed = 0, semantic = 0;
       for (const it of rows.results || []) {
-        const fp = await buildFingerprint(env, it.image_b64);
+        // Source the image bytes from D1 (legacy) or R2 (current).
+        let dataUrl = it.image_b64;
+        if (!dataUrl && it.image_key && env.BUCKET) {
+          const obj = await env.BUCKET.get(it.image_key);
+          if (obj) dataUrl = bufToDataUrl(await obj.arrayBuffer(), obj.httpMetadata?.contentType || 'image/jpeg');
+        }
+        if (!dataUrl) { failed++; continue; }
+        const fp = await buildFingerprint(env, dataUrl);
         if (fp) {
           await env.DB.prepare(`UPDATE items SET embedding=? WHERE id=?`)
             .bind(JSON.stringify(fp), it.id).run();
@@ -608,7 +683,7 @@ export default {
       const data = await Promise.all((rows.results || []).map(async req => {
         const items = await env.DB.prepare(`
           SELECT ri.*, i.name as item_name, i.part_code, i.unit, i.updated_at as item_updated_at,
-                 (i.image_b64 IS NOT NULL) AS has_image
+                 (i.image_b64 IS NOT NULL OR i.image_key IS NOT NULL) AS has_image
           FROM requisition_items ri JOIN items i ON ri.item_id = i.id
           WHERE ri.req_id = ?
         `).bind(req.id).all();
