@@ -141,9 +141,12 @@ function labelCosine(a, b) {
 // which silently killed the semantic signal and tanked match accuracy. llava is
 // the accessible replacement (llama-3.2-vision needs a license 'agree'; CLIP is
 // account-gated). llava is a 7B model (slower) but far more descriptive.
-const CAPTION_MODEL = '@cf/llava-hf/llava-1.5-7b-hf';  // image-to-text (caption)
+// llama-3.2-vision focuses on the main foreground object and ignores the
+// background far better than llava — critical for real-world photos shot on a
+// cluttered workbench. (One-time license accepted via 'agree' on 2026-06-02.)
+const CAPTION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct'; // object-focused VLM
 const EMBED_MODEL = '@cf/baai/bge-base-en-v1.5';       // 768-d text embedding
-const DENSE_WEIGHT = 0.55;                              // semantic vs visual mix
+const DENSE_WEIGHT = 0.7;                              // lean on semantic (object) over noisy scene labels
 
 // Describe an image as a short English phrase (object type, shape, color,
 // material). Returns a trimmed string, or null on failure.
@@ -151,12 +154,16 @@ async function getImageCaption(env, imageB64) {
   try {
     const r = await env.AI.run(CAPTION_MODEL, {
       image: imageBytes(imageB64),
-      prompt: 'Describe the main object in this photo in one detailed sentence: its type/name, shape, color, and material. Focus on the part or tool, ignore the background.',
-      max_tokens: 100,
+      prompt: 'Identify ONLY the single main object in the foreground — an industrial part, spare part, or hand tool. Completely ignore the background, table, hands, and surroundings. Reply with one concise phrase giving its likely name/type, shape, color, and material. Do not describe the scene.',
+      max_tokens: 80,
     });
     const txt = (r && (r.description || r.response || r.text)) ||
                 (Array.isArray(r) ? (r[0]?.generated_text || r[0]?.description) : '') || '';
-    const out = String(txt).replace(/\s+/g, ' ').trim();
+    // Strip the model's boilerplate lead-in so the embedding centers on the
+    // actual object words (e.g. "The main object in the foreground is a ...").
+    let out = String(txt).replace(/\s+/g, ' ').trim();
+    out = out.replace(/^(the\s+)?(main\s+|single\s+)?(object|item|subject|part|tool)\b[^,.]*?\b(is|are|appears to be|seems to be|looks like|:)\s+/i, '');
+    out = out.replace(/^(a|an|the)\s+/i, '').trim();
     return out || null;
   } catch (e) {
     console.error('Caption error:', e);
