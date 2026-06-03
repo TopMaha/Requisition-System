@@ -1382,6 +1382,10 @@ window.addEventListener('scroll', () => {
 // Downscale + re-encode any image to keep payloads small. Large phone
 // photos (multi-MB base64) otherwise crash the Worker's CLIP embedding
 // step and bloat D1 rows, which made "add item" fail.
+// Small thumbnail (~256px) for fast list/grid loading.
+function makeThumb(dataUrl) {
+  return compressImageDataUrl(dataUrl, 256, 0.7);
+}
 function compressImageDataUrl(dataUrl, maxDim = 1024, quality = 0.85) {
   return new Promise(resolve => {
     const img = new Image();
@@ -1569,7 +1573,7 @@ function renderMatches(matches) {
     const stockText = m.stock_qty <= 0 ? '⛔ หมด' : `📦 ${m.stock_qty}`;
     return `
       <div class="match-item" id="match-${m.id}" onclick="selectMatch(${m.id})">
-        ${imgSrc(m) ? `<img class="match-thumb" src="${imgSrc(m)}" alt="${escHtml(m.name)}" loading="lazy">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
+        ${thumbSrc(m) ? `<img class="match-thumb" src="${thumbSrc(m)}" alt="${escHtml(m.name)}" loading="lazy">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
         <div class="match-info">
           <div class="match-name">${escHtml(m.name)}${m.learned ? ' <span class="learned-badge" title="แม่นขึ้นจากการเรียนรู้ของผู้ใช้">🧠 เรียนรู้แล้ว</span>' : ''}</div>
           <div class="match-code">${escHtml(m.part_code)}</div>
@@ -1783,7 +1787,7 @@ async function loadLinkItems() {
     if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบอุปกรณ์</div>'; return; }
     el.innerHTML = items.map(it => `
       <div class="link-item" onclick="confirmLink(${it.id})">
-        <div class="link-thumb">${imgSrc(it) ? `<img src="${imgSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+        <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
         <div style="min-width:0">
           <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
           <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
@@ -1836,7 +1840,7 @@ function renderReqCard(r) {
   const labelMap = { pending: '⏳ รอดำเนินการ', approved: '✅ อนุมัติ', rejected: '❌ ปฏิเสธ', completed: '📦 เบิกแล้ว' };
   const itemsHtml = (r.items || []).map(item => `
     <div class="req-item-row">
-      <div class="req-item-thumb">${imgSrc(item) ? `<img src="${imgSrc(item)}" alt="" loading="lazy">` : '🔧'}</div>
+      <div class="req-item-thumb">${thumbSrc(item) ? `<img src="${thumbSrc(item)}" alt="" loading="lazy">` : '🔧'}</div>
       <div style="flex:1">
         <div style="font-weight:700;font-size:13px">${escHtml(item.item_name)}</div>
         <div style="font-size:12px;color:var(--sub)">${escHtml(item.part_code)} | จำนวน: ${item.qty_requested} ${escHtml(item.unit)}</div>
@@ -1887,7 +1891,7 @@ async function loadInventory() {
       return `
         <div class="item-card ${isLow ? 'low-stock-card' : ''}" onclick="showItemDetail(${item.id})">
           ${isLow ? '<div class="low-stock-badge">⚠️ ต่ำ</div>' : ''}
-          <div class="item-card-img">${imgSrc(item) ? `<img src="${imgSrc(item)}" alt="${escHtml(item.name)}" loading="lazy">` : '🔧'}</div>
+          <div class="item-card-img">${thumbSrc(item) ? `<img src="${thumbSrc(item)}" alt="${escHtml(item.name)}" loading="lazy">` : '🔧'}</div>
           <div class="item-card-body">
             <div class="item-card-name">${escHtml(item.name)}</div>
             <div class="item-card-code">${escHtml(item.part_code)}</div>
@@ -2051,13 +2055,16 @@ async function addItem() {
   if (!valid) return;
 
   const image_b64 = document.getElementById('adminPreview').src || null;
-  if (!image_b64 || !image_b64.startsWith('data:')) {
+  const hasImg = image_b64 && image_b64.startsWith('data:');
+  if (!hasImg) {
     document.getElementById('adminImgWarning').style.display = 'flex';
   }
 
   const btn = document.getElementById('btnAddItem');
   btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
   try {
+    // Generate a small thumbnail for fast list loading.
+    const thumb_b64 = hasImg ? await makeThumb(image_b64) : null;
     const resp = await api('POST', '/api/items', {
       part_code, name,
       description: document.getElementById('newDesc').value.trim(),
@@ -2065,7 +2072,8 @@ async function addItem() {
       unit: document.getElementById('newUnit').value.trim() || 'ชิ้น',
       stock_qty: parseFloat(document.getElementById('newStock').value) || 0,
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
-      image_b64: (image_b64 && image_b64.startsWith('data:')) ? image_b64 : null,
+      image_b64: hasImg ? image_b64 : null,
+      thumb_b64,
     }, true);
     // If this item was created from a user report, mark the report resolved.
     if (_reportContext && resp && resp.id) {
@@ -2188,13 +2196,14 @@ async function confirmEditItem() {
   const btn = document.getElementById('btnEditSave');
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
+    const editThumb = editImageB64 ? await makeThumb(editImageB64) : null;
     await api('PUT', `/api/items/${id}`, {
       part_code, name,
       category_id: document.getElementById('editCategory').value || null,
       unit: document.getElementById('editUnit').value.trim() || 'ชิ้น',
       min_stock: parseFloat(document.getElementById('editMinStock').value) || 0,
       description: document.getElementById('editDesc').value.trim(),
-      ...(editImageB64 ? { image_b64: editImageB64 } : {}),
+      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb } : {}),
     }, true);
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');
@@ -2313,6 +2322,12 @@ function imgSrc(o) {
   if (o.image_url) return API_URL + o.image_url;
   if (o.image_b64) return o.image_b64;
   return '';
+}
+// Small thumbnail source for list/grid views (falls back to the full image).
+function thumbSrc(o) {
+  if (!o) return '';
+  if (o.thumb_url) return API_URL + o.thumb_url;
+  return imgSrc(o);
 }
 function fmtDate(str) {
   if (!str) return '—';

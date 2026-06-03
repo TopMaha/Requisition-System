@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS items (
   stock_qty    REAL DEFAULT 0,
   min_stock    REAL DEFAULT 0,
   image_b64    TEXT,              -- legacy inline base64 (new rows use image_key/R2)
-  image_key    TEXT,              -- R2 object key (preferred); image served via /api/items/:id/image
+  image_key    TEXT,              -- R2 object key (full image); served via /api/items/:id/image
+  thumb_key    TEXT,              -- R2 object key (small thumbnail); served via /api/items/:id/thumb
   embedding    TEXT,              -- JSON array of CLIP float32 vector
   is_active    INTEGER DEFAULT 1,
   created_at   TEXT DEFAULT (datetime('now','localtime')),

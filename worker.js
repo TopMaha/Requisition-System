@@ -80,6 +80,22 @@ function bufToDataUrl(buf, contentType = 'image/jpeg') {
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return `data:${contentType};base64,${btoa(bin)}`;
 }
+// Build an HTTP image Response from an R2 key (preferred) or inline base64.
+// Returns null if neither source has data.
+async function imageResponse(env, r2key, b64) {
+  const cache = 'public, max-age=31536000, immutable';
+  if (r2key && env.BUCKET) {
+    const obj = await env.BUCKET.get(r2key);
+    if (obj) return new Response(obj.body, {
+      headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': cache, ...CORS },
+    });
+  }
+  if (b64) {
+    const { bytes, contentType } = decodeDataUrl(b64);
+    return new Response(bytes, { headers: { 'Content-Type': contentType, 'Cache-Control': cache, ...CORS } });
+  }
+  return null;
+}
 
 // Visual fingerprint of an image as a sparse ImageNet label vector.
 // CLIP is gated on this account, so we use @cf/microsoft/resnet-50 (image
@@ -256,31 +272,22 @@ export default {
     // token (item.updated_at) lets us cache hard yet refresh on edit.
     const itemImageMatch = path.match(/^\/api\/items\/(\d+)\/image$/);
     if (itemImageMatch && method === 'GET') {
-      const id = itemImageMatch[1];
-      const row = await env.DB.prepare('SELECT image_key, image_b64 FROM items WHERE id=?').bind(id).first();
-      // Preferred: stream from R2.
-      if (row && row.image_key && env.BUCKET) {
-        const obj = await env.BUCKET.get(row.image_key);
-        if (obj) {
-          return new Response(obj.body, {
-            status: 200,
-            headers: {
-              'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
-              'Cache-Control': 'public, max-age=31536000, immutable',
-              ...CORS,
-            },
-          });
-        }
-      }
-      // Fallback: legacy inline base64 in D1.
-      if (row && row.image_b64) {
-        const { bytes, contentType } = decodeDataUrl(row.image_b64);
-        return new Response(bytes, {
-          status: 200,
-          headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS },
-        });
-      }
-      return new Response('Not found', { status: 404, headers: CORS });
+      const row = await env.DB.prepare('SELECT image_key, image_b64 FROM items WHERE id=?').bind(itemImageMatch[1]).first();
+      const resp = row && (await imageResponse(env, row.image_key, row.image_b64));
+      return resp || new Response('Not found', { status: 404, headers: CORS });
+    }
+
+    // ── Item thumbnail (small) ──────────────────────────────
+    // Prefers the stored thumbnail; falls back to the full image so items
+    // without a thumb (legacy/pre-thumbnail) still display.
+    const itemThumbMatch = path.match(/^\/api\/items\/(\d+)\/thumb$/);
+    if (itemThumbMatch && method === 'GET') {
+      const row = await env.DB.prepare('SELECT thumb_key, image_key, image_b64 FROM items WHERE id=?').bind(itemThumbMatch[1]).first();
+      const resp = row && (
+        (await imageResponse(env, row.thumb_key, null)) ||
+        (await imageResponse(env, row.image_key, row.image_b64))
+      );
+      return resp || new Response('Not found', { status: 404, headers: CORS });
     }
 
     // ── Items: get single ───────────────────────────────────
@@ -295,10 +302,13 @@ export default {
       if (!row) return err('ไม่พบอุปกรณ์', 404);
       const has_embedding = !!row.embedding; // AI-indexed (resnet label vector stored)
       const has_image = !!(row.image_key || row.image_b64);
-      const image_url = has_image ? `/api/items/${row.id}/image?v=${encodeURIComponent(row.updated_at || '')}` : null;
+      const v = encodeURIComponent(row.updated_at || '');
+      const image_url = has_image ? `/api/items/${row.id}/image?v=${v}` : null;
+      const thumb_url = has_image ? `/api/items/${row.id}/thumb?v=${v}` : null;
       delete row.embedding;
       delete row.image_key;
-      return json({ ok: true, data: { ...row, has_embedding, has_image, image_url } });
+      delete row.thumb_key;
+      return json({ ok: true, data: { ...row, has_embedding, has_image, image_url, thumb_url } });
     }
 
     // ── Items: list ─────────────────────────────────────────
@@ -330,11 +340,14 @@ export default {
       const data = (rows.results || []).map(r => {
         const has_embedding = !!r.embedding;
         const has_image = !!(r.image_key || r.image_b64);
-        const image_url = has_image ? `/api/items/${r.id}/image?v=${encodeURIComponent(r.updated_at || '')}` : null;
+        const v = encodeURIComponent(r.updated_at || '');
+        const image_url = has_image ? `/api/items/${r.id}/image?v=${v}` : null;
+        const thumb_url = has_image ? `/api/items/${r.id}/thumb?v=${v}` : null;
         delete r.embedding;
         delete r.image_b64;
         delete r.image_key;
-        return { ...r, has_embedding, has_image, image_url };
+        delete r.thumb_key;
+        return { ...r, has_embedding, has_image, image_url, thumb_url };
       });
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
     }
@@ -343,17 +356,19 @@ export default {
     if (path === '/api/items' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const body = await request.json();
-      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64 } = body;
+      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64 } = body;
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
 
-      let embeddingJson = null, imageKey = null, imageB64Store = null;
+      let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null;
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64);
         if (fp) embeddingJson = JSON.stringify(fp);
-        // Store the image in R2 (preferred); fall back to inline D1 base64.
+        // Store the image (+thumbnail) in R2; fall back to inline D1 base64.
         if (env.BUCKET) {
-          try { imageKey = await putItemImage(env, image_b64); }
-          catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; }
+          try {
+            imageKey = await putItemImage(env, image_b64);
+            if (thumb_b64) thumbKey = await putItemImage(env, thumb_b64);
+          } catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; imageKey = null; thumbKey = null; }
         } else {
           imageB64Store = image_b64;
         }
@@ -361,10 +376,10 @@ export default {
 
       try {
         const res = await env.DB.prepare(`
-          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, embedding)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, embeddingJson).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson).run();
 
         if (stock_qty > 0) {
           await env.DB.prepare(`
@@ -385,26 +400,28 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const id = itemEditMatch[1];
       const body = await request.json();
-      const { name, description, category_id, unit, min_stock, image_b64 } = body;
+      const { name, description, category_id, unit, min_stock, image_b64, thumb_b64 } = body;
 
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64);
-        let imageKey = null, imageB64Store = null;
+        let imageKey = null, thumbKey = null, imageB64Store = null;
         if (env.BUCKET) {
-          try { imageKey = await putItemImage(env, image_b64); }
-          catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; }
+          try {
+            imageKey = await putItemImage(env, image_b64);
+            if (thumb_b64) thumbKey = await putItemImage(env, thumb_b64);
+          } catch (e) { console.error('R2 put failed, using D1:', e); imageB64Store = image_b64; imageKey = null; thumbKey = null; }
         } else {
           imageB64Store = image_b64;
         }
-        // Delete the previous R2 object so we don't leak orphans.
+        // Delete the previous R2 objects so we don't leak orphans.
         if (imageKey && env.BUCKET) {
-          const prev = await env.DB.prepare('SELECT image_key FROM items WHERE id=?').bind(id).first();
-          if (prev?.image_key) { try { await env.BUCKET.delete(prev.image_key); } catch {} }
+          const prev = await env.DB.prepare('SELECT image_key, thumb_key FROM items WHERE id=?').bind(id).first();
+          for (const k of [prev?.image_key, prev?.thumb_key]) if (k) { try { await env.BUCKET.delete(k); } catch {} }
         }
-        sets.push('image_b64=?', 'image_key=?', 'embedding=?');
-        vals.push(imageB64Store, imageKey, fp ? JSON.stringify(fp) : null);
+        sets.push('image_b64=?', 'image_key=?', 'thumb_key=?', 'embedding=?');
+        vals.push(imageB64Store, imageKey, thumbKey, fp ? JSON.stringify(fp) : null);
       }
       vals.push(id);
 
@@ -493,6 +510,7 @@ export default {
           stock_qty: d.stock_qty,
           min_stock: d.min_stock,
           image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
+          thumb_url: d.has_image ? `/api/items/${t.id}/thumb?v=${encodeURIComponent(d.updated_at || '')}` : null,
           confidence: Math.round(t.score * 100),
           learned: t.learned,
         };
@@ -690,6 +708,7 @@ export default {
         const itemList = (items.results || []).map(it => ({
           ...it,
           image_url: it.has_image ? `/api/items/${it.item_id}/image?v=${encodeURIComponent(it.item_updated_at || '')}` : null,
+          thumb_url: it.has_image ? `/api/items/${it.item_id}/thumb?v=${encodeURIComponent(it.item_updated_at || '')}` : null,
         }));
         return { ...req, items: itemList };
       }));
