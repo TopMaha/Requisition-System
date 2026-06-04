@@ -630,6 +630,7 @@ textarea { resize: vertical; min-height: 70px; }
     </select>
     <button class="btn btn-outline" onclick="loadInventory()">🔄</button>
   </div>
+  <div id="invCount" class="text-sub" style="margin:-6px 0 10px 2px"></div>
   <div id="inventoryGrid" class="item-grid"></div>
 </div>
 
@@ -1875,9 +1876,11 @@ async function loadInventory() {
   const grid = document.getElementById('inventoryGrid');
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1"><div class="spinner"></div></div>';
   try {
-    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&category=${cat}&limit=100`);
+    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&category=${cat}&limit=1000`);
     const items = data.data || [];
     if (!items.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📦</div>ไม่พบอุปกรณ์</div>'; return; }
+    const countEl = document.getElementById('invCount');
+    if (countEl) countEl.textContent = `${items.length} รายการ`;
 
     const lowItems = items.filter(i => i.stock_qty <= i.min_stock);
     const banner = document.getElementById('invLowStockBanner');
@@ -1995,7 +1998,7 @@ async function loadStats() {
     const alertEl = document.getElementById('lowStockAlert');
     if (d.low_stock > 0) {
       try {
-        const itemsData = await api('GET', '/api/items?limit=200');
+        const itemsData = await api('GET', '/api/items?limit=1000');
         const lowItems = (itemsData.data || []).filter(i => i.stock_qty <= i.min_stock);
         if (lowItems.length > 0) {
           alertEl.style.display = 'block';
@@ -2100,7 +2103,7 @@ async function loadAdminItems() {
   const el = document.getElementById('adminItemList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&limit=50`);
+    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&limit=1000`);
     const items = data.data || [];
     if (!items.length) { el.innerHTML = '<div class="empty">ไม่พบอุปกรณ์</div>'; return; }
     el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
