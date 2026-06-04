@@ -145,17 +145,18 @@ function labelCosine(a, b) {
 // background far better than llava — critical for real-world photos shot on a
 // cluttered workbench. (One-time license accepted via 'agree' on 2026-06-02.)
 const CAPTION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct'; // object-focused VLM
-const EMBED_MODEL = '@cf/baai/bge-base-en-v1.5';       // 768-d text embedding
+const EMBED_MODEL = '@cf/baai/bge-m3';                 // 1024-d multilingual (TH+EN) embedding
 const DENSE_WEIGHT = 0.7;                              // lean on semantic (object) over noisy scene labels
 
-// Describe an image as a short English phrase (object type, shape, color,
-// material). Returns a trimmed string, or null on failure.
+// Describe an image for matching: the object's identity + any stamped markings.
+// Transcribing printed part numbers/letters is the strongest cue to tell apart
+// look-alike spare parts. Returns a trimmed string, or null on failure.
 async function getImageCaption(env, imageB64) {
   try {
     const r = await env.AI.run(CAPTION_MODEL, {
       image: imageBytes(imageB64),
-      prompt: 'Identify ONLY the single main object in the foreground — an industrial part, spare part, or hand tool. Completely ignore the background, table, hands, and surroundings. Reply with one concise phrase giving its likely name/type, shape, color, and material. Do not describe the scene.',
-      max_tokens: 80,
+      prompt: 'You are cataloguing a machine spare part. Describe ONLY the single main object in the foreground; completely ignore the background, table, hands and surroundings. Give: its likely name/type, shape, color, material, and any distinctive features. Then TRANSCRIBE EXACTLY (verbatim) any text, numbers, letters or part codes printed or stamped on the object. Be concise; do not describe the scene.',
+      max_tokens: 110,
     });
     const txt = (r && (r.description || r.response || r.text)) ||
                 (Array.isArray(r) ? (r[0]?.generated_text || r[0]?.description) : '') || '';
@@ -194,14 +195,19 @@ function cosineDense(a, b) {
 }
 
 // Build the combined fingerprint for one image: resnet label vector + caption +
-// dense embedding of the caption. Stored as JSON in the items.embedding column.
-// Returns { v:2, labels, caption, vec } or null if BOTH signals fail.
-async function buildFingerprint(env, imageB64) {
+// dense embedding. Stored as JSON in the items.embedding column.
+// `extraText` (the item's name + description) is appended to the caption before
+// embedding so a stored item is anchored by its known part number/name; a query
+// photo whose caption transcribes that same number then matches strongly.
+// Pass no extraText for query/example fingerprints (visual/caption only).
+// Returns { v:3, labels, caption, vec } or null if BOTH signals fail.
+async function buildFingerprint(env, imageB64, extraText) {
   const labels = await getImageLabels(env, imageB64);
   const caption = await getImageCaption(env, imageB64);
-  const vec = caption ? await embedText(env, caption) : null;
+  const semantic = [caption, extraText].filter(Boolean).join('. ');
+  const vec = semantic ? await embedText(env, semantic) : null;
   if (!labels && !vec) return null;
-  return { v: 2, labels: labels || {}, caption: caption || '', vec: vec || null };
+  return { v: 3, labels: labels || {}, caption: caption || '', vec: vec || null };
 }
 
 // Parse a stored embedding cell into a fingerprint, tolerating the legacy
@@ -368,7 +374,7 @@ export default {
 
       let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null;
       if (image_b64) {
-        const fp = await buildFingerprint(env, image_b64);
+        const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
         if (fp) embeddingJson = JSON.stringify(fp);
         // Store the image (+thumbnail) in R2; fall back to inline D1 base64.
         if (env.BUCKET) {
@@ -412,7 +418,7 @@ export default {
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
       if (image_b64) {
-        const fp = await buildFingerprint(env, image_b64);
+        const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
         let imageKey = null, thumbKey = null, imageB64Store = null;
         if (env.BUCKET) {
           try {
@@ -442,6 +448,29 @@ export default {
       const id = itemEditMatch[1];
       await env.DB.prepare(`UPDATE items SET is_active=0 WHERE id=?`).bind(id).run();
       return json({ ok: true });
+    }
+
+    // ── Items: reindex ONE item (for bulk re-fingerprinting via a script) ──
+    // The bulk /api/reindex loops every item in a single request and would blow
+    // the Worker's subrequest/CPU limits on a large catalogue; a driver script
+    // calls this per item instead. Rebuilds the fingerprint from the item's R2
+    // image + its name/description.
+    const itemReindexMatch = path.match(/^\/api\/items\/(\d+)\/reindex$/);
+    if (itemReindexMatch && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const id = itemReindexMatch[1];
+      const row = await env.DB.prepare('SELECT image_b64, image_key, name, description FROM items WHERE id=? AND is_active=1').bind(id).first();
+      if (!row) return err('ไม่พบอุปกรณ์', 404);
+      let dataUrl = row.image_b64;
+      if (!dataUrl && row.image_key && env.BUCKET) {
+        const obj = await env.BUCKET.get(row.image_key);
+        if (obj) dataUrl = bufToDataUrl(await obj.arrayBuffer(), obj.httpMetadata?.contentType || 'image/jpeg');
+      }
+      if (!dataUrl) return err('ไม่มีรูปสำหรับทำดัชนี', 400);
+      const fp = await buildFingerprint(env, dataUrl, [row.name, row.description].filter(Boolean).join('. '));
+      if (!fp) return err('วิเคราะห์รูปไม่สำเร็จ', 502);
+      await env.DB.prepare('UPDATE items SET embedding=? WHERE id=?').bind(JSON.stringify(fp), id).run();
+      return json({ ok: true, semantic: !!fp.vec, caption: fp.caption });
     }
 
     // ── AI Image Match ───────────────────────────────────────
@@ -617,7 +646,7 @@ export default {
     if (path === '/api/reindex' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const rows = await env.DB.prepare(
-        `SELECT id, image_b64, image_key FROM items WHERE is_active=1 AND (image_b64 IS NOT NULL OR image_key IS NOT NULL)`
+        `SELECT id, image_b64, image_key, name, description FROM items WHERE is_active=1 AND (image_b64 IS NOT NULL OR image_key IS NOT NULL)`
       ).all();
       let indexed = 0, failed = 0, semantic = 0;
       for (const it of rows.results || []) {
@@ -628,7 +657,7 @@ export default {
           if (obj) dataUrl = bufToDataUrl(await obj.arrayBuffer(), obj.httpMetadata?.contentType || 'image/jpeg');
         }
         if (!dataUrl) { failed++; continue; }
-        const fp = await buildFingerprint(env, dataUrl);
+        const fp = await buildFingerprint(env, dataUrl, [it.name, it.description].filter(Boolean).join('. '));
         if (fp) {
           await env.DB.prepare(`UPDATE items SET embedding=? WHERE id=?`)
             .bind(JSON.stringify(fp), it.id).run();
