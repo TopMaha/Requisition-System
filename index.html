@@ -552,9 +552,12 @@ textarea { resize: vertical; min-height: 70px; }
         <div>กดเลือกรายการที่ตรงกับอุปกรณ์ที่ต้องการเบิก แล้วกรอกข้อมูลด้านล่าง</div>
       </div>
       <div class="match-list" id="matchList"></div>
-      <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
-        <div style="font-size:13px;color:var(--sub);margin-bottom:8px">ไม่มีอุปกรณ์ที่ต้องการในรายการนี้?</div>
-        <button class="btn btn-outline btn-block" onclick="openReportModal()">❓ แจ้ง Admin ว่าไม่พบอุปกรณ์นี้</button>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+        <div style="font-size:13px;color:var(--sub);margin-bottom:8px;text-align:center">ไม่ใช่ทั้งหมดนี้ใช่ไหม?</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="flex:1;min-width:150px" onclick="openPickItem()">🔍 เลือก Item เอง (สอน AI)</button>
+          <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openReportModal()">❓ แจ้ง Admin ว่าไม่มี</button>
+        </div>
       </div>
     </div>
 
@@ -778,8 +781,13 @@ textarea { resize: vertical; min-height: 70px; }
     </div>
 
     <div class="card">
-      <div class="card-title">📨 รายการที่ผู้ใช้แจ้งว่าไม่พบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบ → เพิ่มของใหม่ หรือ ผูกกับของที่มี)</span></div>
+      <div class="card-title">📨 รายการที่ผู้ใช้แจ้งว่าไม่พบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบ → มีอยู่แล้ว/เพิ่มใหม่/พักงานค้าง)</span></div>
       <div id="scanReportList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⏳ งานค้าง — รอเพิ่ม Item เข้าระบบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ปิดอัตโนมัติเมื่อเพิ่มของที่ตรงกัน)</span></div>
+      <div id="pendingReqList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <div class="card">
@@ -1040,6 +1048,24 @@ textarea { resize: vertical; min-height: 70px; }
   </div>
 </div>
 
+<!-- PICK ITEM MANUALLY (scan flow) — user selects the correct item, which trains the AI -->
+<div class="modal-overlay" id="pickItemModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🔍 เลือก Item ที่ถูกต้อง</span>
+      <button class="modal-close" onclick="closeModal('pickItemModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:10px">
+        <span class="alert-icon">🧠</span>
+        <div>เลือกอุปกรณ์ที่ใช่จริง — ระบบจะ<b>จดจำรูปที่คุณถ่ายคู่กับ Item นี้</b> ครั้งหน้าถ่ายแบบเดียวกันจะเจอทันที</div>
+      </div>
+      <div class="search-bar"><input type="text" id="pickSearch" placeholder="พิมพ์รหัส (เช่น I-0050) หรือชื่ออุปกรณ์..." oninput="loadPickItems()"></div>
+      <div id="pickItemList" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <button id="scrollTopBtn" onclick="scrollPageTop()" title="ขึ้นบนสุด" aria-label="เลื่อนขึ้นบนสุด">↑</button>
 
@@ -1137,7 +1163,7 @@ async function doAdminGateLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
@@ -1384,7 +1410,7 @@ function switchTab(tab) {
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1429,13 +1455,33 @@ function compressImageDataUrl(dataUrl, maxDim = 1024, quality = 0.85) {
     img.src = dataUrl;
   });
 }
-function fileToCompressedDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => compressImageDataUrl(e.target.result).then(resolve);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+// Decode an uploaded file with EXIF orientation applied, so portrait/landscape/
+// rotated phone photos come out UPRIGHT before AI analysis (camera angle no
+// longer matters). Falls back to the plain reader on older browsers.
+async function fileToCompressedDataUrl(file, maxDim = 1024, quality = 0.85) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    let w = bmp.width, h = bmp.height;
+    if (!w || !h) throw new Error('no-size');
+    if (w > maxDim || h > maxDim) {
+      if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else { w = Math.round(w * maxDim / h); h = maxDim; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch (e) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => compressImageDataUrl(ev.target.result, maxDim, quality).then(resolve);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 }
 
 // Apply a finished image (data URL) to the scan/requisition flow
@@ -1747,9 +1793,9 @@ async function sendReport() {
   const btn = document.getElementById('btnSendReport');
   btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
   try {
-    await api('POST', '/api/scan-reports', { image_b64: selectedImage, note, reporter, top_guess: _lastTopGuess });
+    const r = await api('POST', '/api/scan-reports', { image_b64: selectedImage, note, reporter, top_guess: _lastTopGuess });
     closeModal('reportModal');
-    showToast('✅ แจ้ง Admin แล้ว รอตรวจสอบ — ขอบคุณครับ');
+    showToast(`✅ ส่งให้ Admin แล้ว (เลขที่แจ้ง #${r.id}) — Admin จะตรวจสอบว่าตรงกับ Item ใด หรือยังไม่มีในระบบ`);
   } catch {} finally { btn.disabled = false; btn.textContent = '📨 ส่งให้ Admin'; }
 }
 
@@ -1768,20 +1814,27 @@ async function loadScanReports() {
     el.innerHTML = reports.map(r => { _reportStore[r.id] = r; return renderReportCard(r); }).join('');
   } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
 }
-function renderReportCard(r) {
-  return `<div class="report-card" id="report-${r.id}">
+function renderReportCard(r, mode) {
+  const actions = mode === 'pending_new'
+    ? `<button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่ม Item นี้เข้าระบบ</button>
+       <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`
+    : `<button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว — ระบุเบอร์ (สอน AI)</button>
+       <button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่มของใหม่</button>
+       <button class="btn btn-warning btn-sm" onclick="reportPending(${r.id})">⏳ ยืนยันว่ายังไม่มี (พักงานค้าง)</button>
+       <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`;
+  return `<div class="report-card${mode === 'pending_new' ? ' low' : ''}" id="report-${r.id}" style="${mode === 'pending_new' ? 'border-left:4px solid var(--warning);background:#fffbeb' : ''}">
     <img class="report-thumb" src="${r.image_b64}" alt="">
     <div class="report-info">
-      <div style="font-size:12px;color:var(--sub)">👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)}</div>
+      <div style="font-size:12px;color:var(--sub)">#${r.id} · 👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)}</div>
       ${r.note ? `<div style="font-size:13px;margin-top:2px">📝 ${escHtml(r.note)}</div>` : ''}
       ${r.top_guess ? `<div style="font-size:11px;color:var(--sub);margin-top:2px">🤖 AI เดา: ${escHtml(r.top_guess)}</div>` : ''}
-      <div class="report-actions">
-        <button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่มของใหม่</button>
-        <button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว</button>
-        <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>
-      </div>
+      ${mode === 'pending_new' ? `<div style="font-size:11px;color:var(--warning);font-weight:700;margin-top:3px">⏳ งานค้าง — รอเพิ่ม Item (ระบบจะปิดให้เองเมื่อเพิ่มของที่ตรงกัน)</div>` : ''}
+      <div class="report-actions">${actions}</div>
     </div>
   </div>`;
+}
+function reportPending(id) {
+  resolveReport(id, 'pending_new');
 }
 function reportAddNew(id) {
   const r = _reportStore[id]; if (!r) return;
@@ -1822,6 +1875,48 @@ function confirmLink(itemId) {
   closeModal('linkItemModal');
   resolveReport(id, 'linked', itemId);
 }
+
+// ===== Manual item pick (scan flow): pick the correct item + train the AI =====
+let _pickStore = {};
+function openPickItem() {
+  if (!selectedImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
+  document.getElementById('pickSearch').value = '';
+  document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
+  openModal('pickItemModal');
+  loadPickItems();
+}
+async function loadPickItems() {
+  const el = document.getElementById('pickItemList');
+  const s = document.getElementById('pickSearch').value.trim();
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=40`);
+    const items = d.data || [];
+    _pickStore = {};
+    if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบอุปกรณ์</div>'; return; }
+    el.innerHTML = items.map(it => { _pickStore[it.id] = it; return `
+      <div class="link-item" onclick="choosePickItem(${it.id})">
+        <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+        <div style="min-width:0">
+          <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
+          <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
+        </div>
+      </div>`; }).join('');
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+function choosePickItem(id) {
+  const m = _pickStore[id]; if (!m) return;
+  _matchStore[id] = { ...m, confidence: null };  // let selectMatch render it
+  closeModal('pickItemModal');
+  selectMatch(id);                                // load into the requisition form
+  selectedFromScan = true;
+  // Train immediately: remember this photo ↔ this item.
+  if (selectedImage) {
+    api('POST', '/api/match/feedback', { image_b64: selectedImage, item_id: id })
+      .then(() => showToast(`🧠 จดจำแล้ว: รูปนี้ = ${m.part_code} — ครั้งหน้าจะแม่นขึ้น`))
+      .catch(() => {});
+  }
+}
 async function reportDismiss(id) {
   const ok = await showConfirm('🗑️', 'ปิดรายการแจ้งนี้?', 'จะไม่แสดงในคิวอีก', 'ปิดรายการ', 'gray');
   if (!ok) return;
@@ -1830,15 +1925,28 @@ async function reportDismiss(id) {
 async function resolveReport(id, status, item_id) {
   try {
     await api('POST', `/api/scan-reports/${id}/resolve`, { status, item_id }, true);
-    document.getElementById('report-' + id)?.remove();
-    delete _reportStore[id];
-    if (!Object.keys(_reportStore).length) {
-      const el = document.getElementById('scanReportList');
-      if (el) el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่มีรายการแจ้ง 🎉</div>';
-    }
     loadStats();
-    showToast(status === 'dismissed' ? '🗑️ ปิดรายการแล้ว' : '✅ ดำเนินการแล้ว — AI เรียนรู้เพิ่ม');
+    loadScanReports();
+    loadPendingRequests();
+    const msg = status === 'dismissed' ? '🗑️ ปิดรายการแล้ว'
+      : status === 'pending_new' ? '⏳ พักเป็นงานค้างแล้ว — ระบบจะปิดให้เองเมื่อเพิ่ม Item ที่ตรงกัน'
+      : '✅ ดำเนินการแล้ว — AI เรียนรู้เพิ่ม';
+    showToast(msg);
   } catch {}
+}
+// งานค้าง (Pending Requests): items Admin confirmed are not yet in the system.
+async function loadPendingRequests() {
+  const el = document.getElementById('pendingReqList');
+  if (!el) return;
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', '/api/scan-reports?status=pending_new', null, true);
+    const reports = d.data || [];
+    reports.forEach(r => { _reportStore[r.id] = r; });
+    el.innerHTML = reports.length
+      ? reports.map(r => renderReportCard(r, 'pending_new')).join('')
+      : '<div class="text-sub" style="padding:8px">ไม่มีงานค้าง 🎉</div>';
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
 }
 
 // ============================================================
@@ -1987,7 +2095,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');

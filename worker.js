@@ -372,9 +372,9 @@ export default {
       const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64 } = body;
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
 
-      let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null;
+      let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null, fp = null;
       if (image_b64) {
-        const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
+        fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
         if (fp) embeddingJson = JSON.stringify(fp);
         // Store the image (+thumbnail) in R2; fall back to inline D1 base64.
         if (env.BUCKET) {
@@ -394,13 +394,41 @@ export default {
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
                 stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson).run();
 
+        const newId = res.meta.last_row_id;
         if (stock_qty > 0) {
           await env.DB.prepare(`
             INSERT INTO stock_movements (item_id, movement, qty, balance, note, created_by)
             VALUES (?, 'in', ?, ?, 'ยอดเปิด', 'admin')
-          `).bind(res.meta.last_row_id, stock_qty, stock_qty).run();
+          `).bind(newId, stock_qty, stock_qty).run();
         }
-        return json({ ok: true, id: res.meta.last_row_id });
+
+        // Auto-close any pending "not-found" requests this new item satisfies:
+        // compare the new item's fingerprint to each งานค้าง report's fingerprint.
+        let closedRequests = 0;
+        if (fp && fp.vec) {
+          try {
+            const pend = await env.DB.prepare(
+              "SELECT id, labels, vec FROM scan_reports WHERE status='pending_new'"
+            ).all();
+            for (const p of pend.results || []) {
+              let labels = {}, vec = null;
+              try { labels = p.labels ? JSON.parse(p.labels) : {}; } catch {}
+              try { vec = p.vec ? JSON.parse(p.vec) : null; } catch {}
+              const score = fingerprintScore({ labels: fp.labels, vec: fp.vec }, { labels, vec });
+              if (score >= 0.72) {
+                await env.DB.prepare(
+                  "UPDATE scan_reports SET status='added', resolved_item_id=?, resolved_at=datetime('now','localtime') WHERE id=?"
+                ).bind(newId, p.id).run();
+                // also keep the reported photo as a training example
+                await env.DB.prepare(
+                  "INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)"
+                ).bind(newId, p.labels || '{}', p.vec || null, 'auto-closed pending request').run();
+                closedRequests++;
+              }
+            }
+          } catch (e) { console.error('auto-close pending error:', e); }
+        }
+        return json({ ok: true, id: newId, closed_requests: closedRequests });
       } catch (e) {
         if (e.message?.includes('UNIQUE')) return err('รหัสอุปกรณ์นี้มีในระบบแล้ว');
         throw e;
@@ -419,6 +447,16 @@ export default {
       const vals = [name, description, category_id, unit, min_stock];
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
+        // Keep the OLD main image's fingerprint as training data (the new photo
+        // becomes the main reference; the previous one still helps matching).
+        const prev = await env.DB.prepare('SELECT embedding, image_key, thumb_key FROM items WHERE id=?').bind(id).first();
+        if (prev?.embedding) {
+          try {
+            const pf = JSON.parse(prev.embedding);
+            await env.DB.prepare('INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)')
+              .bind(id, JSON.stringify(pf.labels || {}), pf.vec ? JSON.stringify(pf.vec) : null, (pf.caption || '') + ' [previous main image]').run();
+          } catch {}
+        }
         let imageKey = null, thumbKey = null, imageB64Store = null;
         if (env.BUCKET) {
           try {
@@ -428,9 +466,9 @@ export default {
         } else {
           imageB64Store = image_b64;
         }
-        // Delete the previous R2 objects so we don't leak orphans.
+        // Delete the previous R2 image bytes (the fingerprint is already kept as
+        // training data above, so the visual reference is preserved).
         if (imageKey && env.BUCKET) {
-          const prev = await env.DB.prepare('SELECT image_key, thumb_key FROM items WHERE id=?').bind(id).first();
           for (const k of [prev?.image_key, prev?.thumb_key]) if (k) { try { await env.BUCKET.delete(k); } catch {} }
         }
         sets.push('image_b64=?', 'image_key=?', 'thumb_key=?', 'embedding=?');
@@ -623,7 +661,7 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const id = reportMatch[1];
       const { status, item_id } = await request.json().catch(() => ({}));
-      if (!['added', 'linked', 'dismissed'].includes(status)) return err('status ไม่ถูกต้อง');
+      if (!['added', 'linked', 'dismissed', 'pending_new'].includes(status)) return err('status ไม่ถูกต้อง');
 
       const rep = await env.DB.prepare('SELECT labels, vec, caption FROM scan_reports WHERE id=?').bind(id).first();
       if (!rep) return err('ไม่พบรายการแจ้ง', 404);
@@ -820,6 +858,7 @@ export default {
         env.DB.prepare('SELECT COUNT(*) as n FROM match_examples').first().catch(() => ({ n: 0 })),
       ]);
       const reports = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending'").first().catch(() => ({ n: 0 }));
+      const pendingReq = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending_new'").first().catch(() => ({ n: 0 }));
       return json({
         ok: true,
         items: items?.n ?? 0,
@@ -828,6 +867,7 @@ export default {
         low_stock: lowStock?.n ?? 0,
         learned_examples: learned?.n ?? 0,
         open_reports: reports?.n ?? 0,
+        pending_requests: pendingReq?.n ?? 0,
         recent_movements: movements.results || [],
       });
     }
