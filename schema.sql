@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS items (
   image_b64    TEXT,              -- legacy inline base64 (new rows use image_key/R2)
   image_key    TEXT,              -- R2 object key (full image); served via /api/items/:id/image
   thumb_key    TEXT,              -- R2 object key (small thumbnail); served via /api/items/:id/thumb
+  phash        TEXT,              -- 64-bit dHash (hex) — deterministic visual fingerprint for matching
   embedding    TEXT,              -- JSON array of CLIP float32 vector
   is_active    INTEGER DEFAULT 1,
   created_at   TEXT DEFAULT (datetime('now','localtime')),

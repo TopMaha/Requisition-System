@@ -1433,6 +1433,32 @@ window.addEventListener('scroll', () => {
 function makeThumb(dataUrl) {
   return compressImageDataUrl(dataUrl, 256, 0.7);
 }
+// dHash: a 64-bit perceptual hash (16 hex chars) — a deterministic visual
+// fingerprint. Resize to 9x8 grayscale, compare horizontally adjacent pixels.
+// Must match the backfill script (sharp) in method.
+function computeDHash(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const W = 9, H = 8;
+        const c = document.createElement('canvas'); c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, W, H);
+        const d = ctx.getImageData(0, 0, W, H).data;
+        const g = [];
+        for (let i = 0; i < W * H; i++) g.push(0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2]);
+        let bits = '';
+        for (let y = 0; y < H; y++) for (let x = 0; x < W - 1; x++) bits += g[y*W+x] > g[y*W+x+1] ? '1' : '0';
+        let hex = '';
+        for (let i = 0; i < 64; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
+        resolve(hex);
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
 function compressImageDataUrl(dataUrl, maxDim = 1024, quality = 0.85) {
   return new Promise(resolve => {
     const img = new Image();
@@ -1606,7 +1632,8 @@ async function doMatch() {
   document.getElementById('matchSection').style.display = 'none';
   document.getElementById('scanEmpty').style.display = 'none';
   try {
-    const data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5 });
+    const phash = await computeDHash(selectedImage);
+    const data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5, phash });
     const matches = data.matches || [];
     if (!matches.length) {
       // No match — still show the section so the user can report it to Admin.
@@ -2175,8 +2202,9 @@ async function addItem() {
   const btn = document.getElementById('btnAddItem');
   btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
   try {
-    // Generate a small thumbnail for fast list loading.
+    // Generate a small thumbnail + visual hash for fast/accurate matching.
     const thumb_b64 = hasImg ? await makeThumb(image_b64) : null;
+    const phash = hasImg ? await computeDHash(image_b64) : null;
     const resp = await api('POST', '/api/items', {
       part_code, name,
       description: document.getElementById('newDesc').value.trim(),
@@ -2185,7 +2213,7 @@ async function addItem() {
       stock_qty: parseFloat(document.getElementById('newStock').value) || 0,
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
       image_b64: hasImg ? image_b64 : null,
-      thumb_b64,
+      thumb_b64, phash,
     }, true);
     // If this item was created from a user report, mark the report resolved.
     if (_reportContext && resp && resp.id) {
@@ -2309,13 +2337,14 @@ async function confirmEditItem() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
     const editThumb = editImageB64 ? await makeThumb(editImageB64) : null;
+    const editPhash = editImageB64 ? await computeDHash(editImageB64) : null;
     await api('PUT', `/api/items/${id}`, {
       part_code, name,
       category_id: document.getElementById('editCategory').value || null,
       unit: document.getElementById('editUnit').value.trim() || 'ชิ้น',
       min_stock: parseFloat(document.getElementById('editMinStock').value) || 0,
       description: document.getElementById('editDesc').value.trim(),
-      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb } : {}),
+      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb, phash: editPhash } : {}),
     }, true);
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');

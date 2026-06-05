@@ -194,6 +194,26 @@ function cosineDense(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
+// Perceptual-hash (dHash) similarity: a deterministic VISUAL signal that
+// complements the caption embedding. Both hashes are 16 hex chars (64 bits),
+// computed identically on the client (canvas) and the backfill script (sharp).
+// Returns 0..1 where ~0.5 is random and 1.0 is an identical layout; rescaled so
+// only the discriminative range above chance contributes.
+function phashScore(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dist = 0;
+  for (let i = 0; i < a.length; i++) {
+    let x = (parseInt(a[i], 16) ^ parseInt(b[i], 16)) & 0xf;
+    while (x) { dist += x & 1; x >>= 1; }
+  }
+  const sim = 1 - dist / (a.length * 4);
+  return Math.max(0, (sim - 0.5) * 2);
+}
+// pHash is added as a BONUS (never a penalty): a strong visual match lifts the
+// score; a weak one contributes nothing. This avoids hurting items whose stored
+// product-shot hash differs from a real-world query photo.
+const PHASH_BONUS = 0.35;
+
 // Build the combined fingerprint for one image: resnet label vector + caption +
 // dense embedding. Stored as JSON in the items.embedding column.
 // `extraText` (the item's name + description) is appended to the caption before
@@ -369,7 +389,7 @@ export default {
     if (path === '/api/items' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const body = await request.json();
-      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64 } = body;
+      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64, phash } = body;
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
 
       let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null, fp = null;
@@ -389,10 +409,10 @@ export default {
 
       try {
         const res = await env.DB.prepare(`
-          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding, phash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson, phash || null).run();
 
         const newId = res.meta.last_row_id;
         if (stock_qty > 0) {
@@ -441,10 +461,11 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const id = itemEditMatch[1];
       const body = await request.json();
-      const { name, description, category_id, unit, min_stock, image_b64, thumb_b64 } = body;
+      const { name, description, category_id, unit, min_stock, image_b64, thumb_b64, phash } = body;
 
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
+      if (image_b64 && phash) { sets.push('phash=?'); vals.push(phash); }
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
         // Keep the OLD main image's fingerprint as training data (the new photo
@@ -511,30 +532,42 @@ export default {
       return json({ ok: true, semantic: !!fp.vec, caption: fp.caption });
     }
 
+    // ── Items: set pHash (backfill from a driver script computing it w/ sharp) ──
+    const itemPhashMatch = path.match(/^\/api\/items\/(\d+)\/phash$/);
+    if (itemPhashMatch && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { phash } = await request.json().catch(() => ({}));
+      if (!phash) return err('phash จำเป็น');
+      await env.DB.prepare('UPDATE items SET phash=? WHERE id=?').bind(phash, itemPhashMatch[1]).run();
+      return json({ ok: true });
+    }
+
     // ── AI Image Match ───────────────────────────────────────
     if (path === '/api/match' && method === 'POST') {
       const body = await request.json();
-      const { image_b64, top_k = 5 } = body;
+      const { image_b64, top_k = 5, phash: queryPhash } = body;
       if (!image_b64) return err('image_b64 จำเป็น');
 
       // Fingerprint the query photo (visual + semantic), then ensemble-match.
       const queryFp = await buildFingerprint(env, image_b64);
       if (!queryFp) return err('ไม่สามารถวิเคราะห์รูปได้ — ตรวจสอบ Workers AI binding', 502);
 
-      // Scan only id + embedding (small) for scoring — NOT the heavy base64
-      // images. Pulling every item's image into the Worker just to score them
-      // wastes memory/payload; we fetch images only for the final winners below.
+      // Scan only id + embedding + phash (small) for scoring — NOT the heavy
+      // base64 images; we fetch images only for the final winners below.
       const rows = await env.DB.prepare(
-        `SELECT id, embedding FROM items WHERE is_active=1 AND embedding IS NOT NULL`
+        `SELECT id, embedding, phash FROM items WHERE is_active=1 AND embedding IS NOT NULL`
       ).all();
       const items = rows.results || [];
       if (!items.length) {
         return json({ ok: true, matches: [], message: 'ยังไม่มีอุปกรณ์ที่ทำดัชนี AI แล้ว — กดปุ่มทำดัชนีในหน้าแอดมิน' });
       }
 
-      // Base score: similarity to each item's canonical (admin) photo.
+      // Base score: caption ensemble, blended with the deterministic pHash
+      // visual signal when both the query and the item have a pHash.
       const scored = items.map(it => {
-        return { id: it.id, score: fingerprintScore(queryFp, parseFingerprint(it.embedding)), learned: false };
+        let s = fingerprintScore(queryFp, parseFingerprint(it.embedding));
+        if (queryPhash && it.phash) s += PHASH_BONUS * phashScore(queryPhash, it.phash);
+        return { id: it.id, score: s, learned: false };
       });
 
       // ===== Machine-learning boost (online k-NN over confirmed photos) =====
@@ -585,7 +618,7 @@ export default {
           min_stock: d.min_stock,
           image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
           thumb_url: d.has_image ? `/api/items/${t.id}/thumb?v=${encodeURIComponent(d.updated_at || '')}` : null,
-          confidence: Math.round(t.score * 100),
+          confidence: Math.min(100, Math.round(t.score * 100)),
           learned: t.learned,
         };
       });
