@@ -545,7 +545,10 @@ export default {
     // ── AI Image Match ───────────────────────────────────────
     if (path === '/api/match' && method === 'POST') {
       const body = await request.json();
-      const { image_b64, top_k = 5, phash: queryPhash } = body;
+      const { image_b64, top_k = 5 } = body;
+      // Accept one hash (phash) or several (phashes: full + centre-crop, etc.).
+      const queryHashes = Array.isArray(body.phashes) ? body.phashes.filter(Boolean)
+        : (body.phash ? [body.phash] : []);
       if (!image_b64) return err('image_b64 จำเป็น');
 
       // Fingerprint the query photo (visual + semantic), then ensemble-match.
@@ -566,7 +569,11 @@ export default {
       // visual signal when both the query and the item have a pHash.
       const scored = items.map(it => {
         let s = fingerprintScore(queryFp, parseFingerprint(it.embedding));
-        if (queryPhash && it.phash) s += PHASH_BONUS * phashScore(queryPhash, it.phash);
+        if (queryHashes.length && it.phash) {
+          let best = 0;
+          for (const qh of queryHashes) { const v = phashScore(qh, it.phash); if (v > best) best = v; }
+          s += PHASH_BONUS * best;
+        }
         return { id: it.id, score: s, learned: false };
       });
 
