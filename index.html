@@ -1493,6 +1493,43 @@ window.addEventListener('scroll', () => {
 function makeThumb(dataUrl) {
   return compressImageDataUrl(dataUrl, 256, 0.7);
 }
+// Augmentation (FREE engine): from ONE photo, render variants (crop / brightness
+// / contrast / mild rotation) and hash each, so a real-world scan at a different
+// angle/lighting still matches one of them — all client-side, no API, no cost.
+function _loadImg(dataUrl) {
+  return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
+}
+function _renderVariant(img, { rotate = 0, brightness = 1, contrast = 1, crop = 1, size = 256 }) {
+  const c = document.createElement('canvas'); c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const s = Math.min(iw, ih) * crop, sx = (iw - s) / 2, sy = (ih - s) / 2;
+  ctx.save();
+  ctx.translate(size / 2, size / 2);
+  if (rotate) ctx.rotate(rotate * Math.PI / 180);
+  if (brightness !== 1 || contrast !== 1) ctx.filter = `brightness(${brightness}) contrast(${contrast})`;
+  ctx.drawImage(img, sx, sy, s, s, -size / 2, -size / 2, size, size);
+  ctx.restore();
+  return c.toDataURL('image/jpeg', 0.85);
+}
+async function augmentHashes(dataUrl) {
+  const img = await _loadImg(dataUrl);
+  if (!img) { const h = await computeDHash(dataUrl, 1); return h ? [h] : []; }
+  // dHash is invariant to brightness/contrast, so we augment GEOMETRY only
+  // (crop + rotation) — the transforms that actually change the hash.
+  const variants = [
+    { crop: 1 }, { crop: 0.9 }, { crop: 0.8 }, { crop: 0.7 },
+    { rotate: 8, crop: 0.85 }, { rotate: -8, crop: 0.85 },
+    { rotate: 15, crop: 0.75 }, { rotate: -15, crop: 0.75 },
+    { rotate: 22, crop: 0.68 }, { rotate: -22, crop: 0.68 },
+  ];
+  const hashes = [];
+  for (const v of variants) {
+    try { const h = await computeDHash(_renderVariant(img, v), 1); if (h && !hashes.includes(h)) hashes.push(h); } catch {}
+  }
+  return hashes;
+}
 // preprocessImage: centre-crop to a square (short side) + resize to `size`.
 // SAME preprocessing for enroll and query (must match the sharp driver) so the
 // Jina embedding sees the object framed identically — background trimmed out.
@@ -1723,8 +1760,9 @@ async function doMatch() {
       const q = await preprocessImage(selectedImage, 512);
       data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
     } else {
-      // Legacy path: full image + pHash (full + centre-crop) signals.
-      const phashes = (await Promise.all([computeDHash(selectedImage, 1), computeDHash(selectedImage, 0.7)])).filter(Boolean);
+      // Legacy path: full image + AUGMENTED query hashes (crops + counter-
+      // rotations) so a tilted scan still aligns with one of the item's hashes.
+      const phashes = await augmentHashes(selectedImage);
       data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5, phashes });
     }
     const matches = data.matches || [];
@@ -2295,9 +2333,9 @@ async function addItem() {
   const btn = document.getElementById('btnAddItem');
   btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
   try {
-    // Generate a small thumbnail + visual hash for fast/accurate matching.
+    // Thumbnail + augmented visual hashes (many angles/lighting from 1 photo).
     const thumb_b64 = hasImg ? await makeThumb(image_b64) : null;
-    const phash = hasImg ? await computeDHash(image_b64) : null;
+    const phashes = hasImg ? await augmentHashes(image_b64) : null;
     const resp = await api('POST', '/api/items', {
       part_code, name,
       description: document.getElementById('newDesc').value.trim(),
@@ -2306,7 +2344,7 @@ async function addItem() {
       stock_qty: parseFloat(document.getElementById('newStock').value) || 0,
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
       image_b64: hasImg ? image_b64 : null,
-      thumb_b64, phash,
+      thumb_b64, phashes,
     }, true);
     // Enroll the new item into Jina (image embedding) so it's matchable there.
     if (resp && resp.id && hasImg) enrollJina(resp.id, image_b64, 'enroll', 'original');
@@ -2432,14 +2470,14 @@ async function confirmEditItem() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
     const editThumb = editImageB64 ? await makeThumb(editImageB64) : null;
-    const editPhash = editImageB64 ? await computeDHash(editImageB64) : null;
+    const editPhashes = editImageB64 ? await augmentHashes(editImageB64) : null;
     await api('PUT', `/api/items/${id}`, {
       part_code, name,
       category_id: document.getElementById('editCategory').value || null,
       unit: document.getElementById('editUnit').value.trim() || 'ชิ้น',
       min_stock: parseFloat(document.getElementById('editMinStock').value) || 0,
       description: document.getElementById('editDesc').value.trim(),
-      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb, phash: editPhash } : {}),
+      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb, phashes: editPhashes } : {}),
     }, true);
     // New main image → enroll into Jina as well.
     if (editImageB64) enrollJina(id, editImageB64, 'enroll', 'updated');

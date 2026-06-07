@@ -212,7 +212,23 @@ function phashScore(a, b) {
 // pHash is added as a BONUS (never a penalty): a strong visual match lifts the
 // score; a weak one contributes nothing. This avoids hurting items whose stored
 // product-shot hash differs from a real-world query photo.
-const PHASH_BONUS = 0.35;
+const PHASH_BONUS = 0.4;
+
+// items.phash may hold one hash (legacy) or a JSON array of augmented hashes
+// (rotations/brightness/crops). Always return an array.
+function parsePhashes(raw) {
+  if (!raw) return [];
+  if (raw[0] === '[') { try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter(Boolean) : []; } catch { return []; } }
+  return [raw];
+}
+// Best pHash bonus between any query hash and any of the item's stored hashes.
+function bestPhash(queryHashes, itemHashes) {
+  let best = 0;
+  for (const qh of queryHashes) for (const ih of itemHashes) {
+    const v = phashScore(qh, ih); if (v > best) best = v;
+  }
+  return best;
+}
 
 // ===== Jina CLIP v2 — a true IMAGE embedding (image→vector, multimodal) =====
 // Replaces the lossy caption→text-embedding path when the 'jina' engine is on.
@@ -416,8 +432,9 @@ export default {
     if (path === '/api/items' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const body = await request.json();
-      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64, phash } = body;
+      const { part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, thumb_b64, phash, phashes } = body;
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
+      const phashStore = Array.isArray(phashes) && phashes.length ? JSON.stringify(phashes) : (phash || null);
 
       let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null, fp = null;
       if (image_b64) {
@@ -439,7 +456,7 @@ export default {
           INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding, phash)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson, phash || null).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson, phashStore).run();
 
         const newId = res.meta.last_row_id;
         if (stock_qty > 0) {
@@ -488,11 +505,12 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const id = itemEditMatch[1];
       const body = await request.json();
-      const { name, description, category_id, unit, min_stock, image_b64, thumb_b64, phash } = body;
+      const { name, description, category_id, unit, min_stock, image_b64, thumb_b64, phash, phashes } = body;
 
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
-      if (image_b64 && phash) { sets.push('phash=?'); vals.push(phash); }
+      const editPhashStore = Array.isArray(phashes) && phashes.length ? JSON.stringify(phashes) : phash;
+      if (image_b64 && editPhashStore) { sets.push('phash=?'); vals.push(editPhashStore); }
       if (image_b64) {
         const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
         // Keep the OLD main image's fingerprint as training data (the new photo
@@ -563,10 +581,11 @@ export default {
     const itemPhashMatch = path.match(/^\/api\/items\/(\d+)\/phash$/);
     if (itemPhashMatch && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      const { phash } = await request.json().catch(() => ({}));
-      if (!phash) return err('phash จำเป็น');
-      await env.DB.prepare('UPDATE items SET phash=? WHERE id=?').bind(phash, itemPhashMatch[1]).run();
-      return json({ ok: true });
+      const { phash, phashes } = await request.json().catch(() => ({}));
+      const store = Array.isArray(phashes) && phashes.length ? JSON.stringify(phashes) : phash;
+      if (!store) return err('phash หรือ phashes จำเป็น');
+      await env.DB.prepare('UPDATE items SET phash=? WHERE id=?').bind(store, itemPhashMatch[1]).run();
+      return json({ ok: true, count: Array.isArray(phashes) ? phashes.length : 1 });
     }
 
     // ── Settings (k/v, e.g. match_engine) ────────────────────
@@ -687,9 +706,7 @@ export default {
       const scored = items.map(it => {
         let s = fingerprintScore(queryFp, parseFingerprint(it.embedding));
         if (queryHashes.length && it.phash) {
-          let best = 0;
-          for (const qh of queryHashes) { const v = phashScore(qh, it.phash); if (v > best) best = v; }
-          s += PHASH_BONUS * best;
+          s += PHASH_BONUS * bestPhash(queryHashes, parsePhashes(it.phash));
         }
         return { id: it.id, score: s, learned: false };
       });
