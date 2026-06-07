@@ -115,6 +115,20 @@ CREATE TABLE IF NOT EXISTS scan_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_scan_reports_status ON scan_reports(status);
 
+-- ตารางเวกเตอร์ภาพ (Jina CLIP v2) — 1 item มีได้หลาย vector (enroll/augment/feedback)
+CREATE TABLE IF NOT EXISTS item_vectors (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id    INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  vec        TEXT NOT NULL,        -- JSON 1024-float Jina CLIP v2 embedding
+  source     TEXT DEFAULT 'enroll',-- enroll | augment | feedback
+  variant    TEXT,                 -- original | rotate+10 | brightness0.8 | ...
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_item_vectors_item ON item_vectors(item_id);
+
+-- ตารางตั้งค่าระบบ (key-value) — เก็บ flag เช่น match_engine = legacy | jina
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+
 -- seed categories
 INSERT OR IGNORE INTO categories (name) VALUES
   ('ชิ้นส่วนเครื่องจักร'),

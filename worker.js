@@ -214,6 +214,33 @@ function phashScore(a, b) {
 // product-shot hash differs from a real-world query photo.
 const PHASH_BONUS = 0.35;
 
+// ===== Jina CLIP v2 — a true IMAGE embedding (image→vector, multimodal) =====
+// Replaces the lossy caption→text-embedding path when the 'jina' engine is on.
+// Embeds a list of inputs, e.g. [{image: dataUrl}] or [{text: '...'}].
+// Returns an array of 1024-float vectors (nulls where an input failed).
+const JINA_MODEL = 'jina-clip-v2';
+async function jinaEmbed(env, inputs) {
+  if (!env.JINA_API_KEY) throw new Error('JINA_API_KEY not set');
+  const r = await fetch('https://api.jina.ai/v1/embeddings', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + env.JINA_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: JINA_MODEL, input: inputs }),
+  });
+  if (!r.ok) throw new Error('Jina ' + r.status + ': ' + (await r.text()).slice(0, 120));
+  const data = await r.json();
+  const out = new Array(inputs.length).fill(null);
+  for (const d of data.data || []) out[d.index] = d.embedding;
+  return out;
+}
+
+// Simple settings k/v (e.g. match_engine = 'legacy' | 'jina').
+async function getSetting(env, key, fallback) {
+  try {
+    const row = await env.DB.prepare('SELECT value FROM settings WHERE key=?').bind(key).first();
+    return row ? row.value : fallback;
+  } catch { return fallback; }
+}
+
 // Build the combined fingerprint for one image: resnet label vector + caption +
 // dense embedding. Stored as JSON in the items.embedding column.
 // `extraText` (the item's name + description) is appended to the caption before
@@ -542,6 +569,56 @@ export default {
       return json({ ok: true });
     }
 
+    // ── Settings (k/v, e.g. match_engine) ────────────────────
+    if (path === '/api/settings' && method === 'GET') {
+      const rows = await env.DB.prepare('SELECT key, value FROM settings').all();
+      const map = {};
+      for (const r of rows.results || []) map[r.key] = r.value;
+      if (!('match_engine' in map)) map.match_engine = 'legacy';
+      map.jina_ready = !!env.JINA_API_KEY;
+      return json({ ok: true, settings: map });
+    }
+    if (path === '/api/settings' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { key, value } = await request.json().catch(() => ({}));
+      if (!key) return err('key จำเป็น');
+      await env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
+        .bind(key, String(value)).run();
+      return json({ ok: true });
+    }
+
+    // ── Jina: embed an image and store it as a vector for an item ──
+    // Driver/feedback calls this with a (client/sharp-)preprocessed image.
+    if (path === '/api/jina/embed-store' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { item_id, image_b64, source, variant } = await request.json().catch(() => ({}));
+      if (!item_id || !image_b64) return err('item_id และ image_b64 จำเป็น');
+      let vec;
+      try { vec = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; }
+      catch (e) { return err('Jina embed ล้มเหลว: ' + e.message, 502); }
+      if (!vec) return err('Jina ไม่คืนเวกเตอร์', 502);
+      await env.DB.prepare('INSERT INTO item_vectors (item_id, vec, source, variant) VALUES (?, ?, ?, ?)')
+        .bind(item_id, JSON.stringify(vec), source || 'enroll', variant || 'original').run();
+      return json({ ok: true, dims: vec.length });
+    }
+
+    // ── Jina: list active items that still have NO vector (for gap-fill) ──
+    if (path === '/api/jina/missing' && method === 'GET') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const rows = await env.DB.prepare(
+        'SELECT id FROM items WHERE is_active=1 AND id NOT IN (SELECT DISTINCT item_id FROM item_vectors)'
+      ).all();
+      return json({ ok: true, ids: (rows.results || []).map(r => r.id) });
+    }
+
+    // ── Jina: count vectors per item (for the enroll/eval dashboards) ──
+    if (path === '/api/jina/stats' && method === 'GET') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const tot = await env.DB.prepare('SELECT COUNT(*) n, COUNT(DISTINCT item_id) items FROM item_vectors').first();
+      const bySource = await env.DB.prepare('SELECT source, COUNT(*) n FROM item_vectors GROUP BY source').all();
+      return json({ ok: true, total: tot?.n || 0, items_with_vectors: tot?.items || 0, by_source: bySource.results || [] });
+    }
+
     // ── AI Image Match ───────────────────────────────────────
     if (path === '/api/match' && method === 'POST') {
       const body = await request.json();
@@ -550,6 +627,46 @@ export default {
       const queryHashes = Array.isArray(body.phashes) ? body.phashes.filter(Boolean)
         : (body.phash ? [body.phash] : []);
       if (!image_b64) return err('image_b64 จำเป็น');
+
+      // Engine selection: 'jina' (true image embedding) or 'legacy' (caption
+      // ensemble). body.engine overrides the saved setting (for A/B testing).
+      const engine = body.engine || await getSetting(env, 'match_engine', 'legacy');
+      if (engine === 'jina' && env.JINA_API_KEY) {
+        let qvec;
+        try { qvec = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; }
+        catch (e) { return err('Jina embed ล้มเหลว: ' + e.message, 502); }
+        if (!qvec) return err('Jina ไม่คืนเวกเตอร์', 502);
+        // Score each Item = MAX cosine over all its vectors (enroll/augment/feedback).
+        const vrows = await env.DB.prepare('SELECT item_id, vec FROM item_vectors').all();
+        const bestByItem = {};
+        for (const r of vrows.results || []) {
+          let v = null; try { v = JSON.parse(r.vec); } catch {}
+          if (!v) continue;
+          const s = cosineDense(qvec, v);
+          if (bestByItem[r.item_id] == null || s > bestByItem[r.item_id]) bestByItem[r.item_id] = s;
+        }
+        const ranked = Object.entries(bestByItem)
+          .map(([id, score]) => ({ id: +id, score })).sort((a, b) => b.score - a.score).slice(0, top_k);
+        if (!ranked.length) return json({ ok: true, matches: [], engine: 'jina', message: 'ยังไม่มีเวกเตอร์ Jina — กดลงทะเบียนในหน้าแอดมิน' });
+        const ids = ranked.map(t => t.id);
+        const ph = ids.map(() => '?').join(',');
+        const detail = await env.DB.prepare(
+          `SELECT id, part_code, name, description, unit, stock_qty, min_stock, updated_at,
+                  (image_b64 IS NOT NULL OR image_key IS NOT NULL) AS has_image FROM items WHERE id IN (${ph}) AND is_active=1`
+        ).bind(...ids).all();
+        const byId = {}; for (const d of detail.results || []) byId[d.id] = d;
+        const matches = ranked.filter(t => byId[t.id]).map(t => {
+          const d = byId[t.id];
+          return {
+            id: t.id, part_code: d.part_code, name: d.name, description: d.description,
+            unit: d.unit, stock_qty: d.stock_qty, min_stock: d.min_stock,
+            image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
+            thumb_url: d.has_image ? `/api/items/${t.id}/thumb?v=${encodeURIComponent(d.updated_at || '')}` : null,
+            confidence: Math.min(100, Math.round(t.score * 100)),
+          };
+        });
+        return json({ ok: true, engine: 'jina', matches });
+      }
 
       // Fingerprint the query photo (visual + semantic), then ensemble-match.
       const queryFp = await buildFingerprint(env, image_b64);
@@ -638,10 +755,25 @@ export default {
     // requisition submit). Stores the photo's fingerprint as an extra reference
     // for that item so future matches improve. Capped per item to stay bounded.
     if (path === '/api/match/feedback' && method === 'POST') {
-      const { image_b64, item_id } = await request.json().catch(() => ({}));
+      const { image_b64, item_id, engine } = await request.json().catch(() => ({}));
       if (!image_b64 || !item_id) return err('image_b64 และ item_id จำเป็น');
       const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1').bind(item_id).first();
       if (!item) return err('ไม่พบอุปกรณ์', 404);
+
+      // Jina engine: store the confirmed photo as a Jina vector (fast, no VLM).
+      if (engine === 'jina' && env.JINA_API_KEY) {
+        let v = null;
+        try { v = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; } catch (e) { return err('Jina embed ล้มเหลว', 502); }
+        if (!v) return err('Jina ไม่คืนเวกเตอร์', 502);
+        await env.DB.prepare('INSERT INTO item_vectors (item_id, vec, source, variant) VALUES (?, ?, ?, ?)')
+          .bind(item_id, JSON.stringify(v), 'feedback', 'scan').run();
+        // cap feedback vectors per item to keep match-time bounded
+        await env.DB.prepare(
+          `DELETE FROM item_vectors WHERE item_id=? AND source='feedback' AND id NOT IN (
+             SELECT id FROM item_vectors WHERE item_id=? AND source='feedback' ORDER BY id DESC LIMIT 30)`
+        ).bind(item_id, item_id).run();
+        return json({ ok: true, learned: true, engine: 'jina' });
+      }
 
       const fp = await buildFingerprint(env, image_b64);
       if (!fp) return err('วิเคราะห์รูปไม่สำเร็จ', 502);

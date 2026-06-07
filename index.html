@@ -680,6 +680,11 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="stat-card" style="background:#ede9fe"><div class="stat-num" id="statLearned" style="color:#7c3aed">—</div><div class="stat-label">🧠 AI เรียนรู้ (ครั้ง)</div></div>
     </div>
 
+    <div class="card" id="aiEngineCard">
+      <div class="card-title">⚙️ เครื่องมือค้นหาด้วยรูป (AI Engine)</div>
+      <div id="engineBox"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
     <div class="card">
       <div class="card-title">➕ เพิ่มอุปกรณ์/อะไหล่ใหม่</div>
       <div class="row">
@@ -1091,6 +1096,60 @@ let employees = [];
 let machines = [];
 let _confirmResolve = null;
 let currentUser = null;       // { code, name, isAdmin }
+let MATCH_ENGINE = 'legacy';  // 'legacy' (caption ensemble) | 'jina' (image embedding)
+let JINA_READY = false;       // true when the server has a Jina API key
+async function loadEngineSetting() {
+  try {
+    const d = await api('GET', '/api/settings');
+    MATCH_ENGINE = (d.settings && d.settings.match_engine) || 'legacy';
+    JINA_READY = !!(d.settings && d.settings.jina_ready);
+  } catch {}
+}
+// Enroll an item's image as a Jina vector (admin context: add/edit item).
+async function enrollJina(itemId, dataUrl, source = 'enroll', variant = 'original') {
+  if (!JINA_READY || !itemId || !dataUrl) return;
+  try {
+    const img = await preprocessImage(dataUrl, 512);
+    await api('POST', '/api/jina/embed-store', { item_id: itemId, image_b64: img, source, variant }, true);
+  } catch {}
+}
+// Admin: show & toggle the active match engine (legacy ↔ jina).
+async function renderEngineCard() {
+  const el = document.getElementById('engineBox');
+  if (!el) return;
+  await loadEngineSetting();
+  let vecInfo = '';
+  try { const s = await api('GET', '/api/jina/stats', null, true); vecInfo = `${s.items_with_vectors} ชิ้น · ${s.total} เวกเตอร์`; } catch {}
+  const jinaOn = MATCH_ENGINE === 'jina';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:170px">
+        <div style="font-weight:700">ใช้งานอยู่: ${jinaOn ? '🚀 Jina CLIP (image embedding)' : '🧩 Legacy (caption + pHash)'}</div>
+        <div class="text-sub">${JINA_READY ? '✅ Jina พร้อมใช้' : '⚠️ ยังไม่ได้ตั้ง API key'}${vecInfo ? ' · ' + vecInfo : ''}</div>
+      </div>
+      <button class="btn ${jinaOn ? 'btn-gray' : 'btn-primary'} btn-sm" ${!JINA_READY ? 'disabled' : ''}
+        onclick="setMatchEngine('${jinaOn ? 'legacy' : 'jina'}')">
+        ${jinaOn ? '↩ สลับไป Legacy' : '🚀 เปิดใช้ Jina'}
+      </button>
+    </div>
+    <div class="text-sub" style="margin-top:8px">Jina = แม่นกว่า โดยเฉพาะของหน้าตาคล้ายกัน (ทดสอบ 10/10) · Legacy = ไม่พึ่ง API ภายนอก</div>`;
+}
+async function setMatchEngine(engine) {
+  try {
+    await api('POST', '/api/settings', { key: 'match_engine', value: engine }, true);
+    MATCH_ENGINE = engine;
+    showToast(engine === 'jina' ? '🚀 เปิดใช้ Jina แล้ว' : '↩ กลับไป Legacy แล้ว');
+    renderEngineCard();
+  } catch {}
+}
+// Train (online learning): remember this scanned photo ↔ item, on the active engine.
+async function trainItem(itemId) {
+  if (!selectedImage || !itemId) return;
+  const jina = MATCH_ENGINE === 'jina' && JINA_READY;
+  const body = { item_id: itemId, engine: jina ? 'jina' : 'legacy' };
+  body.image_b64 = jina ? await preprocessImage(selectedImage, 512) : selectedImage;
+  try { return await api('POST', '/api/match/feedback', body); } catch {}
+}
 let _lastTopGuess = '';       // best AI guess from last scan (context for reports)
 let _reportStore = {};        // id -> report (admin queue)
 let _reportContext = null;    // { id } when admin is adding an item from a report
@@ -1108,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   loadCategories();
   loadMasterData();
+  loadEngineSetting();
   const lastEmp = localStorage.getItem('req_last_emp_code');
   const lastReq = localStorage.getItem('req_last_requester');
   const lastMachine = localStorage.getItem('req_last_machine');
@@ -1163,7 +1223,7 @@ async function doAdminGateLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
@@ -1410,7 +1470,7 @@ function switchTab(tab) {
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1432,6 +1492,27 @@ window.addEventListener('scroll', () => {
 // Small thumbnail (~256px) for fast list/grid loading.
 function makeThumb(dataUrl) {
   return compressImageDataUrl(dataUrl, 256, 0.7);
+}
+// preprocessImage: centre-crop to a square (short side) + resize to `size`.
+// SAME preprocessing for enroll and query (must match the sharp driver) so the
+// Jina embedding sees the object framed identically — background trimmed out.
+function preprocessImage(dataUrl, size = 512, quality = 0.85) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        const s = Math.min(iw, ih), sx = (iw - s) / 2, sy = (ih - s) / 2;
+        const c = document.createElement('canvas'); c.width = size; c.height = size;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        resolve(c.toDataURL('image/jpeg', quality));
+      } catch { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 // dHash: a 64-bit perceptual hash (16 hex chars) — a deterministic visual
 // fingerprint. Resize to 9x8 grayscale, compare horizontally adjacent pixels.
@@ -1636,9 +1717,16 @@ async function doMatch() {
   document.getElementById('matchSection').style.display = 'none';
   document.getElementById('scanEmpty').style.display = 'none';
   try {
-    // full hash + a centre-crop hash (cuts background) — server takes the best.
-    const phashes = (await Promise.all([computeDHash(selectedImage, 1), computeDHash(selectedImage, 0.7)])).filter(Boolean);
-    const data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5, phashes });
+    let data;
+    if (MATCH_ENGINE === 'jina' && JINA_READY) {
+      // Jina path: send the SAME square-cropped image used at enroll time.
+      const q = await preprocessImage(selectedImage, 512);
+      data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
+    } else {
+      // Legacy path: full image + pHash (full + centre-crop) signals.
+      const phashes = (await Promise.all([computeDHash(selectedImage, 1), computeDHash(selectedImage, 0.7)])).filter(Boolean);
+      data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5, phashes });
+    }
     const matches = data.matches || [];
     if (!matches.length) {
       // No match — still show the section so the user can report it to Admin.
@@ -1800,7 +1888,7 @@ async function submitRequisition() {
     // 🧠 Machine learning: teach the system that this scanned photo = this item.
     // Fire-and-forget so it never blocks or breaks the requisition flow.
     if (selectedImage && selectedItemId && selectedFromScan) {
-      api('POST', '/api/match/feedback', { image_b64: selectedImage, item_id: selectedItemId })
+      trainItem(selectedItemId)
         .then(() => showToast('🧠 ระบบจดจำรูปนี้แล้ว — ครั้งหน้าจะแม่นขึ้น'))
         .catch(() => {});
     }
@@ -1944,7 +2032,7 @@ function choosePickItem(id) {
   selectedFromScan = true;
   // Train immediately: remember this photo ↔ this item.
   if (selectedImage) {
-    api('POST', '/api/match/feedback', { image_b64: selectedImage, item_id: id })
+    trainItem(id)
       .then(() => showToast(`🧠 จดจำแล้ว: รูปนี้ = ${m.part_code} — ครั้งหน้าจะแม่นขึ้น`))
       .catch(() => {});
   }
@@ -2127,7 +2215,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
@@ -2220,6 +2308,8 @@ async function addItem() {
       image_b64: hasImg ? image_b64 : null,
       thumb_b64, phash,
     }, true);
+    // Enroll the new item into Jina (image embedding) so it's matchable there.
+    if (resp && resp.id && hasImg) enrollJina(resp.id, image_b64, 'enroll', 'original');
     // If this item was created from a user report, mark the report resolved.
     if (_reportContext && resp && resp.id) {
       resolveReport(_reportContext.id, 'added', resp.id);
@@ -2351,6 +2441,8 @@ async function confirmEditItem() {
       description: document.getElementById('editDesc').value.trim(),
       ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb, phash: editPhash } : {}),
     }, true);
+    // New main image → enroll into Jina as well.
+    if (editImageB64) enrollJina(id, editImageB64, 'enroll', 'updated');
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');
     loadAdminItems(); loadStats();
