@@ -690,6 +690,16 @@ textarea { resize: vertical; min-height: 70px; }
       <div id="lowStockAlert"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">📥 รับของเข้า (เติมสต๊อก)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input type="text" id="recvSearch" placeholder="พิมพ์รหัส/ชื่อ เพื่อเลือกของ..." autocomplete="off" oninput="recvSearch()" style="flex:1;min-width:170px">
+        <button class="btn btn-primary" onclick="recvScan()">📷 ถ่ายรูปหาของ</button>
+      </div>
+      <div class="text-sub" id="recvHint" style="margin-bottom:6px">เลือกของแล้วใส่จำนวนที่รับเข้า — ระบบตั้งค่า "📥 รับเข้า" ให้อัตโนมัติ</div>
+      <div id="recvList"></div>
+    </div>
+
     <div class="card" id="aiEngineCard">
       <div class="card-title">⚙️ เครื่องมือค้นหาด้วยรูป (Machine Learning)</div>
       <div id="engineBox"><div class="loading"><div class="spinner"></div></div></div>
@@ -1262,7 +1272,7 @@ async function doAdminGateLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
@@ -1509,7 +1519,7 @@ function switchTab(tab) {
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -2292,7 +2302,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
@@ -2397,6 +2407,7 @@ async function addItem() {
     }
     showToast(`✅ เพิ่ม "${name}" สำเร็จ`);
     ['newPartCode','newName','newDesc'].forEach(id => document.getElementById(id).value = '');
+    prefillNextCode();
     document.getElementById('newUnit').value = 'ชิ้น';
     document.getElementById('newStock').value = '0';
     document.getElementById('newMinStock').value = '5';
@@ -2580,7 +2591,59 @@ async function confirmStockAdjust() {
     showToast(`✅ ปรับ Stock แล้ว คงเหลือ: ${data.balance}`);
     closeModal('stockModal');
     loadAdminItems(); loadStats(); checkLowStockNotif();
+    const rs = document.getElementById('recvSearch'); if (rs) { rs.value = ''; const rl = document.getElementById('recvList'); if (rl) rl.innerHTML = ''; }
   } catch {}
+}
+
+// ============================================================
+// รับของเข้า (RESTOCK): pick item by search OR photo → openStockAdjust (defaults to รับเข้า)
+// ============================================================
+let _recvTimer = null;
+function recvSearch() { clearTimeout(_recvTimer); _recvTimer = setTimeout(_recvDoSearch, 300); }
+async function _recvDoSearch() {
+  const s = document.getElementById('recvSearch').value.trim();
+  const el = document.getElementById('recvList');
+  if (!s) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try { const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=20`); recvRender(d.data || [], false); }
+  catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+function recvScan() {
+  openCamera(async dataUrl => {
+    const el = document.getElementById('recvList');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try { recvRender(await matchImage(dataUrl), true); }
+    catch { el.innerHTML = '<div class="text-sub" style="padding:8px">ค้นหาไม่สำเร็จ</div>'; }
+  });
+}
+function recvRender(items, isMatch) {
+  const el = document.getElementById('recvList');
+  if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบของ</div>'; return; }
+  el.innerHTML = items.map(it => `
+    <div class="link-item" onclick="openStockAdjust(${it.id},'${escHtml(it.name)}')">
+      <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}${isMatch && it.confidence != null ? ` <span style="font-size:11px;color:var(--success)">${it.confidence}%</span>` : ''}</div>
+        <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
+      </div>
+      <span style="color:var(--success);font-weight:800;font-size:18px">📥</span>
+    </div>`).join('');
+}
+// Engine-aware image match (shared by scan + restock-by-photo).
+async function matchImage(dataUrl) {
+  if (MATCH_ENGINE === 'jina' && JINA_READY) {
+    const q = await preprocessImage(dataUrl, 512);
+    return (await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' })).matches || [];
+  }
+  const phashes = await augmentHashes(dataUrl);
+  return (await api('POST', '/api/match', { image_b64: dataUrl, top_k: 5, phashes })).matches || [];
+}
+// Auto running item code (I-0001, I-0002, …) so admin doesn't type it.
+async function prefillNextCode() {
+  const el = document.getElementById('newPartCode');
+  if (!el) return;
+  if (el.value && !/^I-\d{4}$/.test(el.value)) return; // don't overwrite a custom code
+  try { const d = await api('GET', '/api/items/next-code', null, true); if (d.next) el.value = d.next; } catch {}
 }
 
 // ============================================================

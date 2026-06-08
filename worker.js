@@ -388,6 +388,17 @@ export default {
     }
 
     // ── Items: list ─────────────────────────────────────────
+    // ── Items: suggest the next running code (I-0001, I-0002, …) ──
+    if (path === '/api/items/next-code' && method === 'GET') {
+      const rows = await env.DB.prepare("SELECT part_code FROM items WHERE part_code LIKE 'I-%'").all();
+      let max = 0;
+      for (const r of rows.results || []) {
+        const m = /^I-(\d+)$/.exec(r.part_code);
+        if (m) { const n = parseInt(m[1], 10); if (n > max) max = n; }
+      }
+      return json({ ok: true, next: 'I-' + String(max + 1).padStart(4, '0') });
+    }
+
     if (path === '/api/items' && method === 'GET') {
       const search = url.searchParams.get('q') || '';
       const cat = url.searchParams.get('category') || '';
