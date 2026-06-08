@@ -139,6 +139,13 @@ h1, h2, h3, h4, .card-title, .nav-tab, .stat-num, .login-title, .modal-title { f
   box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px;
 }
 .card-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+/* Collapsible admin sections: title acts as a header you tap to expand/collapse */
+.card.collapsible > .card-title { cursor: pointer; user-select: none; }
+.card.collapsible > .card-title:hover { color: var(--primary); }
+.card.collapsible > .card-title .card-chevron { margin-left: auto; color: var(--sub); transition: transform .2s; font-size: 13px; flex-shrink: 0; }
+.card.collapsible:not(.collapsed) > .card-title .card-chevron { transform: rotate(90deg); }
+.card.collapsible.collapsed > .card-title { margin-bottom: 0; }
+.card.collapsible.collapsed > .card-collapse { display: none; }
 
 /* ======= FORMS ======= */
 .form-group { margin-bottom: 14px; }
@@ -540,7 +547,7 @@ textarea { resize: vertical; min-height: 70px; }
       <button class="btn btn-primary" onclick="openCamera(setScanImage)" style="flex:1;min-width:140px">📷 เปิดกล้อง</button>
       <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
       <button class="btn btn-gray" onclick="clearImage()" id="btnClear" disabled>🗑️ ล้าง</button>
-      <button class="btn btn-success btn-block" onclick="doMatch()" id="btnMatch" disabled>🔍 ค้นหาอุปกรณ์ด้วย AI</button>
+      <button class="btn btn-success btn-block" onclick="doMatch()" id="btnMatch" disabled>🔍 ค้นหาอุปกรณ์ด้วย Machine Learning</button>
     </div>
   </div>
 
@@ -555,7 +562,7 @@ textarea { resize: vertical; min-height: 70px; }
       <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
         <div style="font-size:13px;color:var(--sub);margin-bottom:8px;text-align:center">ไม่ใช่ทั้งหมดนี้ใช่ไหม?</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary" style="flex:1;min-width:150px" onclick="openPickItem()">🔍 เลือก Item เอง (สอน AI)</button>
+          <button class="btn btn-primary" style="flex:1;min-width:150px" onclick="openPickItem()">🔍 เลือก Item เอง (สอน ML)</button>
           <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openReportModal()">❓ แจ้ง Admin ว่าไม่มี</button>
         </div>
       </div>
@@ -624,7 +631,7 @@ textarea { resize: vertical; min-height: 70px; }
 
   <div id="scanEmpty" class="empty">
     <div class="empty-icon">📷</div>
-    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด "ค้นหาอุปกรณ์ด้วย AI"</div>
+    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด "ค้นหาอุปกรณ์ด้วย Machine Learning"</div>
   </div>
 </div>
 
@@ -670,18 +677,21 @@ textarea { resize: vertical; min-height: 70px; }
   </div>
 
   <div id="adminPanel" style="display:none">
-    <div id="lowStockAlert" style="display:none"></div>
-
     <div class="stats-row">
       <div class="stat-card primary" onclick="switchTab('inventory')"><div class="stat-num" id="statItems">—</div><div class="stat-label">อุปกรณ์ทั้งหมด</div></div>
       <div class="stat-card" onclick="switchTab('history')"><div class="stat-num" id="statReqs">—</div><div class="stat-label">ใบเบิกทั้งหมด</div></div>
       <div class="stat-card warning"><div class="stat-num" id="statPending">—</div><div class="stat-label">รออนุมัติ</div></div>
       <div class="stat-card danger"><div class="stat-num" id="statLow">—</div><div class="stat-label">⚠️ Stock ต่ำ</div></div>
-      <div class="stat-card" style="background:#ede9fe"><div class="stat-num" id="statLearned" style="color:#7c3aed">—</div><div class="stat-label">🧠 AI เรียนรู้ (ครั้ง)</div></div>
+      <div class="stat-card" style="background:#ede9fe"><div class="stat-num" id="statLearned" style="color:#7c3aed">—</div><div class="stat-label">🧠 ML เรียนรู้ (ครั้ง)</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛒 รายการต้องสั่งซื้อ</div>
+      <div id="lowStockAlert"></div>
     </div>
 
     <div class="card" id="aiEngineCard">
-      <div class="card-title">⚙️ เครื่องมือค้นหาด้วยรูป (AI Engine)</div>
+      <div class="card-title">⚙️ เครื่องมือค้นหาด้วยรูป (Machine Learning)</div>
       <div id="engineBox"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
@@ -725,7 +735,7 @@ textarea { resize: vertical; min-height: 70px; }
         <textarea id="newDesc" placeholder="รายละเอียดอุปกรณ์ (ไม่บังคับ)"></textarea>
       </div>
       <div class="form-group">
-        <label>รูปภาพอุปกรณ์ <span class="req">*</span> <span style="font-weight:400;color:var(--sub)">(ใช้สำหรับ AI matching)</span></label>
+        <label>รูปภาพอุปกรณ์ <span class="req">*</span> <span style="font-weight:400;color:var(--sub)">(ใช้สำหรับ Machine Learning)</span></label>
         <div class="img-zone" id="adminImgZone" onclick="openCamera(setAdminImage)">
           <div class="zone-icon" id="adminZoneIcon">📸</div>
           <div class="zone-hint">แตะเพื่อเปิดกล้องถ่ายรูป<br><small>ถ่ายในที่แสงดี เห็นอุปกรณ์ชัดเจน</small></div>
@@ -738,7 +748,7 @@ textarea { resize: vertical; min-height: 70px; }
         <input type="file" id="adminFileInput" accept="image/*" style="display:none" onchange="onAdminFileSelect(this)">
         <div id="adminImgWarning" class="alert alert-warning" style="display:none;margin-top:8px">
           <span class="alert-icon">⚠️</span>
-          <div>ไม่มีรูป — อุปกรณ์จะถูกเพิ่มได้ แต่ AI matching จะไม่ทำงานกับรายการนี้</div>
+          <div>ไม่มีรูป — อุปกรณ์จะถูกเพิ่มได้ แต่ Machine Learning จะไม่ทำงานกับรายการนี้</div>
         </div>
       </div>
       <button class="btn btn-primary btn-block" onclick="addItem()" id="btnAddItem">➕ เพิ่มอุปกรณ์</button>
@@ -1113,6 +1123,34 @@ async function enrollJina(itemId, dataUrl, source = 'enroll', variant = 'origina
     await api('POST', '/api/jina/embed-store', { item_id: itemId, image_b64: img, source, variant }, true);
   } catch {}
 }
+// Turn each admin section card into a collapsible accordion (tap title to
+// expand/collapse). State persists per-section. Default: collapsed.
+function makeAdminCollapsible() {
+  const panel = document.getElementById('adminPanel');
+  if (!panel) return;
+  panel.querySelectorAll(':scope > .card').forEach(card => {
+    if (card.dataset.collapsibleReady) return;
+    const title = card.querySelector(':scope > .card-title');
+    if (!title) return;
+    card.dataset.collapsibleReady = '1';
+    card.classList.add('collapsible');
+    // move everything after the title into a collapse wrapper
+    const body = document.createElement('div');
+    body.className = 'card-collapse';
+    let n = title.nextSibling;
+    while (n) { const next = n.nextSibling; body.appendChild(n); n = next; }
+    card.appendChild(body);
+    const chev = document.createElement('span');
+    chev.className = 'card-chevron'; chev.textContent = '▸';
+    title.appendChild(chev);
+    const key = 'admincol:' + (title.textContent || '').replace(/▸/g, '').trim().slice(0, 28);
+    card.classList.toggle('collapsed', localStorage.getItem(key) !== 'open');
+    title.addEventListener('click', () => {
+      const collapsed = card.classList.toggle('collapsed');
+      localStorage.setItem(key, collapsed ? 'closed' : 'open');
+    });
+  });
+}
 // Admin: show & toggle the active match engine (legacy ↔ jina).
 async function renderEngineCard() {
   const el = document.getElementById('engineBox');
@@ -1168,6 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCategories();
   loadMasterData();
   loadEngineSetting();
+  makeAdminCollapsible();
   const lastEmp = localStorage.getItem('req_last_emp_code');
   const lastReq = localStorage.getItem('req_last_requester');
   const lastMachine = localStorage.getItem('req_last_machine');
@@ -1782,7 +1821,7 @@ async function doMatch() {
     document.getElementById('reqForm').style.display = 'none';
     selectedItemId = null;
   } catch { document.getElementById('scanEmpty').style.display = ''; }
-  finally { btn.disabled = false; btn.textContent = '🔍 ค้นหาอุปกรณ์ด้วย AI'; }
+  finally { btn.disabled = false; btn.textContent = '🔍 ค้นหาอุปกรณ์ด้วย Machine Learning'; }
 }
 
 let _matchStore = {};
@@ -1976,7 +2015,7 @@ function renderReportCard(r, mode) {
   const actions = mode === 'pending_new'
     ? `<button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่ม Item นี้เข้าระบบ</button>
        <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`
-    : `<button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว — ระบุเบอร์ (สอน AI)</button>
+    : `<button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว — ระบุเบอร์ (สอน ML)</button>
        <button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่มของใหม่</button>
        <button class="btn btn-warning btn-sm" onclick="reportPending(${r.id})">⏳ ยืนยันว่ายังไม่มี (พักงานค้าง)</button>
        <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`;
@@ -1985,7 +2024,7 @@ function renderReportCard(r, mode) {
     <div class="report-info">
       <div style="font-size:12px;color:var(--sub)">#${r.id} · 👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)}</div>
       ${r.note ? `<div style="font-size:13px;margin-top:2px">📝 ${escHtml(r.note)}</div>` : ''}
-      ${r.top_guess ? `<div style="font-size:11px;color:var(--sub);margin-top:2px">🤖 AI เดา: ${escHtml(r.top_guess)}</div>` : ''}
+      ${r.top_guess ? `<div style="font-size:11px;color:var(--sub);margin-top:2px">🤖 ML เดา: ${escHtml(r.top_guess)}</div>` : ''}
       ${mode === 'pending_new' ? `<div style="font-size:11px;color:var(--warning);font-weight:700;margin-top:3px">⏳ งานค้าง — รอเพิ่ม Item (ระบบจะปิดให้เองเมื่อเพิ่มของที่ตรงกัน)</div>` : ''}
       <div class="report-actions">${actions}</div>
     </div>
@@ -2088,7 +2127,7 @@ async function resolveReport(id, status, item_id) {
     loadPendingRequests();
     const msg = status === 'dismissed' ? '🗑️ ปิดรายการแล้ว'
       : status === 'pending_new' ? '⏳ พักเป็นงานค้างแล้ว — ระบบจะปิดให้เองเมื่อเพิ่ม Item ที่ตรงกัน'
-      : '✅ ดำเนินการแล้ว — AI เรียนรู้เพิ่ม';
+      : '✅ ดำเนินการแล้ว — Machine Learning เรียนรู้เพิ่ม';
     showToast(msg);
   } catch {}
 }
@@ -2215,7 +2254,7 @@ async function showItemDetail(id) {
         </td></tr>
         <tr><td style="padding:7px 0;color:var(--sub)">Stock ขั้นต่ำ</td><td>${item.min_stock} ${escHtml(item.unit)}</td></tr>
         ${item.description ? `<tr><td style="padding:7px 0;color:var(--sub)">รายละเอียด</td><td>${escHtml(item.description)}</td></tr>` : ''}
-        <tr><td style="padding:7px 0;color:var(--sub)">AI Matching</td><td>${item.has_embedding ? '✅ พร้อมใช้งาน' : '⚠️ ยังไม่มี'}</td></tr>
+        <tr><td style="padding:7px 0;color:var(--sub)">Machine Learning</td><td>${item.has_embedding ? '✅ พร้อมใช้งาน' : '⚠️ ยังไม่มี'}</td></tr>
       </table>`;
     document.getElementById('itemModalFooter').innerHTML = isAdmin
       ? `<button class="btn btn-gray" onclick="closeModal('itemModal')">ปิด</button>
@@ -2283,20 +2322,23 @@ async function loadStats() {
     if (sl) sl.textContent = d.learned_examples ?? 0;
 
     const alertEl = document.getElementById('lowStockAlert');
+    if (alertEl) {
+      if (d.low_stock > 0) {
+        try {
+          const itemsData = await api('GET', '/api/items?limit=1000');
+          const lowItems = (itemsData.data || []).filter(i => i.stock_qty <= i.min_stock);
+          alertEl.innerHTML = lowItems.length ? lowStockHtml(lowItems, true, false)
+            : '<div class="text-sub" style="padding:8px">🎉 ไม่มีรายการต้องสั่งซื้อ</div>';
+        } catch {}
+      } else {
+        alertEl.innerHTML = '<div class="text-sub" style="padding:8px">🎉 ไม่มีรายการต้องสั่งซื้อ</div>';
+      }
+    }
     if (d.low_stock > 0) {
-      try {
-        const itemsData = await api('GET', '/api/items?limit=1000');
-        const lowItems = (itemsData.data || []).filter(i => i.stock_qty <= i.min_stock);
-        if (lowItems.length > 0) {
-          alertEl.style.display = 'block';
-          alertEl.innerHTML = lowStockHtml(lowItems, true);
-        }
-      } catch {}
       document.getElementById('notifDot').classList.add('show');
       document.getElementById('adminBadge').textContent = d.low_stock;
       document.getElementById('adminBadge').classList.add('show');
     } else {
-      alertEl.style.display = 'none';
       document.getElementById('notifDot').classList.remove('show');
       document.getElementById('adminBadge').classList.remove('show');
     }
@@ -2380,7 +2422,7 @@ async function loadAdminItems() {
       <thead><tr>
         <th>รหัส</th><th>ชื่ออุปกรณ์</th>
         <th style="text-align:center">Stock</th><th style="text-align:center">ขั้นต่ำ</th>
-        <th style="text-align:center">AI</th><th style="text-align:center">จัดการ</th>
+        <th style="text-align:center">ML</th><th style="text-align:center">จัดการ</th>
       </tr></thead>
       <tbody>${items.map(item => {
         const isLow = item.stock_qty <= item.min_stock;
@@ -2606,7 +2648,7 @@ function thumbSrc(o) {
   return imgSrc(o);
 }
 // Render the low-stock report panel (severity-sorted cards with thumbnail + bar).
-function lowStockHtml(items, withRefill = true) {
+function lowStockHtml(items, withRefill = true, withHeader = true) {
   const ratio = i => i.min_stock > 0 ? i.stock_qty / i.min_stock : (i.stock_qty <= 0 ? 0 : 1);
   const sorted = [...items].sort((a, b) => ratio(a) - ratio(b));
   const out = items.filter(i => i.stock_qty <= 0).length;
@@ -2630,15 +2672,21 @@ function lowStockHtml(items, withRefill = true) {
       </div>
     </div>`;
   }).join('');
-  return `<div class="lowstock-panel">
+  const head = withHeader ? `
     <div class="lowstock-head">
       <div class="lh-title">⚠️ รายการต้องสั่งซื้อ</div>
       <div class="lh-sum">
         ${out > 0 ? `<span class="ls-chip">🔴 หมด ${out}</span>` : ''}
         ${low > 0 ? `<span class="ls-chip">🟠 ใกล้หมด ${low}</span>` : ''}
       </div>
-    </div>
-    <div class="lowstock-list">${cards}</div>
+    </div>` : `
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      ${out > 0 ? `<span class="ls-badge out">🔴 หมด ${out}</span>` : ''}
+      ${low > 0 ? `<span class="ls-badge low">🟠 ใกล้หมด ${low}</span>` : ''}
+    </div>`;
+  return `<div class="${withHeader ? 'lowstock-panel' : ''}">
+    ${head}
+    <div class="lowstock-list" style="${withHeader ? '' : 'max-height:340px;padding:0'}">${cards}</div>
   </div>`;
 }
 function fmtDate(str) {
