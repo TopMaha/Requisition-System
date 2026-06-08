@@ -1017,8 +1017,14 @@ textarea { resize: vertical; min-height: 70px; }
       <span class="modal-title">📷 ถ่ายรูปอุปกรณ์</span>
       <button class="modal-close" onclick="closeCamera()">✕</button>
     </div>
-    <div class="modal-body" style="padding:0;background:#000;position:relative">
-      <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain"></video>
+    <div class="modal-body" style="padding:0;background:#000;position:relative;overflow:hidden">
+      <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain;transform-origin:center center"></video>
+      <div id="camZoomWrap" style="position:absolute;left:0;right:0;bottom:0;display:none;align-items:center;gap:10px;padding:10px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.6))">
+        <button type="button" onclick="bumpCamZoom(-1)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer">−</button>
+        <input type="range" id="camZoom" min="1" max="4" step="0.1" value="1" oninput="setCamZoom(this.value)" style="flex:1;accent-color:#fff">
+        <button type="button" onclick="bumpCamZoom(1)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer">+</button>
+        <span id="camZoomLabel" style="color:#fff;font-size:12px;font-weight:700;min-width:36px;text-align:right">1.0×</span>
+      </div>
       <div id="cameraLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:rgba(0,0,0,.6)">
         <div><div class="spinner" style="border-top-color:#fff"></div><div style="margin-top:8px">กำลังเปิดกล้อง...</div></div>
       </div>
@@ -1752,6 +1758,7 @@ async function startCameraStream() {
     video.srcObject = _cameraStream;
     await video.play().catch(() => {});
     loading.style.display = 'none';
+    setupZoom(video);
   } catch (e) {
     loading.style.display = 'none';
     closeCamera();
@@ -1765,19 +1772,65 @@ function flipCamera() {
   _cameraFacing = _cameraFacing === 'environment' ? 'user' : 'environment';
   startCameraStream();
 }
+// ===== Camera ZOOM (native track zoom if supported, else digital crop) =====
+let _zoomTrack = null, _nativeZoom = null, _digitalZoom = 1;
+function setupZoom(video) {
+  const wrap = document.getElementById('camZoomWrap');
+  const slider = document.getElementById('camZoom');
+  _digitalZoom = 1; video.style.transform = '';
+  _zoomTrack = (_cameraStream && _cameraStream.getVideoTracks) ? _cameraStream.getVideoTracks()[0] : null;
+  let caps = {};
+  try { caps = (_zoomTrack && _zoomTrack.getCapabilities) ? _zoomTrack.getCapabilities() : {}; } catch {}
+  if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
+    _nativeZoom = caps.zoom;
+    slider.min = caps.zoom.min; slider.max = caps.zoom.max; slider.step = caps.zoom.step || 0.1;
+    let cur = caps.zoom.min; try { cur = _zoomTrack.getSettings().zoom || caps.zoom.min; } catch {}
+    slider.value = cur;
+  } else {
+    _nativeZoom = null;
+    slider.min = 1; slider.max = 4; slider.step = 0.1; slider.value = 1;
+  }
+  setCamZoom(slider.value);
+  if (wrap) wrap.style.display = 'flex';
+}
+function setCamZoom(v) {
+  v = parseFloat(v) || 1;
+  const video = document.getElementById('cameraVideo');
+  const label = document.getElementById('camZoomLabel');
+  if (_nativeZoom && _zoomTrack) {
+    _zoomTrack.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {});
+    _digitalZoom = 1; video.style.transform = '';
+    if (label) label.textContent = (v / (_nativeZoom.min || 1)).toFixed(1) + '×';
+  } else {
+    _digitalZoom = v;
+    video.style.transform = `scale(${v})`;
+    if (label) label.textContent = v.toFixed(1) + '×';
+  }
+}
+function bumpCamZoom(dir) {
+  const slider = document.getElementById('camZoom');
+  if (!slider) return;
+  const step = (parseFloat(slider.step) || 0.1) * 3;
+  let v = (parseFloat(slider.value) || 1) + dir * step;
+  v = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), v));
+  slider.value = v; setCamZoom(v);
+}
 function capturePhoto() {
   const video = document.getElementById('cameraVideo');
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw || !vh) { showToast('⏳ กล้องยังไม่พร้อม', 'error'); return; }
+  // Digital zoom: crop the centre of the frame so the capture matches what's shown.
+  const z = _nativeZoom ? 1 : Math.max(1, _digitalZoom);
+  const sw = vw / z, sh = vh / z, sx = (vw - sw) / 2, sy = (vh - sh) / 2;
   const maxDim = 1024;
-  let w = vw, h = vh;
+  let w = sw, h = sh;
   if (w > maxDim || h > maxDim) {
     if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
     else { w = Math.round(w * maxDim / h); h = maxDim; }
   }
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
-  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+  canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   const cb = _cameraCapture;
   closeCamera();
