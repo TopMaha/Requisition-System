@@ -461,6 +461,22 @@ textarea { resize: vertical; min-height: 70px; }
 .notif-dot { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; background: #f43f5e; border-radius: 50%; border: 2px solid var(--primary-dk); display: none; box-shadow: 0 0 0 0 rgba(244,63,94,.6); animation: notifPulse 1.8s infinite; }
 .notif-dot.show { display: block; }
 @keyframes notifPulse { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.6); } 70% { box-shadow: 0 0 0 6px rgba(244,63,94,0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); } }
+
+/* ======= SEARCH-QUALITY (Jina) TOGGLE — scan page ======= */
+.eng-card { background: linear-gradient(135deg, #eef4ff 0%, #f5f3ff 100%); border: 1.5px solid #c7d7fe; }
+.eng-row { display: flex; align-items: center; gap: 12px; }
+.eng-text { flex: 1; min-width: 0; }
+.eng-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 7px; }
+.eng-sub { font-size: 12.5px; color: var(--sub); margin-top: 2px; line-height: 1.35; }
+.eng-sub.on { color: var(--success); font-weight: 600; }
+/* iOS-style switch */
+.switch { position: relative; flex: none; width: 52px; height: 30px; cursor: pointer; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .22s; }
+.switch .slider::before { content: ''; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .22s; }
+.switch input:checked + .slider { background: var(--primary); }
+.switch input:checked + .slider::before { transform: translateX(22px); }
+.switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -535,6 +551,9 @@ textarea { resize: vertical; min-height: 70px; }
 
 <!-- PAGE 1 : SCAN -->
 <div class="page active" id="page-scan">
+  <div class="card eng-card" id="scanEngineCard" style="display:none">
+    <div id="scanEngineBox"></div>
+  </div>
   <div class="card">
     <div class="card-title">📷 ถ่ายรูปหรือเลือกรูปอุปกรณ์</div>
     <div class="img-zone" id="imgZone" onclick="document.getElementById('fileInput').click()">
@@ -808,6 +827,11 @@ textarea { resize: vertical; min-height: 70px; }
     <div class="card">
       <div class="card-title">📨 รายการที่ผู้ใช้แจ้งว่าไม่พบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบ → มีอยู่แล้ว/เพิ่มใหม่/พักงานค้าง)</span></div>
       <div id="scanReportList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 ประวัติการสอนระบบ (Feedback Log) <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบได้ว่าใครยืนยัน/แก้ผลค้นหาเมื่อไหร่)</span></div>
+      <div id="feedbackLogList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <div class="card">
@@ -1111,6 +1135,7 @@ let selectedImage = null;
 let selectedItemId = null;
 let selectedMatchScore = null;
 let selectedFromScan = false; // true when the item was picked from an AI scan match (enables ML feedback)
+let selectedVia = '';         // 'scan' (chose an AI match) | 'manual_pick' (rejected all, searched manually)
 let selectedItemStock = 0;
 let selectedItemMinStock = 0;
 let pendingApproveId = null;
@@ -1122,14 +1147,54 @@ let employees = [];
 let machines = [];
 let _confirmResolve = null;
 let currentUser = null;       // { code, name, isAdmin }
-let MATCH_ENGINE = 'legacy';  // 'legacy' (caption ensemble) | 'jina' (image embedding)
+let MATCH_ENGINE = 'legacy';  // server default: 'legacy' (caption ensemble) | 'jina' (image embedding)
 let JINA_READY = false;       // true when the server has a Jina API key
+const ENGINE_PREF_KEY = 'req_engine_pref'; // per-device override set from the scan page
 async function loadEngineSetting() {
   try {
     const d = await api('GET', '/api/settings');
     MATCH_ENGINE = (d.settings && d.settings.match_engine) || 'legacy';
     JINA_READY = !!(d.settings && d.settings.jina_ready);
   } catch {}
+  renderScanEngineToggle();
+}
+// Effective engine for THIS device = local preference if set, else server default.
+// Jina can only be active when the server actually has an API key.
+function activeEngine() {
+  const pref = localStorage.getItem(ENGINE_PREF_KEY);
+  const want = (pref === 'jina' || pref === 'legacy') ? pref : MATCH_ENGINE;
+  return (want === 'jina' && JINA_READY) ? 'jina' : 'legacy';
+}
+// Scan-page toggle: "เพิ่มประสิทธิภาพการค้นหา" — flips the per-device engine.
+function setEnginePref(on) {
+  if (on && !JINA_READY) { showToast('⚠️ ผู้ดูแลยังไม่ได้ตั้งค่า API key สำหรับโหมดนี้', 'error'); return; }
+  localStorage.setItem(ENGINE_PREF_KEY, on ? 'jina' : 'legacy');
+  renderScanEngineToggle();
+  showToast(on ? '⚡ เปิดโหมดค้นหาแม่นยำสูงแล้ว — ผลลัพธ์จะตรงขึ้น' : 'ปิดโหมดค้นหาแม่นยำสูงแล้ว');
+}
+// Render the search-quality switch on the scan page (hidden until settings load).
+function renderScanEngineToggle() {
+  const card = document.getElementById('scanEngineCard');
+  const box = document.getElementById('scanEngineBox');
+  if (!card || !box) return;
+  card.style.display = 'block';
+  const on = activeEngine() === 'jina';
+  const sub = !JINA_READY
+    ? '⚠️ ยังไม่พร้อมใช้ — ผู้ดูแลต้องตั้งค่า API key ก่อน'
+    : (on ? '✅ กำลังใช้โหมดแม่นยำสูง — เหมาะกับอะไหล่หน้าตาคล้ายกัน'
+          : 'เปิดเพื่อให้ค้นหาแม่นยำขึ้น โดยเฉพาะของที่หน้าตาคล้ายกัน');
+  box.innerHTML = `
+    <div class="eng-row">
+      <div class="eng-text">
+        <div class="eng-title">⚡ เพิ่มประสิทธิภาพการค้นหา</div>
+        <div class="eng-sub ${on ? 'on' : ''}">${sub}</div>
+      </div>
+      <label class="switch" title="เพิ่มประสิทธิภาพการค้นหา">
+        <input type="checkbox" ${on ? 'checked' : ''} ${!JINA_READY ? 'disabled' : ''}
+          onchange="setEnginePref(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>`;
 }
 // Enroll an item's image as a Jina vector (admin context: add/edit item).
 async function enrollJina(itemId, dataUrl, source = 'enroll', variant = 'original') {
@@ -1194,13 +1259,27 @@ async function setMatchEngine(engine) {
     MATCH_ENGINE = engine;
     showToast(engine === 'jina' ? '🚀 เปิดใช้ Jina แล้ว' : '↩ กลับไป Legacy แล้ว');
     renderEngineCard();
+    renderScanEngineToggle();  // server default changed → refresh the scan-page switch
   } catch {}
 }
 // Train (online learning): remember this scanned photo ↔ item, on the active engine.
-async function trainItem(itemId) {
+// opts.source: 'scan' (picked one of the AI's matches) | 'manual_pick' (rejected all,
+// searched manually → the AI's matches become negative examples).
+async function trainItem(itemId, opts = {}) {
   if (!selectedImage || !itemId) return;
-  const jina = MATCH_ENGINE === 'jina' && JINA_READY;
-  const body = { item_id: itemId, engine: jina ? 'jina' : 'legacy' };
+  const jina = activeEngine() === 'jina';
+  const source = opts.source || 'scan';
+  // Candidates the AI showed for this scan (snapshot for the audit log).
+  const shown = Object.keys(_matchStore).map(Number).filter(Boolean);
+  const candidates = shown.map(id => ({ id, confidence: _matchStore[id]?.confidence ?? null }));
+  // Negatives = AI suggestions the user did NOT pick (only meaningful on manual_pick).
+  const negatives = shown.filter(id => id !== Number(itemId));
+  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})`
+    : (document.getElementById('reqEmpCode')?.value.trim() || '');
+  const body = {
+    item_id: itemId, engine: jina ? 'jina' : 'legacy',
+    source, negatives, candidates, reporter,
+  };
   body.image_b64 = jina ? await preprocessImage(selectedImage, 512) : selectedImage;
   try { return await api('POST', '/api/match/feedback', body); } catch {}
 }
@@ -1278,7 +1357,7 @@ async function doAdminGateLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
@@ -1525,7 +1604,7 @@ function switchTab(tab) {
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1707,7 +1786,7 @@ async function onFileSelect(input) {
   catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
 }
 function clearImage() {
-  selectedImage = null; selectedItemId = null; selectedFromScan = false;
+  selectedImage = null; selectedItemId = null; selectedFromScan = false; selectedVia = '';
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('previewImg').src = '';
   document.getElementById('zoneIcon').style.display = '';
@@ -1857,7 +1936,7 @@ async function doMatch() {
   document.getElementById('scanEmpty').style.display = 'none';
   try {
     let data;
-    if (MATCH_ENGINE === 'jina' && JINA_READY) {
+    if (activeEngine() === 'jina') {
       // Jina path: send the SAME square-cropped image used at enroll time.
       const q = await preprocessImage(selectedImage, 512);
       data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
@@ -1918,6 +1997,7 @@ function selectMatch(id) {
   document.getElementById('match-' + id)?.classList.add('selected');
   selectedItemId = id;
   selectedFromScan = true;
+  selectedVia = 'scan';   // chose one of the AI's suggestions (manual pick overrides this after)
   selectedItemStock = m.stock_qty;
   selectedItemMinStock = m.min_stock || 0;
   selectedMatchScore = m.confidence;
@@ -2027,8 +2107,9 @@ async function submitRequisition() {
     localStorage.setItem('req_last_machine', machine);
     // 🧠 Machine learning: teach the system that this scanned photo = this item.
     // Fire-and-forget so it never blocks or breaks the requisition flow.
-    if (selectedImage && selectedItemId && selectedFromScan) {
-      trainItem(selectedItemId)
+    // Skip when the item was a manual pick — that path already trained on selection.
+    if (selectedImage && selectedItemId && selectedFromScan && selectedVia !== 'manual_pick') {
+      trainItem(selectedItemId, { source: 'scan' })
         .then(() => showToast('🧠 ระบบจดจำรูปนี้แล้ว — ครั้งหน้าจะแม่นขึ้น'))
         .catch(() => {});
     }
@@ -2072,6 +2153,33 @@ async function loadScanReports() {
     _reportStore = {};
     if (!reports.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่มีรายการแจ้ง 🎉</div>'; return; }
     el.innerHTML = reports.map(r => { _reportStore[r.id] = r; return renderReportCard(r); }).join('');
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+// ML feedback audit log — what users confirmed / corrected, and what the AI had guessed.
+async function loadFeedbackLog() {
+  const el = document.getElementById('feedbackLogList');
+  if (!el) return;
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', '/api/match/feedback-log', null, true);
+    const rows = d.data || [];
+    if (!rows.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ยังไม่มีประวัติการสอนระบบ</div>'; return; }
+    el.innerHTML = rows.map(r => {
+      const eng = r.engine === 'jina' ? '⚡ Jina' : '🧩 Legacy';
+      const isPick = r.source === 'manual_pick';
+      const srcTag = isPick
+        ? '<span style="color:var(--danger);font-weight:700">🙅 แก้ผล (AI เดาผิด)</span>'
+        : '<span style="color:var(--success);font-weight:700">✅ ยืนยันผล</span>';
+      const rejected = (r.rejected || []);
+      const rejHtml = rejected.length
+        ? `<div style="font-size:12px;color:var(--danger);margin-top:3px">✗ ตัดออก (negative): ${rejected.map(x => escHtml(x.label)).join(', ')}</div>`
+        : '';
+      return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;background:#fff">
+        <div style="font-size:11px;color:var(--sub)">#${r.id} · 👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)} · ${eng} · ${srcTag}</div>
+        <div style="font-size:13px;font-weight:700;margin-top:3px;color:var(--success)">✓ ${escHtml(r.chosen_label || ('#' + r.chosen_item_id))}</div>
+        ${rejHtml}
+      </div>`;
+    }).join('');
   } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
 }
 function renderReportCard(r, mode) {
@@ -2170,10 +2278,11 @@ function choosePickItem(id) {
   closeModal('pickItemModal');
   selectMatch(id);                                // load into the requisition form
   selectedFromScan = true;
-  // Train immediately: remember this photo ↔ this item.
+  selectedVia = 'manual_pick';                    // rejected the AI's matches → they become negatives
+  // Train immediately: confirm this photo ↔ this item, AND mark the rejected AI guesses as negatives.
   if (selectedImage) {
-    trainItem(id)
-      .then(() => showToast(`🧠 จดจำแล้ว: รูปนี้ = ${m.part_code} — ครั้งหน้าจะแม่นขึ้น`))
+    trainItem(id, { source: 'manual_pick' })
+      .then(r => showToast(`🧠 จดจำแล้ว: รูปนี้ = ${m.part_code}${r && r.negatives ? ` · ตัดตัวเลือกที่ผิด ${r.negatives} รายการ` : ''} — ครั้งหน้าจะแม่นขึ้น`))
       .catch(() => {});
   }
 }
@@ -2355,7 +2464,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
+    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
     loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
@@ -2684,7 +2793,7 @@ function recvRender(items, isMatch) {
 }
 // Engine-aware image match (shared by scan + restock-by-photo).
 async function matchImage(dataUrl) {
-  if (MATCH_ENGINE === 'jina' && JINA_READY) {
+  if (activeEngine() === 'jina') {
     const q = await preprocessImage(dataUrl, 512);
     return (await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' })).matches || [];
   }

@@ -257,6 +257,47 @@ async function getSetting(env, key, fallback) {
   } catch { return fallback; }
 }
 
+// Keep at most `limit` of a given vector source per item (bounds match-time cost).
+async function capVectors(env, itemId, source, limit = 30) {
+  await env.DB.prepare(
+    `DELETE FROM item_vectors WHERE item_id=? AND source=? AND id NOT IN (
+       SELECT id FROM item_vectors WHERE item_id=? AND source=? ORDER BY id DESC LIMIT ${limit})`
+  ).bind(itemId, source, itemId, source).run();
+}
+// Same idea for legacy fingerprint examples, capped per (item, kind).
+async function capExamples(env, itemId, kind, limit = 30) {
+  await env.DB.prepare(
+    `DELETE FROM match_examples WHERE item_id=? AND COALESCE(kind,'positive')=? AND id NOT IN (
+       SELECT id FROM match_examples WHERE item_id=? AND COALESCE(kind,'positive')=? ORDER BY id DESC LIMIT ${limit})`
+  ).bind(itemId, kind, itemId, kind).run();
+}
+
+// Penalty weight: how strongly a known "this photo is NOT item X" demotes item X
+// when a similar photo is scanned again. Subtracted from the positive similarity.
+const NEG_PENALTY = 0.5;
+
+// Self-healing schema: create the feedback-log table and add the match_examples
+// `kind` column if they're missing, so deploying a new worker.js "just works"
+// without a manual `wrangler d1 execute`. Runs once per isolate (cold start).
+let _migrated = false;
+async function ensureSchema(env) {
+  if (_migrated || !env.DB) return;
+  try {
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS match_feedback (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         engine TEXT, chosen_item_id INTEGER, chosen_label TEXT,
+         rejected_item_ids TEXT, candidates TEXT, source TEXT, reporter TEXT,
+         created_at TEXT DEFAULT (datetime('now','localtime'))
+       )`
+    ).run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_match_feedback_created ON match_feedback(id)').run();
+    // Add `kind` to match_examples for legacy negative feedback (no-op if it exists).
+    try { await env.DB.prepare("ALTER TABLE match_examples ADD COLUMN kind TEXT DEFAULT 'positive'").run(); } catch {}
+    _migrated = true;
+  } catch (e) { /* leave _migrated=false so the next request retries the migration */ }
+}
+
 // Build the combined fingerprint for one image: resnet label vector + caption +
 // dense embedding. Stored as JSON in the items.embedding column.
 // `extraText` (the item's name + description) is appended to the caption before
@@ -320,6 +361,8 @@ export default {
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
     }
+
+    await ensureSchema(env);
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
@@ -666,17 +709,22 @@ export default {
         try { qvec = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; }
         catch (e) { return err('Jina embed ล้มเหลว: ' + e.message, 502); }
         if (!qvec) return err('Jina ไม่คืนเวกเตอร์', 502);
-        // Score each Item = MAX cosine over all its vectors (enroll/augment/feedback).
-        const vrows = await env.DB.prepare('SELECT item_id, vec FROM item_vectors').all();
-        const bestByItem = {};
+        // Score each Item = MAX cosine over its POSITIVE vectors (enroll/augment/
+        // feedback), then SUBTRACT a penalty for its closest NEGATIVE vector
+        // (a photo a user explicitly said is NOT this item). Items with only
+        // negative vectors never surface (no positive to rank).
+        const vrows = await env.DB.prepare('SELECT item_id, vec, source FROM item_vectors').all();
+        const posByItem = {}, negByItem = {};
         for (const r of vrows.results || []) {
           let v = null; try { v = JSON.parse(r.vec); } catch {}
           if (!v) continue;
           const s = cosineDense(qvec, v);
-          if (bestByItem[r.item_id] == null || s > bestByItem[r.item_id]) bestByItem[r.item_id] = s;
+          const bucket = r.source === 'negative' ? negByItem : posByItem;
+          if (bucket[r.item_id] == null || s > bucket[r.item_id]) bucket[r.item_id] = s;
         }
-        const ranked = Object.entries(bestByItem)
-          .map(([id, score]) => ({ id: +id, score })).sort((a, b) => b.score - a.score).slice(0, top_k);
+        const ranked = Object.entries(posByItem)
+          .map(([id, pos]) => ({ id: +id, score: pos - NEG_PENALTY * (negByItem[id] || 0) }))
+          .sort((a, b) => b.score - a.score).slice(0, top_k);
         if (!ranked.length) return json({ ok: true, matches: [], engine: 'jina', message: 'ยังไม่มีเวกเตอร์ Jina — กดลงทะเบียนในหน้าแอดมิน' });
         const ids = ranked.map(t => t.id);
         const ph = ids.map(() => '?').join(',');
@@ -692,7 +740,7 @@ export default {
             unit: d.unit, stock_qty: d.stock_qty, min_stock: d.min_stock,
             image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
             thumb_url: d.has_image ? `/api/items/${t.id}/thumb?v=${encodeURIComponent(d.updated_at || '')}` : null,
-            confidence: Math.min(100, Math.round(t.score * 100)),
+            confidence: Math.max(0, Math.min(100, Math.round(t.score * 100))),
           };
         });
         return json({ ok: true, engine: 'jina', matches });
@@ -728,19 +776,24 @@ export default {
       // OR user-confirmed), so matching gets sharper the more people use it.
       try {
         const exRows = await env.DB.prepare(
-          `SELECT item_id, labels, vec FROM match_examples`
+          `SELECT item_id, labels, vec, COALESCE(kind,'positive') AS kind FROM match_examples`
         ).all();
-        const bestByItem = {};
+        const posByItem = {}, negByItem = {};
         for (const ex of exRows.results || []) {
           let labels = {}, vec = null;
           try { labels = ex.labels ? JSON.parse(ex.labels) : {}; } catch {}
           try { vec = ex.vec ? JSON.parse(ex.vec) : null; } catch {}
           const s = fingerprintScore(queryFp, { labels, vec });
-          if (bestByItem[ex.item_id] == null || s > bestByItem[ex.item_id]) bestByItem[ex.item_id] = s;
+          const bucket = ex.kind === 'negative' ? negByItem : posByItem;
+          if (bucket[ex.item_id] == null || s > bucket[ex.item_id]) bucket[ex.item_id] = s;
         }
         for (const row of scored) {
-          const exb = bestByItem[row.id];
+          // Positive examples lift the score to the best matching reference photo…
+          const exb = posByItem[row.id];
           if (exb != null && exb > row.score) { row.score = exb; row.learned = true; }
+          // …then a close negative example (user said "not this") demotes it.
+          const neg = negByItem[row.id];
+          if (neg != null) row.score -= NEG_PENALTY * neg;
         }
       } catch (e) { console.error('Example boost error:', e); }
 
@@ -770,7 +823,7 @@ export default {
           min_stock: d.min_stock,
           image_url: d.has_image ? `/api/items/${t.id}/image?v=${encodeURIComponent(d.updated_at || '')}` : null,
           thumb_url: d.has_image ? `/api/items/${t.id}/thumb?v=${encodeURIComponent(d.updated_at || '')}` : null,
-          confidence: Math.min(100, Math.round(t.score * 100)),
+          confidence: Math.max(0, Math.min(100, Math.round(t.score * 100))),
           learned: t.learned,
         };
       });
@@ -783,42 +836,99 @@ export default {
     // requisition submit). Stores the photo's fingerprint as an extra reference
     // for that item so future matches improve. Capped per item to stay bounded.
     if (path === '/api/match/feedback' && method === 'POST') {
-      const { image_b64, item_id, engine } = await request.json().catch(() => ({}));
+      const body = await request.json().catch(() => ({}));
+      const { image_b64, item_id, engine } = body;
       if (!image_b64 || !item_id) return err('image_b64 และ item_id จำเป็น');
-      const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1').bind(item_id).first();
+      const item = await env.DB.prepare('SELECT id, part_code, name FROM items WHERE id=? AND is_active=1').bind(item_id).first();
       if (!item) return err('ไม่พบอุปกรณ์', 404);
 
-      // Jina engine: store the confirmed photo as a Jina vector (fast, no VLM).
-      if (engine === 'jina' && env.JINA_API_KEY) {
-        let v = null;
-        try { v = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; } catch (e) { return err('Jina embed ล้มเหลว', 502); }
-        if (!v) return err('Jina ไม่คืนเวกเตอร์', 502);
-        await env.DB.prepare('INSERT INTO item_vectors (item_id, vec, source, variant) VALUES (?, ?, ?, ?)')
-          .bind(item_id, JSON.stringify(v), 'feedback', 'scan').run();
-        // cap feedback vectors per item to keep match-time bounded
+      // source='manual_pick' means the user rejected ALL of the AI's guesses and
+      // searched for the right item themselves → treat those guesses as hard
+      // negatives. 'scan' (picked one of the suggestions) is positive-only; the
+      // co-shown items are logged for audit but NOT penalised (they may legitimately
+      // look alike and recur together).
+      const source = body.source === 'manual_pick' ? 'manual_pick' : 'scan';
+      const negatives = (source === 'manual_pick' && Array.isArray(body.negatives))
+        ? [...new Set(body.negatives.map(Number).filter(n => n && n !== Number(item_id)))] : [];
+      const candidates = Array.isArray(body.candidates) ? body.candidates.slice(0, 10) : [];
+      const reporter = body.reporter ? String(body.reporter).slice(0, 80) : null;
+      const useJina = engine === 'jina' && env.JINA_API_KEY;
+      let learned = false, negStored = 0;
+
+      try {
+        if (useJina) {
+          // Jina: one embed of the scanned photo, reused as a positive for the
+          // chosen item and as a negative for each rejected item.
+          let v = null;
+          try { v = (await jinaEmbed(env, [{ image: image_b64 }]))[0]; } catch (e) { return err('Jina embed ล้มเหลว', 502); }
+          if (!v) return err('Jina ไม่คืนเวกเตอร์', 502);
+          const vjson = JSON.stringify(v);
+          await env.DB.prepare('INSERT INTO item_vectors (item_id, vec, source, variant) VALUES (?, ?, ?, ?)')
+            .bind(item_id, vjson, 'feedback', 'scan').run();
+          await capVectors(env, item_id, 'feedback');
+          learned = true;
+          for (const nid of negatives) {
+            await env.DB.prepare('INSERT INTO item_vectors (item_id, vec, source, variant) VALUES (?, ?, ?, ?)')
+              .bind(nid, vjson, 'negative', 'scan').run();
+            await capVectors(env, nid, 'negative');
+            negStored++;
+          }
+        } else {
+          // Legacy: build one fingerprint and store as positive / negative examples.
+          const fp = await buildFingerprint(env, image_b64);
+          if (!fp) return err('วิเคราะห์รูปไม่สำเร็จ', 502);
+          const labels = JSON.stringify(fp.labels || {});
+          const vec = fp.vec ? JSON.stringify(fp.vec) : null;
+          await env.DB.prepare(`INSERT INTO match_examples (item_id, labels, vec, caption, kind) VALUES (?, ?, ?, ?, 'positive')`)
+            .bind(item_id, labels, vec, fp.caption || '').run();
+          await capExamples(env, item_id, 'positive');
+          learned = true;
+          for (const nid of negatives) {
+            await env.DB.prepare(`INSERT INTO match_examples (item_id, labels, vec, caption, kind) VALUES (?, ?, ?, ?, 'negative')`)
+              .bind(nid, labels, vec, fp.caption || '').run();
+            await capExamples(env, nid, 'negative');
+            negStored++;
+          }
+        }
+      } catch (e) { return err('สอนระบบไม่สำเร็จ: ' + e.message, 502); }
+
+      // Audit log — every feedback event, regardless of engine/source.
+      try {
         await env.DB.prepare(
-          `DELETE FROM item_vectors WHERE item_id=? AND source='feedback' AND id NOT IN (
-             SELECT id FROM item_vectors WHERE item_id=? AND source='feedback' ORDER BY id DESC LIMIT 30)`
-        ).bind(item_id, item_id).run();
-        return json({ ok: true, learned: true, engine: 'jina' });
+          `INSERT INTO match_feedback (engine, chosen_item_id, chosen_label, rejected_item_ids, candidates, source, reporter)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          useJina ? 'jina' : 'legacy', item_id, `${item.name} (${item.part_code})`,
+          JSON.stringify(negatives), JSON.stringify(candidates), source, reporter
+        ).run();
+      } catch (e) { console.error('feedback log error:', e); }
+
+      return json({ ok: true, learned, negatives: negStored, engine: useJina ? 'jina' : 'legacy' });
+    }
+
+    // ── ML feedback: audit log (admin) — who taught what, and the AI's guesses ──
+    if (path === '/api/match/feedback-log' && method === 'GET') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const rows = await env.DB.prepare(
+        `SELECT id, engine, chosen_item_id, chosen_label, rejected_item_ids, candidates, source, reporter, created_at
+         FROM match_feedback ORDER BY id DESC LIMIT 100`
+      ).all().catch(() => ({ results: [] }));
+      const data = rows.results || [];
+      // Resolve rejected item ids → "name (code)" for display.
+      const ids = new Set();
+      for (const r of data) { try { (JSON.parse(r.rejected_item_ids) || []).forEach(id => ids.add(id)); } catch {} }
+      const nameById = {};
+      if (ids.size) {
+        const arr = [...ids]; const ph = arr.map(() => '?').join(',');
+        const nrows = await env.DB.prepare(`SELECT id, part_code, name FROM items WHERE id IN (${ph})`).bind(...arr).all();
+        for (const n of nrows.results || []) nameById[n.id] = `${n.name} (${n.part_code})`;
       }
-
-      const fp = await buildFingerprint(env, image_b64);
-      if (!fp) return err('วิเคราะห์รูปไม่สำเร็จ', 502);
-
-      await env.DB.prepare(
-        `INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)`
-      ).bind(item_id, JSON.stringify(fp.labels || {}), fp.vec ? JSON.stringify(fp.vec) : null, fp.caption || '').run();
-
-      // Keep only the most recent 30 examples per item (bounds match-time cost).
-      await env.DB.prepare(
-        `DELETE FROM match_examples WHERE item_id=? AND id NOT IN (
-           SELECT id FROM match_examples WHERE item_id=? ORDER BY id DESC LIMIT 30
-         )`
-      ).bind(item_id, item_id).run();
-
-      const cnt = await env.DB.prepare('SELECT COUNT(*) n FROM match_examples WHERE item_id=?').bind(item_id).first();
-      return json({ ok: true, learned: true, examples: cnt?.n || 0 });
+      for (const r of data) {
+        let rej = []; try { rej = JSON.parse(r.rejected_item_ids) || []; } catch {}
+        r.rejected = rej.map(id => ({ id, label: nameById[id] || ('#' + id) }));
+        delete r.rejected_item_ids; delete r.candidates;
+      }
+      return json({ ok: true, data });
     }
 
     // ── Scan report: user couldn't find the item -> notify Admin ──

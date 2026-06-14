@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS match_examples (
   labels     TEXT,              -- JSON resnet label map
   vec        TEXT,              -- JSON dense embedding vector
   caption    TEXT,              -- คำบรรยายรูป (debug)
+  kind       TEXT DEFAULT 'positive',  -- positive (ยืนยันว่าใช่) | negative (ผู้ใช้บอกว่าไม่ใช่ → ลดคะแนนชิ้นนี้)
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_match_examples_item ON match_examples(item_id);
@@ -115,16 +116,31 @@ CREATE TABLE IF NOT EXISTS scan_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_scan_reports_status ON scan_reports(status);
 
--- ตารางเวกเตอร์ภาพ (Jina CLIP v2) — 1 item มีได้หลาย vector (enroll/augment/feedback)
+-- ตารางเวกเตอร์ภาพ (Jina CLIP v2) — 1 item มีได้หลาย vector (enroll/augment/feedback/negative)
 CREATE TABLE IF NOT EXISTS item_vectors (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id    INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   vec        TEXT NOT NULL,        -- JSON 1024-float Jina CLIP v2 embedding
-  source     TEXT DEFAULT 'enroll',-- enroll | augment | feedback
+  source     TEXT DEFAULT 'enroll',-- enroll | augment | feedback | negative
   variant    TEXT,                 -- original | rotate+10 | brightness0.8 | ...
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_item_vectors_item ON item_vectors(item_id);
+
+-- ตาราง log การสอน AI (positive + negative) — ตรวจสอบย้อนหลังได้ว่าใครสอนอะไรเมื่อไหร่
+-- ทุกครั้งที่ผู้ใช้ยืนยัน/แก้ผลการค้นหา จะบันทึก: เลือกชิ้นไหน, ปฏิเสธชิ้นใดบ้าง, AI เดาอะไรมา
+CREATE TABLE IF NOT EXISTS match_feedback (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  engine            TEXT,           -- jina | legacy
+  chosen_item_id    INTEGER REFERENCES items(id),   -- ชิ้นที่ผู้ใช้ยืนยันว่าใช่ (positive)
+  chosen_label      TEXT,           -- snapshot ชื่อ+รหัสของชิ้นที่เลือก (ดู log ได้โดยไม่ต้อง join)
+  rejected_item_ids TEXT,           -- JSON array ของ item id ที่ AI เสนอแต่ผู้ใช้ไม่เลือก (negatives)
+  candidates        TEXT,           -- JSON [{id, confidence}] ภาพรวมที่ AI เสนอตอนนั้น
+  source            TEXT,           -- scan (เลือกจากผล AI) | manual_pick (AI เดาผิดทั้งหมด ผู้ใช้ค้นเอง)
+  reporter          TEXT,           -- ผู้สอน (รหัส/ชื่อพนักงาน)
+  created_at        TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_match_feedback_created ON match_feedback(id);
 
 -- ตารางตั้งค่าระบบ (key-value) — เก็บ flag เช่น match_engine = legacy | jina
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
