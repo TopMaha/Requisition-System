@@ -842,13 +842,19 @@ export default {
       const item = await env.DB.prepare('SELECT id, part_code, name FROM items WHERE id=? AND is_active=1').bind(item_id).first();
       if (!item) return err('ไม่พบอุปกรณ์', 404);
 
-      // source='manual_pick' means the user rejected ALL of the AI's guesses and
-      // searched for the right item themselves → treat those guesses as hard
-      // negatives. 'scan' (picked one of the suggestions) is positive-only; the
-      // co-shown items are logged for audit but NOT penalised (they may legitimately
-      // look alike and recur together).
-      const source = body.source === 'manual_pick' ? 'manual_pick' : 'scan';
-      const negatives = (source === 'manual_pick' && Array.isArray(body.negatives))
+      // Negative-bearing sources — the user explicitly told us the other shown
+      // items are WRONG, so penalise them:
+      //   manual_pick   = scan flow, rejected all guesses, searched the right item
+      //   train_pick    = "สอน ML" page, none of ML's guesses were right
+      //   train_confirm = "สอน ML" page, confirmed the correct one among the guesses
+      // 'scan' (picked one of the suggestions during a real withdrawal) is
+      // positive-only; co-shown items are logged for audit but NOT penalised
+      // (they may legitimately look alike and recur together). The source label is
+      // kept verbatim in the audit log so training is distinguishable from withdrawals.
+      const NEG_SOURCES = new Set(['manual_pick', 'train_pick', 'train_confirm']);
+      const KNOWN_SOURCES = new Set(['manual_pick', 'train_pick', 'train_confirm', 'scan']);
+      const source = KNOWN_SOURCES.has(body.source) ? body.source : 'scan';
+      const negatives = (NEG_SOURCES.has(source) && Array.isArray(body.negatives))
         ? [...new Set(body.negatives.map(Number).filter(n => n && n !== Number(item_id)))] : [];
       const candidates = Array.isArray(body.candidates) ? body.candidates.slice(0, 10) : [];
       const reporter = body.reporter ? String(body.reporter).slice(0, 80) : null;

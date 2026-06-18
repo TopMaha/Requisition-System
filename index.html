@@ -462,6 +462,29 @@ textarea { resize: vertical; min-height: 70px; }
 .notif-dot.show { display: block; }
 @keyframes notifPulse { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.6); } 70% { box-shadow: 0 0 0 6px rgba(244,63,94,0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); } }
 
+/* ======= TRAINING (Teach ML) — learn-only page ======= */
+/* Purple accent throughout so it never gets confused with the real (blue) เบิก flow. */
+.teach-banner { background: linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%); border: 1.5px solid #ddd6fe;
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.teach-banner .tb-title { font-family: var(--font-display); font-weight: 700; font-size: 16px; color: #6d28d9;
+  display: flex; align-items: center; gap: 8px; }
+.teach-banner .tb-sub { font-size: 13px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
+.teach-banner .tb-warn { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px;
+  background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 12px; font-weight: 700;
+  border-radius: 999px; padding: 4px 11px; }
+.teach-count { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--sub); }
+.teach-count b { color: #6d28d9; font-size: 18px; font-family: var(--font-display); }
+#page-train .img-zone.has-img { border-color: #7c3aed; }
+#page-train .btn-teach { background: #7c3aed; color: #fff; }
+#page-train .btn-teach:hover { background: #6d28d9; }
+#page-train .btn-teach:disabled { background: #c4b5fd; cursor: not-allowed; }
+#page-train .match-item.selected { border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 3px rgba(124,58,237,.2); }
+#page-train .conf-fill { background: linear-gradient(90deg, #a78bfa, #7c3aed); }
+.train-done { text-align: center; padding: 26px 16px; }
+.train-done .td-check { font-size: 52px; line-height: 1; }
+.train-done .td-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--success); margin-top: 8px; }
+.train-done .td-sub { font-size: 13.5px; color: var(--sub); margin-top: 6px; }
+
 /* ======= SEARCH-QUALITY (Jina) TOGGLE — scan page ======= */
 .eng-card { background: linear-gradient(135deg, #eef4ff 0%, #f5f3ff 100%); border: 1.5px solid #c7d7fe; }
 .eng-row { display: flex; align-items: center; gap: 12px; }
@@ -537,11 +560,14 @@ textarea { resize: vertical; min-height: 70px; }
   <button class="nav-tab active" onclick="switchTab('scan')" id="tab-scan">
     <span class="tab-icon">📷</span>สแกน/เบิก
   </button>
-  <button class="nav-tab" onclick="switchTab('history')" id="tab-history">
-    <span class="tab-icon">📋</span>ประวัติ
+  <button class="nav-tab" onclick="switchTab('train')" id="tab-train">
+    <span class="tab-icon">🎓</span>สอน ML
   </button>
   <button class="nav-tab" onclick="switchTab('inventory')" id="tab-inventory">
     <span class="tab-icon">📦</span>คลังสินค้า
+  </button>
+  <button class="nav-tab" onclick="switchTab('history')" id="tab-history">
+    <span class="tab-icon">📋</span>ประวัติ
   </button>
   <button class="nav-tab" onclick="switchTab('admin')" id="tab-admin">
     <span class="tab-icon">🔧</span>Admin
@@ -651,6 +677,64 @@ textarea { resize: vertical; min-height: 70px; }
   <div id="scanEmpty" class="empty">
     <div class="empty-icon">📷</div>
     <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด "ค้นหาอุปกรณ์ด้วย Machine Learning"</div>
+  </div>
+</div>
+
+<!-- PAGE : TRAIN (สอน ML — เรียนรู้อย่างเดียว ไม่เบิกจริง) -->
+<div class="page" id="page-train">
+  <div class="teach-banner">
+    <div class="tb-title">🎓 โหมดสอน Machine Learning</div>
+    <div class="tb-sub">
+      ถ่ายรูปอุปกรณ์แล้วบอกระบบว่า “รูปนี้คือชิ้นไหน” เพื่อ<b>สอน ML ให้แม่นขึ้น</b>
+      ยิ่งสอนมาก ครั้งหน้าหน้า “สแกน/เบิก” จะจับคู่ได้เร็วและถูกต้องขึ้น
+    </div>
+    <span class="tb-warn">⚠️ โหมดนี้เรียนรู้อย่างเดียว — ไม่ตัดสต็อก ไม่สร้างใบเบิก</span>
+    <div class="teach-count">🧠 สอนไปแล้วในรอบนี้: <b id="trainCount">0</b> รูป</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📷 ถ่ายรูปหรือเลือกรูปอุปกรณ์ที่จะสอน</div>
+    <div class="img-zone" id="trainImgZone" onclick="document.getElementById('trainFileInput').click()">
+      <div class="zone-icon" id="trainZoneIcon">📸</div>
+      <div class="zone-hint" id="trainZoneHint">กดเพื่อถ่ายรูปหรือเลือกรูปภาพ<br><small>รองรับ JPG, PNG, WebP</small></div>
+      <img id="trainPreviewImg" style="display:none" alt="preview">
+    </div>
+    <input type="file" id="trainFileInput" accept="image/*" style="display:none" onchange="onTrainFileSelect(this)">
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="openCamera(setTrainImage)" style="flex:1;min-width:140px">📷 เปิดกล้อง</button>
+      <button class="btn btn-outline" onclick="document.getElementById('trainFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
+      <button class="btn btn-gray" onclick="clearTrainImage()" id="btnTrainClear" disabled>🗑️ ล้าง</button>
+      <button class="btn btn-teach btn-block" onclick="doTrainMatch()" id="btnTrainMatch" disabled>🎓 ให้ ML ทาย แล้วสอน</button>
+    </div>
+  </div>
+
+  <div id="trainMatchSection" style="display:none">
+    <div class="card">
+      <div class="card-title">🤖 ML ทายว่าเป็นชิ้นไหน — บอกหน่อยว่าถูกหรือไม่</div>
+      <div class="alert alert-info" style="margin-bottom:12px">
+        <span class="alert-icon">💡</span>
+        <div>กดเลือก<b>รายการที่ถูกต้อง</b>แล้วกดยืนยัน — ML จะจดจำรูปนี้คู่กับชิ้นนั้น และตัดตัวเลือกที่ผิดออก</div>
+      </div>
+      <div class="match-list" id="trainMatchList"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-teach" style="flex:2;min-width:170px" id="btnTrainConfirm" onclick="confirmTrain()" disabled>✅ ยืนยัน: ตัวที่เลือกถูกต้อง</button>
+        <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openTrainPick()">🔍 ไม่มีตัวถูก — ค้นหาเอง</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="trainDone" class="card" style="display:none">
+    <div class="train-done">
+      <div class="td-check">🎉</div>
+      <div class="td-title">สอน ML สำเร็จ!</div>
+      <div class="td-sub" id="trainDoneSub"></div>
+      <button class="btn btn-teach btn-block" style="margin-top:16px" onclick="trainNext()">🎓 สอนรูปถัดไป</button>
+    </div>
+  </div>
+
+  <div id="trainEmpty" class="empty">
+    <div class="empty-icon">🎓</div>
+    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด “ให้ ML ทาย แล้วสอน”</div>
   </div>
 </div>
 
@@ -1266,12 +1350,17 @@ async function setMatchEngine(engine) {
 // opts.source: 'scan' (picked one of the AI's matches) | 'manual_pick' (rejected all,
 // searched manually → the AI's matches become negative examples).
 async function trainItem(itemId, opts = {}) {
-  if (!selectedImage || !itemId) return;
+  // Image + candidate store default to the scan flow, but the dedicated
+  // "สอน ML" page passes its own (opts.image / opts.store) so it can teach
+  // without touching the requisition state.
+  const image = opts.image || selectedImage;
+  const store = opts.store || _matchStore;
+  if (!image || !itemId) return;
   const jina = activeEngine() === 'jina';
   const source = opts.source || 'scan';
   // Candidates the AI showed for this scan (snapshot for the audit log).
-  const shown = Object.keys(_matchStore).map(Number).filter(Boolean);
-  const candidates = shown.map(id => ({ id, confidence: _matchStore[id]?.confidence ?? null }));
+  const shown = Object.keys(store).map(Number).filter(Boolean);
+  const candidates = shown.map(id => ({ id, confidence: store[id]?.confidence ?? null }));
   // Negatives = AI suggestions the user did NOT pick (only meaningful on manual_pick).
   const negatives = shown.filter(id => id !== Number(itemId));
   const reporter = currentUser ? `${currentUser.name} (${currentUser.code})`
@@ -1280,7 +1369,7 @@ async function trainItem(itemId, opts = {}) {
     item_id: itemId, engine: jina ? 'jina' : 'legacy',
     source, negatives, candidates, reporter,
   };
-  body.image_b64 = jina ? await preprocessImage(selectedImage, 512) : selectedImage;
+  body.image_b64 = jina ? await preprocessImage(image, 512) : image;
   try { return await api('POST', '/api/match/feedback', body); } catch {}
 }
 let _lastTopGuess = '';       // best AI guess from last scan (context for reports)
@@ -1601,6 +1690,7 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'train') resetTrain();
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
@@ -2166,10 +2256,11 @@ async function loadFeedbackLog() {
     if (!rows.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ยังไม่มีประวัติการสอนระบบ</div>'; return; }
     el.innerHTML = rows.map(r => {
       const eng = r.engine === 'jina' ? '⚡ Jina' : '🧩 Legacy';
-      const isPick = r.source === 'manual_pick';
-      const srcTag = isPick
-        ? '<span style="color:var(--danger);font-weight:700">🙅 แก้ผล (AI เดาผิด)</span>'
-        : '<span style="color:var(--success);font-weight:700">✅ ยืนยันผล</span>';
+      const srcTag =
+        r.source === 'manual_pick'   ? '<span style="color:var(--danger);font-weight:700">🙅 แก้ผล (AI เดาผิด)</span>'
+      : r.source === 'train_pick'    ? '<span style="color:#7c3aed;font-weight:700">🎓 สอน ML (ค้นเอง)</span>'
+      : r.source === 'train_confirm' ? '<span style="color:#7c3aed;font-weight:700">🎓 สอน ML (ยืนยัน)</span>'
+      :                                '<span style="color:var(--success);font-weight:700">✅ ยืนยันผล</span>';
       const rejected = (r.rejected || []);
       const rejHtml = rejected.length
         ? `<div style="font-size:12px;color:var(--danger);margin-top:3px">✗ ตัดออก (negative): ${rejected.map(x => escHtml(x.label)).join(', ')}</div>`
@@ -2246,8 +2337,10 @@ function confirmLink(itemId) {
 
 // ===== Manual item pick (scan flow): pick the correct item + train the AI =====
 let _pickStore = {};
+let _pickMode = 'req';   // 'req' = pick into requisition form · 'train' = teach ML only
 function openPickItem() {
   if (!selectedImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
+  _pickMode = 'req';
   document.getElementById('pickSearch').value = '';
   document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
   openModal('pickItemModal');
@@ -2274,6 +2367,7 @@ async function loadPickItems() {
 }
 function choosePickItem(id) {
   const m = _pickStore[id]; if (!m) return;
+  if (_pickMode === 'train') { closeModal('pickItemModal'); trainChoosePick(id, m); return; }
   _matchStore[id] = { ...m, confidence: null };  // let selectMatch render it
   closeModal('pickItemModal');
   selectMatch(id);                                // load into the requisition form
@@ -2286,6 +2380,144 @@ function choosePickItem(id) {
       .catch(() => {});
   }
 }
+// ============================================================
+// TRAIN — "สอน ML" page (learn-only; never deducts stock or files a requisition)
+// Mirrors the scan pipeline but keeps its own state so it can't contaminate
+// the requisition flow. Every confirm hits the same /api/match/feedback path.
+// ============================================================
+let trainImage = null;
+let _trainStore = {};        // id -> candidate from last ML guess
+let trainSelectedId = null;
+let trainCount = 0;          // how many photos taught this session
+
+function resetTrain() {
+  clearTrainImage();
+  document.getElementById('trainCount').textContent = trainCount;
+}
+function setTrainImage(dataUrl) {
+  trainImage = dataUrl;
+  const img = document.getElementById('trainPreviewImg');
+  img.src = dataUrl; img.style.display = 'block';
+  document.getElementById('trainZoneIcon').style.display = 'none';
+  document.getElementById('trainZoneHint').style.display = 'none';
+  document.getElementById('trainImgZone').classList.add('has-img');
+  document.getElementById('btnTrainMatch').disabled = false;
+  document.getElementById('btnTrainClear').disabled = false;
+  document.getElementById('trainMatchSection').style.display = 'none';
+  document.getElementById('trainDone').style.display = 'none';
+  document.getElementById('trainEmpty').style.display = 'none';
+  trainSelectedId = null;
+}
+async function onTrainFileSelect(input) {
+  const file = input.files[0]; if (!file) return;
+  try { setTrainImage(await fileToCompressedDataUrl(file)); }
+  catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+}
+function clearTrainImage() {
+  trainImage = null; trainSelectedId = null; _trainStore = {};
+  const img = document.getElementById('trainPreviewImg');
+  if (img) { img.style.display = 'none'; img.src = ''; }
+  document.getElementById('trainZoneIcon').style.display = '';
+  document.getElementById('trainZoneHint').style.display = '';
+  document.getElementById('trainImgZone').classList.remove('has-img');
+  document.getElementById('btnTrainMatch').disabled = true;
+  document.getElementById('btnTrainClear').disabled = true;
+  document.getElementById('trainMatchSection').style.display = 'none';
+  document.getElementById('trainDone').style.display = 'none';
+  document.getElementById('trainEmpty').style.display = '';
+  document.getElementById('trainFileInput').value = '';
+}
+async function doTrainMatch() {
+  if (!trainImage) return;
+  const btn = document.getElementById('btnTrainMatch');
+  btn.disabled = true; btn.textContent = '⏳ กำลังให้ ML ทาย...';
+  document.getElementById('trainMatchSection').style.display = 'none';
+  document.getElementById('trainDone').style.display = 'none';
+  document.getElementById('trainEmpty').style.display = 'none';
+  try {
+    let data;
+    if (activeEngine() === 'jina') {
+      const q = await preprocessImage(trainImage, 512);
+      data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
+    } else {
+      const phashes = await augmentHashes(trainImage);
+      data = await api('POST', '/api/match', { image_b64: trainImage, top_k: 5, phashes });
+    }
+    renderTrainMatches(data.matches || []);
+    document.getElementById('trainMatchSection').style.display = 'block';
+  } catch { document.getElementById('trainEmpty').style.display = ''; }
+  finally { btn.disabled = false; btn.textContent = '🎓 ให้ ML ทาย แล้วสอน'; }
+}
+function renderTrainMatches(matches) {
+  _trainStore = {}; trainSelectedId = null;
+  document.getElementById('btnTrainConfirm').disabled = true;
+  const list = document.getElementById('trainMatchList');
+  if (!matches.length) {
+    list.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>ML ยังไม่รู้จักชิ้นนี้<br><small>กด “ไม่มีตัวถูก — ค้นหาเอง” เพื่อสอนตั้งแต่ต้น</small></div>';
+    return;
+  }
+  list.innerHTML = matches.map(m => {
+    _trainStore[m.id] = m;
+    const confColor = m.confidence >= 70 ? 'var(--success)' : m.confidence >= 40 ? 'var(--warning)' : 'var(--danger)';
+    return `
+      <div class="match-item" id="trainmatch-${m.id}" onclick="selectTrainMatch(${m.id})">
+        ${thumbSrc(m) ? `<img class="match-thumb" src="${thumbSrc(m)}" alt="${escHtml(m.name)}" loading="lazy">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
+        <div class="match-info">
+          <div class="match-name">${escHtml(m.name)}${m.learned ? ' <span class="learned-badge" title="แม่นขึ้นจากการเรียนรู้ของผู้ใช้">🧠 เรียนรู้แล้ว</span>' : ''}</div>
+          <div class="match-code">${escHtml(m.part_code)}</div>
+          <div class="match-conf" style="color:${confColor}">ML มั่นใจ: ${m.confidence}%</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+function selectTrainMatch(id) {
+  if (!_trainStore[id]) return;
+  document.querySelectorAll('#trainMatchList .match-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById('trainmatch-' + id)?.classList.add('selected');
+  trainSelectedId = id;
+  document.getElementById('btnTrainConfirm').disabled = false;
+}
+async function confirmTrain() {
+  if (!trainSelectedId || !trainImage) return;
+  const m = _trainStore[trainSelectedId];
+  const btn = document.getElementById('btnTrainConfirm');
+  btn.disabled = true; btn.textContent = '⏳ กำลังสอน...';
+  const r = await trainItem(trainSelectedId, { source: 'train_confirm', image: trainImage, store: _trainStore });
+  btn.textContent = '✅ ยืนยัน: ตัวที่เลือกถูกต้อง';
+  if (!r || !r.ok) { btn.disabled = false; showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
+  finishTrain(m, r);
+}
+function openTrainPick() {
+  if (!trainImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
+  _pickMode = 'train';
+  document.getElementById('pickSearch').value = '';
+  document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
+  openModal('pickItemModal');
+  loadPickItems();
+}
+async function trainChoosePick(id, m) {
+  // User said none of ML's guesses were right → teach the correct one, the rest become negatives.
+  const r = await trainItem(id, { source: 'train_pick', image: trainImage, store: _trainStore });
+  if (!r || !r.ok) { showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
+  finishTrain(m, r);
+}
+function finishTrain(m, r) {
+  trainCount++;
+  document.getElementById('trainCount').textContent = trainCount;
+  const negTxt = r && r.negatives ? ` · ตัดตัวเลือกที่ผิด ${r.negatives} รายการ` : '';
+  document.getElementById('trainDoneSub').innerHTML =
+    `ML จดจำแล้วว่า รูปนี้ = <b>${escHtml(m.name)}</b> (${escHtml(m.part_code)})${negTxt}<br>ครั้งหน้าถ่ายแบบเดียวกันจะแม่นขึ้น`;
+  document.getElementById('trainMatchSection').style.display = 'none';
+  document.getElementById('trainDone').style.display = 'block';
+  showToast(`🧠 สอนสำเร็จ: รูปนี้ = ${m.part_code}`);
+  document.getElementById('trainDone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function trainNext() {
+  clearTrainImage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 async function reportDismiss(id) {
   const ok = await showConfirm('🗑️', 'ปิดรายการแจ้งนี้?', 'จะไม่แสดงในคิวอีก', 'ปิดรายการ', 'gray');
   if (!ok) return;
