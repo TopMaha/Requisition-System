@@ -2,8 +2,17 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ระบบเบิกอุปกรณ์ — Factory Requisition</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='14' y='16' width='46' height='64' rx='10' fill='%236fa9e8' stroke='%230e3a6b' stroke-width='4'/%3E%3Crect x='21' y='25' width='32' height='47' rx='5' fill='%23fff'/%3E%3Crect x='26' y='32' width='9' height='9' rx='2' fill='%23fff' stroke='%230e3a6b' stroke-width='3'/%3E%3Cpath d='M27.5 36.5 30 39 36 32' fill='none' stroke='%230e3a6b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Crect x='26' y='49' width='9' height='9' rx='2' fill='%23fff' stroke='%230e3a6b' stroke-width='3'/%3E%3Cpath d='M58 40 80 40 90 33 72 33Z' fill='%23efdcbb' stroke='%238a4e16' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M58 40 76 40 76 70 58 70Z' fill='%23dd8a2c' stroke='%238a4e16' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M76 40 90 33 90 63 76 70Z' fill='%23c2761e' stroke='%238a4e16' stroke-width='3' stroke-linejoin='round'/%3E%3Cline x1='72' y1='74' x2='86' y2='88' stroke='%230e3a6b' stroke-width='11' stroke-linecap='round'/%3E%3Cline x1='72' y1='74' x2='86' y2='88' stroke='%232f80e8' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='60' cy='62' r='15' fill='%23eaf6ff' stroke='%232f80e8' stroke-width='6'/%3E%3Ccircle cx='60' cy='62' r='18.5' fill='none' stroke='%230e3a6b' stroke-width='2.5'/%3E%3Ccircle cx='60' cy='62' r='12' fill='none' stroke='%230e3a6b' stroke-width='2'/%3E%3C/svg%3E">
+<!-- PWA: install to home screen + open fullscreen (no browser chrome) -->
+<meta name="theme-color" content="#1a56db">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="เบิกอุปกรณ์">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -36,7 +45,9 @@ h1, h2, h3, h4, .card-title, .nav-tab, .stat-num, .login-title, .modal-title { f
 /* ======= LAYOUT ======= */
 .app-header {
   position: sticky; top: 0; z-index: 100; color: #fff;
-  padding: 13px 18px; display: flex; align-items: center; gap: 13px;
+  /* respect the notch / status bar so the header isn't clipped with viewport-fit=cover */
+  padding: calc(13px + env(safe-area-inset-top, 0px)) calc(18px + env(safe-area-inset-right, 0px)) 13px calc(18px + env(safe-area-inset-left, 0px));
+  display: flex; align-items: center; gap: 13px;
   background:
     radial-gradient(130% 150% at 0% 0%, rgba(14,165,233,.55) 0%, rgba(14,165,233,0) 46%),
     radial-gradient(130% 170% at 100% 0%, rgba(79,70,229,.45) 0%, rgba(79,70,229,0) 52%),
@@ -50,12 +61,13 @@ h1, h2, h3, h4, .card-title, .nav-tab, .stat-num, .login-title, .modal-title { f
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
 }
 .app-header .logo {
-  font-size: 23px; width: 44px; height: 44px; flex-shrink: 0; border-radius: 13px;
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 13px; padding: 4px;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, rgba(255,255,255,.30), rgba(255,255,255,.07));
-  border: 1px solid rgba(255,255,255,.28);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 12px rgba(0,0,0,.18);
+  background: #ffffff;
+  border: 1px solid rgba(255,255,255,.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 12px rgba(0,0,0,.2);
 }
+.app-header .logo svg { width: 100%; height: 100%; display: block; }
 .app-header h1 {
   font-family: var(--font-display); font-size: 19px; font-weight: 700;
   letter-spacing: .2px; line-height: 1.12; text-shadow: 0 1px 2px rgba(0,0,0,.18);
@@ -91,6 +103,8 @@ h1, h2, h3, h4, .card-title, .nav-tab, .stat-num, .login-title, .modal-title { f
   border-top: 1px solid var(--border);
   box-shadow: 0 -2px 12px rgba(0,0,0,.08);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 .nav-tab {
   flex: 1; min-width: 0; padding: 8px 4px 10px; border: none; background: none;
@@ -116,8 +130,9 @@ h1, h2, h3, h4, .card-title, .nav-tab, .stat-num, .login-title, .modal-title { f
 }
 .tab-badge.show { display: flex; }
 
-.page { display: none; padding: 16px; max-width: 900px; margin: 0 auto;
-  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.page { display: none; max-width: 900px; margin: 0 auto;
+  padding: 16px calc(16px + env(safe-area-inset-right, 0px))
+           calc(76px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .page.active { display: block; }
 
 /* Scroll-to-top floating button */
@@ -282,7 +297,9 @@ textarea { resize: vertical; min-height: 70px; }
 .login-overlay.hidden { display: none; }
 .login-box { background: var(--card); border-radius: 20px; padding: 30px 24px; width: 100%;
   max-width: 360px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-.login-logo { font-size: 52px; line-height: 1; }
+.login-logo { width: 84px; height: 84px; margin: 0 auto 2px; line-height: 1; }
+.login-logo svg { width: 100%; height: 100%; display: block;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.28)); }
 .login-title { font-size: 21px; font-weight: 800; margin-top: 8px; color: var(--text); }
 .login-sub { font-size: 12px; color: var(--sub); }
 .btn-link { background: none; border: none; color: var(--primary); font-size: 13px;
@@ -504,10 +521,58 @@ textarea { resize: vertical; min-height: 70px; }
 </head>
 <body>
 
+<!-- ======= LOGO (inline SVG sprite — clipboard + checklist + magnifier + open box) ======= -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="lgBoard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d6eafc"/><stop offset="1" stop-color="#6fa9e8"/>
+    </linearGradient>
+    <linearGradient id="lgLens" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0f8ff"/><stop offset="1" stop-color="#bfe2fb"/>
+    </linearGradient>
+  </defs>
+  <symbol id="logoMark" viewBox="0 0 100 100">
+    <!-- OPEN BOX (behind, upper-right) -->
+    <g stroke="#8a4e16" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M60 45 L78 45 L88 39 L70 39 Z" fill="#efdcbb"/>            <!-- top opening / inside rim -->
+      <path d="M60 45 L70 39 L62 26 L52 33 Z" fill="#f4b466"/>            <!-- left flap (open) -->
+      <path d="M78 45 L88 39 L96 30 L86 36 Z" fill="#eea14a"/>            <!-- right flap (open) -->
+      <path d="M78 45 L88 39 L88 67 L78 73 Z" fill="#c2761e"/>            <!-- right side -->
+      <path d="M60 45 L78 45 L78 73 L60 73 Z" fill="#dd8a2c"/>            <!-- front face -->
+    </g>
+    <!-- CLIPBOARD -->
+    <g stroke="#0e3a6b" stroke-width="3" stroke-linejoin="round">
+      <rect x="11" y="15" width="45" height="63" rx="9" fill="url(#lgBoard)"/>
+      <rect x="17" y="23" width="33" height="49" rx="5" fill="#ffffff"/>
+      <path d="M28 8 h10 a4 4 0 0 1 4 4 v6 a3 3 0 0 1 -3 3 h-12 a3 3 0 0 1 -3 -3 v-6 a4 4 0 0 1 4 -4 z" fill="#c1dbf7"/>
+      <circle cx="33.5" cy="12.5" r="1.7" fill="#0e3a6b" stroke="none"/>
+    </g>
+    <!-- CHECKLIST -->
+    <g stroke="#0e3a6b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <rect x="21" y="29" width="8.5" height="8.5" rx="2" fill="#fff"/>
+      <path d="M22.6 33.3 L25.2 35.9 L31 28.8" stroke-width="2.4"/>
+      <rect x="21" y="43" width="8.5" height="8.5" rx="2" fill="#fff"/>
+      <rect x="21" y="57" width="8.5" height="8.5" rx="2" fill="#fff"/>
+      <path d="M33 31.5 H47"/><path d="M33 35.5 H43"/>
+      <path d="M33 47 H47"/><path d="M33 61 H45"/>
+    </g>
+    <!-- MAGNIFIER (front, lower-right) -->
+    <g stroke-linecap="round" stroke-linejoin="round">
+      <line x1="74" y1="75" x2="87" y2="88" stroke="#0e3a6b" stroke-width="11.5"/>
+      <line x1="74" y1="75" x2="87" y2="88" stroke="#2f80e8" stroke-width="6.5"/>
+      <circle cx="61" cy="62" r="13" fill="url(#lgLens)"/>
+      <path d="M53 57 a11 11 0 0 1 9 -5" stroke="#fff" stroke-width="3" fill="none" opacity=".85"/>
+      <circle cx="61" cy="62" r="16" fill="none" stroke="#2f80e8" stroke-width="6.5"/>
+      <circle cx="61" cy="62" r="19.4" fill="none" stroke="#0e3a6b" stroke-width="2.4"/>
+      <circle cx="61" cy="62" r="12.8" fill="none" stroke="#0e3a6b" stroke-width="2.2"/>
+    </g>
+  </symbol>
+</svg>
+
 <!-- ======= LOGIN GATE ======= -->
 <div id="loginOverlay" class="login-overlay">
   <div class="login-box">
-    <div class="login-logo">🏭</div>
+    <div class="login-logo"><svg viewBox="0 0 100 100" role="img" aria-label="โลโก้ระบบเบิกอุปกรณ์"><use href="#logoMark"/></svg></div>
     <div class="login-title">ระบบเบิกอุปกรณ์</div>
     <div class="login-sub">Factory Requisition System</div>
 
@@ -539,7 +604,7 @@ textarea { resize: vertical; min-height: 70px; }
 
 <!-- ======= HEADER ======= -->
 <div class="app-header">
-  <div class="logo">🏭</div>
+  <div class="logo"><svg viewBox="0 0 100 100" role="img" aria-label="โลโก้ระบบเบิกอุปกรณ์"><use href="#logoMark"/></svg></div>
   <div>
     <h1>ระบบเบิกอุปกรณ์</h1>
     <div class="sub">Factory Requisition System</div>
@@ -685,27 +750,27 @@ textarea { resize: vertical; min-height: 70px; }
   <div class="teach-banner">
     <div class="tb-title">🎓 โหมดสอน Machine Learning</div>
     <div class="tb-sub">
-      ถ่ายรูปอุปกรณ์แล้วบอกระบบว่า “รูปนี้คือชิ้นไหน” เพื่อ<b>สอน ML ให้แม่นขึ้น</b>
-      ยิ่งสอนมาก ครั้งหน้าหน้า “สแกน/เบิก” จะจับคู่ได้เร็วและถูกต้องขึ้น
+      ถ่ายรูปอุปกรณ์<b>หลายๆ รูป</b> (กดถ่ายรัวๆ) แล้วบอกระบบว่า “นี่คือชิ้นไหน” <b>ครั้งเดียว</b> ระบบจะเอาทุกรูปไปสอนเอง
+      ยิ่งหลายมุม ครั้งหน้า “สแกน/เบิก” จะจับคู่ได้เร็วและแม่นขึ้น
     </div>
     <span class="tb-warn">⚠️ โหมดนี้เรียนรู้อย่างเดียว — ไม่ตัดสต็อก ไม่สร้างใบเบิก</span>
     <div class="teach-count">🧠 สอนไปแล้วในรอบนี้: <b id="trainCount">0</b> รูป</div>
   </div>
 
   <div class="card">
-    <div class="card-title">📷 ถ่ายรูปหรือเลือกรูปอุปกรณ์ที่จะสอน</div>
+    <div class="card-title">📷 ถ่ายรูปอุปกรณ์ที่จะสอน <span style="font-weight:400;color:var(--sub);font-size:13px">— ถ่ายได้หลายรูป แล้วส่งสอนทีเดียว</span></div>
     <div class="img-zone" id="trainImgZone" onclick="document.getElementById('trainFileInput').click()">
       <div class="zone-icon" id="trainZoneIcon">📸</div>
-      <div class="zone-hint" id="trainZoneHint">กดเพื่อถ่ายรูปหรือเลือกรูปภาพ<br><small>รองรับ JPG, PNG, WebP</small></div>
-      <img id="trainPreviewImg" style="display:none" alt="preview">
+      <div class="zone-hint" id="trainZoneHint">กด “ถ่ายต่อเนื่อง” เพื่อถ่ายรัวๆ หลายรูป<br><small>ยิ่งหลายมุม ยิ่งสอนแม่น · รองรับ JPG, PNG, WebP</small></div>
+      <div id="trainThumbGrid" style="display:none"></div>
     </div>
-    <input type="file" id="trainFileInput" accept="image/*" style="display:none" onchange="onTrainFileSelect(this)">
+    <input type="file" id="trainFileInput" accept="image/*" multiple style="display:none" onchange="onTrainFileSelect(this)">
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="openCamera(setTrainImage)" style="flex:1;min-width:140px">📷 เปิดกล้อง</button>
-      <button class="btn btn-outline" onclick="document.getElementById('trainFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
-      <button class="btn btn-gray" onclick="clearTrainImage()" id="btnTrainClear" disabled>🗑️ ล้าง</button>
-      <button class="btn btn-teach btn-block" onclick="doTrainMatch()" id="btnTrainMatch" disabled>🎓 ให้ ML ทาย แล้วสอน</button>
+      <button class="btn btn-primary" onclick="openCameraBurst(addTrainImages)" style="flex:1;min-width:150px">📷 ถ่ายต่อเนื่อง (รัวๆ)</button>
+      <button class="btn btn-outline" onclick="document.getElementById('trainFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกหลายรูป</button>
+      <button class="btn btn-gray" onclick="clearTrainImages()" id="btnTrainClear" disabled>🗑️ ล้างทั้งหมด</button>
     </div>
+    <button class="btn btn-teach btn-block" style="margin-top:8px" onclick="doTrainMatch()" id="btnTrainMatch" disabled>🎓 ให้ ML ทาย แล้วสอนทั้งหมด</button>
   </div>
 
   <div id="trainMatchSection" style="display:none">
@@ -713,14 +778,20 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="card-title">🤖 ML ทายว่าเป็นชิ้นไหน — บอกหน่อยว่าถูกหรือไม่</div>
       <div class="alert alert-info" style="margin-bottom:12px">
         <span class="alert-icon">💡</span>
-        <div>กดเลือก<b>รายการที่ถูกต้อง</b>แล้วกดยืนยัน — ML จะจดจำรูปนี้คู่กับชิ้นนั้น และตัดตัวเลือกที่ผิดออก</div>
+        <div>กดเลือก<b>รายการที่ถูกต้อง</b>แล้วกดยืนยัน — ML จะจดจำ<b>ทุกรูปที่ถ่ายไว้</b>คู่กับชิ้นนั้น และตัดตัวเลือกที่ผิดออก</div>
       </div>
       <div class="match-list" id="trainMatchList"></div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-teach" style="flex:2;min-width:170px" id="btnTrainConfirm" onclick="confirmTrain()" disabled>✅ ยืนยัน: ตัวที่เลือกถูกต้อง</button>
+        <button class="btn btn-teach" style="flex:2;min-width:170px" id="btnTrainConfirm" onclick="confirmTrain()" disabled>✅ ยืนยัน แล้วสอนทั้งหมด</button>
         <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openTrainPick()">🔍 ไม่มีตัวถูก — ค้นหาเอง</button>
       </div>
     </div>
+  </div>
+
+  <div id="trainProgress" class="card" style="display:none">
+    <div class="card-title">🧠 กำลังสอน ML...</div>
+    <div id="trainProgressText" class="text-sub" style="margin-bottom:8px">กำลังสอน 0/0 รูป...</div>
+    <div class="conf-bar" style="height:10px"><div id="trainProgressFill" class="conf-fill" style="width:0%"></div></div>
   </div>
 
   <div id="trainDone" class="card" style="display:none">
@@ -728,7 +799,7 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="td-check">🎉</div>
       <div class="td-title">สอน ML สำเร็จ!</div>
       <div class="td-sub" id="trainDoneSub"></div>
-      <button class="btn btn-teach btn-block" style="margin-top:16px" onclick="trainNext()">🎓 สอนรูปถัดไป</button>
+      <button class="btn btn-teach btn-block" style="margin-top:16px" onclick="trainNext()">🎓 สอนชุดถัดไป</button>
     </div>
   </div>
 
@@ -1127,6 +1198,14 @@ textarea { resize: vertical; min-height: 70px; }
     </div>
     <div class="modal-body" style="padding:0;background:#000;position:relative;overflow:hidden">
       <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain;transform-origin:center center"></video>
+      <!-- Burst (multi-shot) strip — only shown in burst mode -->
+      <div id="camBurstBar" style="position:absolute;top:0;left:0;right:0;display:none;flex-direction:column;gap:6px;padding:8px 10px 10px;background:linear-gradient(rgba(0,0,0,.65),transparent)">
+        <div style="color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">
+          📸 ถ่ายแล้ว <span id="camBurstCount">0</span> รูป
+          <span style="font-weight:400;opacity:.8;font-size:12px">— กดถ่ายต่อได้เลย</span>
+        </div>
+        <div id="camBurstThumbs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px"></div>
+      </div>
       <div id="camZoomWrap" style="position:absolute;left:0;right:0;bottom:0;display:none;align-items:center;gap:10px;padding:10px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.6))">
         <button type="button" onclick="bumpCamZoom(-1)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer">−</button>
         <input type="range" id="camZoom" min="1" max="4" step="0.1" value="1" oninput="setCamZoom(this.value)" style="flex:1;accent-color:#fff">
@@ -1137,9 +1216,10 @@ textarea { resize: vertical; min-height: 70px; }
         <div><div class="spinner" style="border-top-color:#fff"></div><div style="margin-top:8px">กำลังเปิดกล้อง...</div></div>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content:space-between">
-      <button class="btn btn-gray" onclick="flipCamera()" id="btnFlipCam">🔄 สลับกล้อง</button>
-      <button class="btn btn-primary" onclick="capturePhoto()" id="btnCapture">📸 ถ่ายรูปนี้</button>
+    <div class="modal-footer" style="justify-content:space-between;gap:8px">
+      <button class="btn btn-gray" onclick="flipCamera()" id="btnFlipCam">🔄 สลับ</button>
+      <button class="btn btn-primary" onclick="capturePhoto()" id="btnCapture" style="flex:1">📸 ถ่าย</button>
+      <button class="btn" onclick="finishBurst()" id="btnBurstDone" style="display:none;background:#16a34a;color:#fff">✅ เสร็จ (<span id="btnBurstDoneN">0</span>)</button>
     </div>
   </div>
 </div>
@@ -1422,13 +1502,29 @@ function toggleAdminGate(showAdmin) {
 async function doLogin() {
   const code = document.getElementById('loginEmpCode').value.trim();
   if (!code) return showFieldError('loginEmpCode', 'errLogin', 'กรุณากรอกรหัสพนักงาน');
+  if (!API_URL) {
+    showFieldError('loginEmpCode', 'errLogin', 'ยังไม่ได้ตั้งค่า Worker URL — แตะ ⚙️ มุมขวาบนเพื่อตั้งค่า');
+    showToast('⚙️ ยังไม่ได้ตั้งค่า Worker URL', 'error');
+    return;
+  }
   const btn = document.getElementById('btnLogin');
   btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...';
   try {
     if (!employees.length) await loadMasterData();
+    // loadMasterData() swallows network errors → empty list almost always means the
+    // server was unreachable, NOT a genuinely-missing employee. Say so explicitly,
+    // otherwise a failed login looks like "กดแล้วเงียบ".
+    if (!employees.length) {
+      showFieldError('loginEmpCode', 'errLogin', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบอินเทอร์เน็ต/Worker URL แล้วลองใหม่');
+      showToast('❌ เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบการเชื่อมต่อ', 'error');
+      return;
+    }
     const emp = employees.find(e => String(e.emp_code).toLowerCase() === code.toLowerCase());
     if (!emp) { showFieldError('loginEmpCode', 'errLogin', 'ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin'); return; }
     applyLogin({ code: emp.emp_code, name: emp.emp_name, isAdmin: false }, false);
+  } catch (e) {
+    showFieldError('loginEmpCode', 'errLogin', 'เกิดข้อผิดพลาด — ลองใหม่อีกครั้ง');
+    showToast('❌ เข้าสู่ระบบไม่สำเร็จ — ' + ((e && e.message) || 'ลองใหม่'), 'error');
   } finally { btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; }
 }
 async function doAdminGateLogin() {
@@ -1905,14 +2001,32 @@ async function onEditFileSelect(input) {
 let _cameraStream = null;
 let _cameraFacing = 'environment';
 let _cameraCapture = null;
+let _cameraBurst = false;     // burst (multi-shot) mode — keep the camera open & collect photos
+let _burstPhotos = [];        // captured data URLs in the current burst
+let _cameraBurstDone = null;  // callback(arrayOfDataUrls) when the user taps "เสร็จ"
 
 function openCamera(onCapture) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
     return;
   }
+  _cameraBurst = false;
   _cameraCapture = onCapture;
   openModal('cameraModal');
+  syncBurstUI();
+  startCameraStream();
+}
+// Burst mode: keep snapping; each tap adds a photo, then hand the whole batch back.
+function openCameraBurst(onDone) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
+    return;
+  }
+  _cameraBurst = true;
+  _burstPhotos = [];
+  _cameraBurstDone = onDone;
+  openModal('cameraModal');
+  syncBurstUI();
   startCameraStream();
 }
 async function startCameraStream() {
@@ -1984,11 +2098,11 @@ function bumpCamZoom(dir) {
   v = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), v));
   slider.value = v; setCamZoom(v);
 }
-function capturePhoto() {
+// Grab the current video frame as a JPEG data URL (honours digital zoom crop).
+function _grabFrame() {
   const video = document.getElementById('cameraVideo');
   const vw = video.videoWidth, vh = video.videoHeight;
-  if (!vw || !vh) { showToast('⏳ กล้องยังไม่พร้อม', 'error'); return; }
-  // Digital zoom: crop the centre of the frame so the capture matches what's shown.
+  if (!vw || !vh) return null;
   const z = _nativeZoom ? 1 : Math.max(1, _digitalZoom);
   const sw = vw / z, sh = vh / z, sx = (vw - sw) / 2, sy = (vh - sh) / 2;
   const maxDim = 1024;
@@ -2000,13 +2114,68 @@ function capturePhoto() {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+function capturePhoto() {
+  const dataUrl = _grabFrame();
+  if (!dataUrl) { showToast('⏳ กล้องยังไม่พร้อม', 'error'); return; }
+  if (_cameraBurst) {
+    _burstPhotos.push(dataUrl);   // stay open — keep snapping
+    flashCamera();
+    syncBurstUI();
+    return;
+  }
   const cb = _cameraCapture;
   closeCamera();
   if (cb) cb(dataUrl);
 }
+// ----- Burst helpers -----
+function syncBurstUI() {
+  const bar = document.getElementById('camBurstBar');
+  const doneBtn = document.getElementById('btnBurstDone');
+  if (!bar || !doneBtn) return;
+  if (!_cameraBurst) { bar.style.display = 'none'; doneBtn.style.display = 'none'; return; }
+  const n = _burstPhotos.length;
+  bar.style.display = 'flex';
+  doneBtn.style.display = '';
+  doneBtn.disabled = n === 0;
+  doneBtn.style.opacity = n === 0 ? '.55' : '1';
+  document.getElementById('camBurstCount').textContent = n;
+  document.getElementById('btnBurstDoneN').textContent = n;
+  const thumbs = document.getElementById('camBurstThumbs');
+  thumbs.innerHTML = _burstPhotos.map((src, i) => `
+    <div style="position:relative;flex:0 0 auto">
+      <img src="${src}" style="width:46px;height:46px;object-fit:cover;border-radius:6px;border:2px solid #fff">
+      <button type="button" onclick="removeBurstPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:11px;line-height:1;cursor:pointer">✕</button>
+    </div>`).join('');
+  thumbs.scrollLeft = thumbs.scrollWidth;  // keep newest in view
+}
+function removeBurstPhoto(i) {
+  _burstPhotos.splice(i, 1);
+  syncBurstUI();
+}
+// Brief white flash so each shot feels registered.
+function flashCamera() {
+  const body = document.querySelector('#cameraModal .modal-body');
+  if (!body) return;
+  const fl = document.createElement('div');
+  fl.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:.7;pointer-events:none;transition:opacity .25s;z-index:6';
+  body.appendChild(fl);
+  requestAnimationFrame(() => { fl.style.opacity = '0'; });
+  setTimeout(() => fl.remove(), 280);
+}
+function finishBurst() {
+  const photos = _burstPhotos.slice();
+  const cb = _cameraBurstDone;
+  closeCamera();
+  if (photos.length && cb) cb(photos);
+}
 function closeCamera() {
   stopCameraStream();
+  _cameraBurst = false;
+  _burstPhotos = [];
+  _cameraBurstDone = null;
+  syncBurstUI();
   closeModal('cameraModal');
 }
 function stopCameraStream() {
@@ -2385,51 +2554,92 @@ function choosePickItem(id) {
 // Mirrors the scan pipeline but keeps its own state so it can't contaminate
 // the requisition flow. Every confirm hits the same /api/match/feedback path.
 // ============================================================
-let trainImage = null;
+let trainImages = [];        // photos queued to teach (1..N), ALL the same item
 let _trainStore = {};        // id -> candidate from last ML guess
 let trainSelectedId = null;
-let trainCount = 0;          // how many photos taught this session
+let trainCount = 0;          // how many photos taught this session (cumulative)
+const TRAIN_MAX = 30;        // safety cap per round
 
 function resetTrain() {
-  clearTrainImage();
+  clearTrainImages();
   document.getElementById('trainCount').textContent = trainCount;
 }
-function setTrainImage(dataUrl) {
-  trainImage = dataUrl;
-  const img = document.getElementById('trainPreviewImg');
-  img.src = dataUrl; img.style.display = 'block';
-  document.getElementById('trainZoneIcon').style.display = 'none';
-  document.getElementById('trainZoneHint').style.display = 'none';
-  document.getElementById('trainImgZone').classList.add('has-img');
-  document.getElementById('btnTrainMatch').disabled = false;
-  document.getElementById('btnTrainClear').disabled = false;
-  document.getElementById('trainMatchSection').style.display = 'none';
+// Append one (or many) data URLs to the teaching queue.
+function addTrainImages(input) {
+  const arr = Array.isArray(input) ? input : [input];
+  let hitCap = false;
+  for (const d of arr) {
+    if (!d) continue;
+    if (trainImages.length >= TRAIN_MAX) { hitCap = true; break; }
+    trainImages.push(d);
+  }
+  if (hitCap) showToast(`⚠️ สอนได้สูงสุด ${TRAIN_MAX} รูปต่อรอบ`, 'error');
+  // A fresh photo set means the previous "done" panel no longer applies.
   document.getElementById('trainDone').style.display = 'none';
+  renderTrainImages();
+}
+function removeTrainImage(i) {
+  trainImages.splice(i, 1);
+  // Removing the preview (index 0) invalidates the standing ML guess.
+  if (i === 0) document.getElementById('trainMatchSection').style.display = 'none';
+  renderTrainImages();
+}
+function renderTrainImages() {
+  const grid = document.getElementById('trainThumbGrid');
+  const icon = document.getElementById('trainZoneIcon');
+  const hint = document.getElementById('trainZoneHint');
+  const zone = document.getElementById('trainImgZone');
+  const matchBtn = document.getElementById('btnTrainMatch');
+  const n = trainImages.length;
+  if (n === 0) {
+    grid.style.display = 'none'; grid.innerHTML = '';
+    icon.style.display = ''; hint.style.display = '';
+    zone.classList.remove('has-img');
+    matchBtn.disabled = true;
+    matchBtn.textContent = '🎓 ให้ ML ทาย แล้วสอนทั้งหมด';
+    document.getElementById('btnTrainClear').disabled = true;
+    document.getElementById('trainEmpty').style.display = '';
+    return;
+  }
+  icon.style.display = 'none'; hint.style.display = 'none';
+  zone.classList.add('has-img');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;width:100%;padding:10px';
+  grid.innerHTML = trainImages.map((src, i) => `
+    <div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <img src="${src}" style="width:100%;height:100%;object-fit:cover" alt="">
+      <button type="button" onclick="event.stopPropagation();removeTrainImage(${i})" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(239,68,68,.92);color:#fff;font-size:12px;line-height:1;cursor:pointer">✕</button>
+      ${i === 0 ? '<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:9px;text-align:center;padding:1px 0">รูปที่ให้ ML ทาย</span>' : ''}
+    </div>`).join('') +
+    `<button type="button" onclick="event.stopPropagation();document.getElementById('trainFileInput').click()" title="เพิ่มรูป" style="aspect-ratio:1;border:2px dashed var(--border);border-radius:8px;background:transparent;color:var(--sub);font-size:24px;cursor:pointer">＋</button>`;
+  grid.style.display = 'grid';
+  matchBtn.disabled = false;
+  matchBtn.textContent = `🎓 ให้ ML ทาย แล้วสอนทั้งหมด (${n} รูป)`;
+  document.getElementById('btnTrainClear').disabled = false;
   document.getElementById('trainEmpty').style.display = 'none';
-  trainSelectedId = null;
 }
 async function onTrainFileSelect(input) {
-  const file = input.files[0]; if (!file) return;
-  try { setTrainImage(await fileToCompressedDataUrl(file)); }
-  catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  try {
+    const urls = [];
+    for (const f of files) urls.push(await fileToCompressedDataUrl(f));
+    addTrainImages(urls);
+  } catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+  input.value = '';
 }
-function clearTrainImage() {
-  trainImage = null; trainSelectedId = null; _trainStore = {};
-  const img = document.getElementById('trainPreviewImg');
-  if (img) { img.style.display = 'none'; img.src = ''; }
-  document.getElementById('trainZoneIcon').style.display = '';
-  document.getElementById('trainZoneHint').style.display = '';
-  document.getElementById('trainImgZone').classList.remove('has-img');
-  document.getElementById('btnTrainMatch').disabled = true;
-  document.getElementById('btnTrainClear').disabled = true;
+function clearTrainImages() {
+  trainImages = []; trainSelectedId = null; _trainStore = {};
   document.getElementById('trainMatchSection').style.display = 'none';
   document.getElementById('trainDone').style.display = 'none';
-  document.getElementById('trainEmpty').style.display = '';
+  document.getElementById('trainProgress').style.display = 'none';
   document.getElementById('trainFileInput').value = '';
+  renderTrainImages();
 }
 async function doTrainMatch() {
-  if (!trainImage) return;
+  if (!trainImages.length) return;
+  const probe = trainImages[0];   // identify the item from the first photo; all photos are the same item
   const btn = document.getElementById('btnTrainMatch');
+  const savedLabel = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳ กำลังให้ ML ทาย...';
   document.getElementById('trainMatchSection').style.display = 'none';
   document.getElementById('trainDone').style.display = 'none';
@@ -2437,16 +2647,16 @@ async function doTrainMatch() {
   try {
     let data;
     if (activeEngine() === 'jina') {
-      const q = await preprocessImage(trainImage, 512);
+      const q = await preprocessImage(probe, 512);
       data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
     } else {
-      const phashes = await augmentHashes(trainImage);
-      data = await api('POST', '/api/match', { image_b64: trainImage, top_k: 5, phashes });
+      const phashes = await augmentHashes(probe);
+      data = await api('POST', '/api/match', { image_b64: probe, top_k: 5, phashes });
     }
     renderTrainMatches(data.matches || []);
     document.getElementById('trainMatchSection').style.display = 'block';
   } catch { document.getElementById('trainEmpty').style.display = ''; }
-  finally { btn.disabled = false; btn.textContent = '🎓 ให้ ML ทาย แล้วสอน'; }
+  finally { btn.disabled = false; btn.textContent = savedLabel; }
 }
 function renderTrainMatches(matches) {
   _trainStore = {}; trainSelectedId = null;
@@ -2479,17 +2689,12 @@ function selectTrainMatch(id) {
   document.getElementById('btnTrainConfirm').disabled = false;
 }
 async function confirmTrain() {
-  if (!trainSelectedId || !trainImage) return;
+  if (!trainSelectedId || !trainImages.length) return;
   const m = _trainStore[trainSelectedId];
-  const btn = document.getElementById('btnTrainConfirm');
-  btn.disabled = true; btn.textContent = '⏳ กำลังสอน...';
-  const r = await trainItem(trainSelectedId, { source: 'train_confirm', image: trainImage, store: _trainStore });
-  btn.textContent = '✅ ยืนยัน: ตัวที่เลือกถูกต้อง';
-  if (!r || !r.ok) { btn.disabled = false; showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
-  finishTrain(m, r);
+  await trainAllImages(trainSelectedId, 'train_confirm', m);
 }
 function openTrainPick() {
-  if (!trainImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
+  if (!trainImages.length) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
   _pickMode = 'train';
   document.getElementById('pickSearch').value = '';
   document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
@@ -2498,23 +2703,74 @@ function openTrainPick() {
 }
 async function trainChoosePick(id, m) {
   // User said none of ML's guesses were right → teach the correct one, the rest become negatives.
-  const r = await trainItem(id, { source: 'train_pick', image: trainImage, store: _trainStore });
-  if (!r || !r.ok) { showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
-  finishTrain(m, r);
+  await trainAllImages(id, 'train_pick', m);
+}
+// Teach ONE photo ↔ item on the active engine. Only the first photo of a batch
+// carries the negatives/candidates (so we don't multiply penalties by N).
+async function trainOnePhoto(itemId, image, source, withNegatives) {
+  const jina = activeEngine() === 'jina';
+  const shown = Object.keys(_trainStore).map(Number).filter(Boolean);
+  const candidates = withNegatives ? shown.map(id => ({ id, confidence: _trainStore[id]?.confidence ?? null })) : [];
+  const negatives  = withNegatives ? shown.filter(id => id !== Number(itemId)) : [];
+  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})`
+    : (document.getElementById('reqEmpCode')?.value.trim() || '');
+  const body = { item_id: itemId, engine: jina ? 'jina' : 'legacy', source, negatives, candidates, reporter };
+  body.image_b64 = jina ? await preprocessImage(image, 512) : image;
+  return api('POST', '/api/match/feedback', body);
+}
+// Teach EVERY queued photo against the chosen item, with a progress bar.
+async function trainAllImages(itemId, source, m) {
+  const imgs = trainImages.slice();
+  const total = imgs.length;
+  if (!total) return;
+  const prog = document.getElementById('trainProgress');
+  const fill = document.getElementById('trainProgressFill');
+  const txt  = document.getElementById('trainProgressText');
+  document.getElementById('trainMatchSection').style.display = 'none';
+  document.getElementById('trainDone').style.display = 'none';
+  document.getElementById('btnTrainConfirm').disabled = true;
+  prog.style.display = 'block';
+  let done = 0, ok = 0, neg = 0;
+  const update = () => {
+    fill.style.width = Math.round(done / total * 100) + '%';
+    txt.textContent = `กำลังสอน ${done}/${total} รูป...`;
+  };
+  update();
+  prog.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Limited concurrency keeps the worker happy while still being quick.
+  let next = 0;
+  async function worker() {
+    while (next < total) {
+      const i = next++;
+      try {
+        const r = await trainOnePhoto(itemId, imgs[i], source, i === 0);
+        if (r && r.ok) { ok++; if (r.negatives) neg = Math.max(neg, r.negatives); }
+      } catch {}
+      done++; update();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, total) }, worker));
+  prog.style.display = 'none';
+  document.getElementById('btnTrainConfirm').disabled = false;
+  if (ok === 0) { showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
+  finishTrain(m, { ok: true, negatives: neg, taught: ok, total });
 }
 function finishTrain(m, r) {
-  trainCount++;
+  const taught = (r && r.taught) ? r.taught : 1;
+  trainCount += taught;
   document.getElementById('trainCount').textContent = trainCount;
   const negTxt = r && r.negatives ? ` · ตัดตัวเลือกที่ผิด ${r.negatives} รายการ` : '';
+  const partial = (r && r.total && r.taught < r.total)
+    ? ` <span style="color:var(--danger)">(สำเร็จ ${r.taught}/${r.total} รูป)</span>` : '';
   document.getElementById('trainDoneSub').innerHTML =
-    `ML จดจำแล้วว่า รูปนี้ = <b>${escHtml(m.name)}</b> (${escHtml(m.part_code)})${negTxt}<br>ครั้งหน้าถ่ายแบบเดียวกันจะแม่นขึ้น`;
+    `ML จดจำแล้วว่า <b>${taught} รูป</b> = <b>${escHtml(m.name)}</b> (${escHtml(m.part_code)})${negTxt}${partial}<br>ครั้งหน้าถ่ายแบบเดียวกันจะแม่นขึ้น`;
   document.getElementById('trainMatchSection').style.display = 'none';
   document.getElementById('trainDone').style.display = 'block';
-  showToast(`🧠 สอนสำเร็จ: รูปนี้ = ${m.part_code}`);
+  showToast(`🧠 สอนสำเร็จ ${taught} รูป: = ${m.part_code}`);
   document.getElementById('trainDone').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function trainNext() {
-  clearTrainImage();
+  clearTrainImages();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

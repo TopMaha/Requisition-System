@@ -21,3 +21,11 @@ Thumbs.db
 .DS_Store
 *.swp
 wrangler.toml
+
+# Local tooling
+.claude/
+
+# Large local data / archives (exceed GitHub 100MB limit — never deploy via Pages)
+*.7z
+*.xlsx
+Inven/
