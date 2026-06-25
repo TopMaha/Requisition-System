@@ -289,6 +289,13 @@ textarea { resize: vertical; min-height: 70px; }
 .match-conf { font-size: 12px; margin-top: 4px; }
 .learned-badge { display: inline-block; font-size: 10px; font-weight: 700; color: #7c3aed;
   background: #ede9fe; border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+.match-detail-btn { margin-top: 7px; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: var(--primary); background: #fff;
+  border: 1.5px solid var(--primary); border-radius: 7px; padding: 4px 10px;
+  cursor: pointer; transition: all .15s; }
+.match-detail-btn:hover { background: var(--primary); color: #fff; }
+#page-train .match-detail-btn { color: #7c3aed; border-color: #7c3aed; }
+#page-train .match-detail-btn:hover { background: #7c3aed; color: #fff; }
 
 /* ======= LOGIN GATE ======= */
 .login-overlay { position: fixed; inset: 0; z-index: 4000;
@@ -2244,6 +2251,7 @@ function renderMatches(matches) {
           <div class="match-code">${escHtml(m.part_code)}</div>
           <div class="match-conf" style="color:${confColor}">ความมั่นใจ: ${m.confidence}%</div>
           <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
+          <button class="match-detail-btn" onclick="event.stopPropagation();showItemDetail(${m.id})">🔍 ดูรายละเอียด</button>
         </div>
         <div class="match-stock ${stockClass}">${stockText}</div>
       </div>`;
@@ -2260,7 +2268,11 @@ function selectMatch(id) {
   selectedItemStock = m.stock_qty;
   selectedItemMinStock = m.min_stock || 0;
   selectedMatchScore = m.confidence;
-  document.getElementById('selectedItemDisplay').textContent = `${m.name}  (${m.part_code})`;
+  document.getElementById('selectedItemDisplay').innerHTML =
+    `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+       <span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${escHtml(m.name)} (${escHtml(m.part_code)})</span>
+       <button class="match-detail-btn" style="margin:0;flex-shrink:0;background:#fff" onclick="showItemDetail(${id})">🔍 รายละเอียด</button>
+     </div>`;
   document.getElementById('reqUnit').value = m.unit;
 
   const wrap = document.getElementById('stockIndicatorWrap');
@@ -2677,6 +2689,7 @@ function renderTrainMatches(matches) {
           <div class="match-code">${escHtml(m.part_code)}</div>
           <div class="match-conf" style="color:${confColor}">ML มั่นใจ: ${m.confidence}%</div>
           <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
+          <button class="match-detail-btn" onclick="event.stopPropagation();showItemDetail(${m.id})">🔍 ดูรายละเอียด</button>
         </div>
       </div>`;
   }).join('');
