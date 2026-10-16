@@ -9,11 +9,14 @@
  *  POST   /api/items          (admin)
  *  PUT    /api/items/:id      (admin)
  *  DELETE /api/items/:id      (admin)
- *  POST   /api/match          - AI image matching
+ *  POST   /api/match          - AI image matching (legacy; no longer used by the app)
  *  POST   /api/stock/adjust   (admin)
- *  GET    /api/requisitions
- *  POST   /api/requisitions
+ *  GET    /api/requisitions   ?status=pending[,approved] &emp_code= &limit= &page=
+ *  POST   /api/requisitions   multipart: meta (JSON) + photo[] + thumb[]  — or legacy JSON with items
+ *  POST   /api/requisitions/:id/review  (admin) - pick Item Part(s) + approve/issue/reject
  *  PUT    /api/requisitions/:id/status  (admin)
+ *  GET    /api/req-photos/:id/image | /thumb   - requisition photo bytes
+ *  GET    /api/usage?days=30  - issued qty per item + days-until-empty forecast
  *  GET    /api/stats
  *  POST   /api/admin/verify   (admin)  - server-side login check
  *  GET    /api/employees
@@ -63,15 +66,67 @@ function decodeDataUrl(dataUrl) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return { bytes, contentType };
 }
-// Upload a data-URL image to R2 under a fresh key; returns the key.
-async function putItemImage(env, dataUrl) {
-  const { bytes, contentType } = decodeDataUrl(dataUrl);
+// Upload raw image bytes to R2 under `<prefix>/<uuid>.<ext>`; returns the key.
+async function putR2(env, prefix, bytes, contentType) {
   const ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-  const key = `items/${crypto.randomUUID()}.${ext}`;
+  const key = `${prefix}/${crypto.randomUUID()}.${ext}`;
   await env.BUCKET.put(key, bytes, {
     httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
   });
   return key;
+}
+// Upload a data-URL image to R2 under a fresh key; returns the key.
+async function putItemImage(env, dataUrl) {
+  const { bytes, contentType } = decodeDataUrl(dataUrl);
+  return putR2(env, 'items', bytes, contentType);
+}
+
+// ===== Requisition photos (employee snapshots for Admin to identify) =====
+// Uploaded as binary multipart parts — no base64 decoding loop in the Worker,
+// so even several large photos stay cheap on CPU.
+const MAX_REQ_PHOTOS = 4;
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+function safeImageType(t) {
+  return /^image\/(jpeg|png|webp)$/.test(t || '') ? t : 'image/jpeg';
+}
+// Store one photo (+ optional thumbnail File/Blob) → R2 keys, or inline
+// data-URLs in D1 when no R2 bucket is bound.
+async function storeReqPhoto(env, file, thumb) {
+  const type = safeImageType(file.type);
+  const buf = await file.arrayBuffer();
+  const tType = thumb ? safeImageType(thumb.type) : null;
+  const tBuf = thumb ? await thumb.arrayBuffer() : null;
+  if (env.BUCKET) {
+    return {
+      image_key: await putR2(env, 'requisitions', buf, type),
+      thumb_key: tBuf ? await putR2(env, 'requisitions', tBuf, tType) : null,
+      image_b64: null, thumb_b64: null,
+    };
+  }
+  return {
+    image_key: null, thumb_key: null,
+    image_b64: bufToDataUrl(buf, type),
+    thumb_b64: tBuf ? bufToDataUrl(tBuf, tType) : null,
+  };
+}
+
+// Statements that issue (deduct) stock for a requisition, one item at a time.
+// Idempotent per (req, item): the NOT EXISTS guard skips any item that already
+// has an 'out' movement for this requisition, so a double-click or two admins
+// approving at once can never deduct twice. Run inside env.DB.batch().
+function issueStockStmts(env, reqId, reqNo, lines, by) {
+  const notIssued = `NOT EXISTS (SELECT 1 FROM stock_movements WHERE req_id=? AND item_id=? AND movement='out')`;
+  const stmts = [];
+  for (const { item_id, qty } of lines) {
+    stmts.push(env.DB.prepare(
+      `UPDATE items SET stock_qty = MAX(0, stock_qty - ?) WHERE id=? AND ${notIssued}`
+    ).bind(qty, item_id, reqId, item_id));
+    stmts.push(env.DB.prepare(`
+      INSERT INTO stock_movements (item_id, req_id, movement, qty, balance, note, created_by)
+      SELECT id, ?, 'out', ?, stock_qty, ?, ? FROM items WHERE id=? AND ${notIssued}
+    `).bind(reqId, qty, `เบิก ${reqNo || ''}`.trim(), by || 'admin', item_id, reqId, item_id));
+  }
+  return stmts;
 }
 // Convert an ArrayBuffer to a base64 data-URL (for re-fingerprinting R2 images).
 function bufToDataUrl(buf, contentType = 'image/jpeg') {
@@ -279,10 +334,16 @@ const NEG_PENALTY = 0.5;
 // Self-healing schema: create the feedback-log table and add the match_examples
 // `kind` column if they're missing, so deploying a new worker.js "just works"
 // without a manual `wrangler d1 execute`. Runs once per isolate (cold start).
+// The applied schema version is stored in `settings`, so after the first run a
+// cold start costs a single SELECT instead of re-running every migration.
 let _migrated = false;
+const SCHEMA_VERSION = '2';
 async function ensureSchema(env) {
   if (_migrated || !env.DB) return;
   try {
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)').run();
+    const ver = await env.DB.prepare("SELECT value FROM settings WHERE key='schema_version'").first();
+    if (ver?.value === SCHEMA_VERSION) { _migrated = true; return; }
     await env.DB.prepare(
       `CREATE TABLE IF NOT EXISTS match_feedback (
          id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -294,6 +355,23 @@ async function ensureSchema(env) {
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_match_feedback_created ON match_feedback(id)').run();
     // Add `kind` to match_examples for legacy negative feedback (no-op if it exists).
     try { await env.DB.prepare("ALTER TABLE match_examples ADD COLUMN kind TEXT DEFAULT 'positive'").run(); } catch {}
+    // v2: photo-based requisitions — employee sends photo + qty + machine + purpose,
+    // Admin identifies the Item Part(s) at approval time.
+    for (const col of ['emp_code TEXT', 'machine_no TEXT', 'zone TEXT', 'req_qty REAL', 'req_unit TEXT']) {
+      try { await env.DB.prepare(`ALTER TABLE requisitions ADD COLUMN ${col}`).run(); } catch {}
+    }
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS requisition_photos (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         req_id INTEGER NOT NULL REFERENCES requisitions(id) ON DELETE CASCADE,
+         image_key TEXT, thumb_key TEXT, image_b64 TEXT, thumb_b64 TEXT,
+         created_at TEXT DEFAULT (datetime('now','localtime'))
+       )`
+    ).run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_req_photos_req ON requisition_photos(req_id)').run();
+    await env.DB.prepare(
+      "INSERT INTO settings (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+    ).bind(SCHEMA_VERSION).run();
     _migrated = true;
   } catch (e) { /* leave _migrated=false so the next request retries the migration */ }
 }
@@ -366,7 +444,7 @@ export default {
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
-      return json({ ok: true, version: '1.1.0', ts: new Date().toISOString() });
+      return json({ ok: true, version: '2.0.0', ts: new Date().toISOString() });
     }
 
     // ── Admin: verify password (server-side login check) ─────
@@ -490,10 +568,10 @@ export default {
       if (!part_code || !name) return err('part_code และ name จำเป็นต้องกรอก');
       const phashStore = Array.isArray(phashes) && phashes.length ? JSON.stringify(phashes) : (phash || null);
 
-      let embeddingJson = null, imageKey = null, thumbKey = null, imageB64Store = null, fp = null;
+      // No AI fingerprinting any more: Admin identifies parts from the employee's
+      // photo by eye, so the item image is only stored for display.
+      let imageKey = null, thumbKey = null, imageB64Store = null;
       if (image_b64) {
-        fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
-        if (fp) embeddingJson = JSON.stringify(fp);
         // Store the image (+thumbnail) in R2; fall back to inline D1 base64.
         if (env.BUCKET) {
           try {
@@ -510,7 +588,7 @@ export default {
           INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding, phash)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, embeddingJson, phashStore).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, null, phashStore).run();
 
         const newId = res.meta.last_row_id;
         if (stock_qty > 0) {
@@ -520,33 +598,7 @@ export default {
           `).bind(newId, stock_qty, stock_qty).run();
         }
 
-        // Auto-close any pending "not-found" requests this new item satisfies:
-        // compare the new item's fingerprint to each งานค้าง report's fingerprint.
-        let closedRequests = 0;
-        if (fp && fp.vec) {
-          try {
-            const pend = await env.DB.prepare(
-              "SELECT id, labels, vec FROM scan_reports WHERE status='pending_new'"
-            ).all();
-            for (const p of pend.results || []) {
-              let labels = {}, vec = null;
-              try { labels = p.labels ? JSON.parse(p.labels) : {}; } catch {}
-              try { vec = p.vec ? JSON.parse(p.vec) : null; } catch {}
-              const score = fingerprintScore({ labels: fp.labels, vec: fp.vec }, { labels, vec });
-              if (score >= 0.72) {
-                await env.DB.prepare(
-                  "UPDATE scan_reports SET status='added', resolved_item_id=?, resolved_at=datetime('now','localtime') WHERE id=?"
-                ).bind(newId, p.id).run();
-                // also keep the reported photo as a training example
-                await env.DB.prepare(
-                  "INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)"
-                ).bind(newId, p.labels || '{}', p.vec || null, 'auto-closed pending request').run();
-                closedRequests++;
-              }
-            }
-          } catch (e) { console.error('auto-close pending error:', e); }
-        }
-        return json({ ok: true, id: newId, closed_requests: closedRequests });
+        return json({ ok: true, id: newId });
       } catch (e) {
         if (e.message?.includes('UNIQUE')) return err('รหัสอุปกรณ์นี้มีในระบบแล้ว');
         throw e;
@@ -566,17 +618,7 @@ export default {
       const editPhashStore = Array.isArray(phashes) && phashes.length ? JSON.stringify(phashes) : phash;
       if (image_b64 && editPhashStore) { sets.push('phash=?'); vals.push(editPhashStore); }
       if (image_b64) {
-        const fp = await buildFingerprint(env, image_b64, [name, description].filter(Boolean).join('. '));
-        // Keep the OLD main image's fingerprint as training data (the new photo
-        // becomes the main reference; the previous one still helps matching).
-        const prev = await env.DB.prepare('SELECT embedding, image_key, thumb_key FROM items WHERE id=?').bind(id).first();
-        if (prev?.embedding) {
-          try {
-            const pf = JSON.parse(prev.embedding);
-            await env.DB.prepare('INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)')
-              .bind(id, JSON.stringify(pf.labels || {}), pf.vec ? JSON.stringify(pf.vec) : null, (pf.caption || '') + ' [previous main image]').run();
-          } catch {}
-        }
+        const prev = await env.DB.prepare('SELECT image_key, thumb_key FROM items WHERE id=?').bind(id).first();
         let imageKey = null, thumbKey = null, imageB64Store = null;
         if (env.BUCKET) {
           try {
@@ -586,13 +628,13 @@ export default {
         } else {
           imageB64Store = image_b64;
         }
-        // Delete the previous R2 image bytes (the fingerprint is already kept as
-        // training data above, so the visual reference is preserved).
+        // Delete the previous R2 image bytes now that the new image is stored.
         if (imageKey && env.BUCKET) {
           for (const k of [prev?.image_key, prev?.thumb_key]) if (k) { try { await env.BUCKET.delete(k); } catch {} }
         }
+        // The old AI fingerprint no longer describes this image — clear it.
         sets.push('image_b64=?', 'image_key=?', 'thumb_key=?', 'embedding=?');
-        vals.push(imageB64Store, imageKey, thumbKey, fp ? JSON.stringify(fp) : null);
+        vals.push(imageB64Store, imageKey, thumbKey, null);
       }
       vals.push(id);
 
@@ -1070,63 +1112,188 @@ export default {
     }
 
     // ── Requisitions: list ───────────────────────────────────
+    // status may be a comma list (e.g. "pending,approved" for the Admin queue);
+    // emp_code limits to one employee's own requisitions ("ของฉัน").
     if (path === '/api/requisitions' && method === 'GET') {
-      const page = parseInt(url.searchParams.get('page') || '1');
-      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20')));
       const offset = (page - 1) * limit;
-      const status = url.searchParams.get('status') || '';
+      const statuses = (url.searchParams.get('status') || '').split(',').map(s => s.trim()).filter(Boolean);
+      const empCode = (url.searchParams.get('emp_code') || '').trim();
 
-      let sql = `SELECT * FROM requisitions WHERE 1=1`;
+      let where = ' WHERE 1=1';
       const params = [];
-      if (status) { sql += ` AND status=?`; params.push(status); }
-      sql += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-      params.push(limit, offset);
+      if (statuses.length) { where += ` AND status IN (${statuses.map(() => '?').join(',')})`; params.push(...statuses); }
+      // Older rows carry the code only inside requester_name ("ชื่อ (E001)").
+      if (empCode) { where += ' AND (emp_code = ? OR requester_name LIKE ?)'; params.push(empCode, `%(${empCode})`); }
 
-      const rows = await env.DB.prepare(sql).bind(...params).all();
-      const total = await env.DB.prepare(
-        `SELECT COUNT(*) as n FROM requisitions${status ? ' WHERE status=?' : ''}`
-      ).bind(...(status ? [status] : [])).first();
+      const rows = await env.DB.prepare(`SELECT * FROM requisitions${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`)
+        .bind(...params, limit, offset).all();
+      const total = await env.DB.prepare(`SELECT COUNT(*) as n FROM requisitions${where}`).bind(...params).first();
 
-      // Load items for each req
-      const data = await Promise.all((rows.results || []).map(async req => {
-        const items = await env.DB.prepare(`
-          SELECT ri.*, i.name as item_name, i.part_code, i.unit, i.updated_at as item_updated_at,
-                 (i.image_b64 IS NOT NULL OR i.image_key IS NOT NULL) AS has_image
-          FROM requisition_items ri JOIN items i ON ri.item_id = i.id
-          WHERE ri.req_id = ?
-        `).bind(req.id).all();
-        const itemList = (items.results || []).map(it => ({
+      // Load items + photos for the whole page in two queries (not 2 per row).
+      const reqs = rows.results || [];
+      const ids = reqs.map(r => r.id);
+      let itemRows = [], photoRows = [];
+      if (ids.length) {
+        const ph = ids.map(() => '?').join(',');
+        [itemRows, photoRows] = await Promise.all([
+          env.DB.prepare(`
+            SELECT ri.*, i.name as item_name, i.part_code, i.unit, i.stock_qty, i.min_stock,
+                   i.updated_at as item_updated_at,
+                   (i.image_b64 IS NOT NULL OR i.image_key IS NOT NULL) AS has_image
+            FROM requisition_items ri JOIN items i ON ri.item_id = i.id
+            WHERE ri.req_id IN (${ph}) ORDER BY ri.id
+          `).bind(...ids).all().then(r => r.results || []),
+          env.DB.prepare(`SELECT id, req_id FROM requisition_photos WHERE req_id IN (${ph}) ORDER BY id`)
+            .bind(...ids).all().then(r => r.results || []).catch(() => []),
+        ]);
+      }
+      const data = reqs.map(req => ({
+        ...req,
+        items: itemRows.filter(it => it.req_id === req.id).map(it => ({
           ...it,
           image_url: it.has_image ? `/api/items/${it.item_id}/image?v=${encodeURIComponent(it.item_updated_at || '')}` : null,
           thumb_url: it.has_image ? `/api/items/${it.item_id}/thumb?v=${encodeURIComponent(it.item_updated_at || '')}` : null,
-        }));
-        return { ...req, items: itemList };
+        })),
+        photos: photoRows.filter(p => p.req_id === req.id).map(p => ({
+          id: p.id, image_url: `/api/req-photos/${p.id}/image`, thumb_url: `/api/req-photos/${p.id}/thumb`,
+        })),
       }));
 
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
     }
 
     // ── Requisitions: create ─────────────────────────────────
+    // New flow (multipart): employee sends photo(s) + qty + machine + purpose;
+    // no Item Part yet — Admin identifies it at review. Legacy JSON with
+    // items[] is still accepted.
     if (path === '/api/requisitions' && method === 'POST') {
-      const body = await request.json();
-      const { requester_name, dept, purpose, items: reqItems } = body;
-      if (!requester_name || !reqItems?.length) return err('ข้อมูลไม่ครบ');
+      let body = {}, photos = [], thumbs = [];
+      if ((request.headers.get('Content-Type') || '').includes('multipart/form-data')) {
+        const fd = await request.formData();
+        try { body = JSON.parse(fd.get('meta') || '{}'); } catch { return err('ข้อมูลไม่ถูกต้อง'); }
+        photos = fd.getAll('photo').filter(f => f && typeof f !== 'string');
+        thumbs = fd.getAll('thumb');
+      } else {
+        body = await request.json().catch(() => ({}));
+      }
+      const { requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit } = body;
+      const reqItems = Array.isArray(body.items) ? body.items : [];
+      if (!requester_name) return err('กรุณาระบุผู้เบิก');
+      if (!reqItems.length && !photos.length) return err('กรุณาถ่ายรูปของที่ต้องการเบิกอย่างน้อย 1 รูป');
+      if (photos.length > MAX_REQ_PHOTOS) return err(`แนบรูปได้สูงสุด ${MAX_REQ_PHOTOS} รูป`);
+      if (photos.some(f => f.size > MAX_PHOTO_BYTES)) return err('ไฟล์รูปใหญ่เกินไป (สูงสุด 4MB ต่อรูป)');
+      const qty = Number(req_qty);
+      if (photos.length && !(qty > 0)) return err('กรุณาระบุจำนวนที่ต้องการเบิก');
 
-      const req_no = genReqNo();
-      const res = await env.DB.prepare(`
-        INSERT INTO requisitions (req_no, requester_name, dept, purpose)
-        VALUES (?, ?, ?, ?)
-      `).bind(req_no, requester_name, dept || null, purpose || null).run();
-
-      const req_id = res.meta.last_row_id;
-      for (const item of reqItems) {
-        await env.DB.prepare(`
-          INSERT INTO requisition_items (req_id, item_id, qty_requested, note, match_score)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(req_id, item.item_id, item.qty, item.note || null, item.match_score || null).run();
+      // Store photos first: a storage failure must not leave a photo-less requisition.
+      const stored = [];
+      for (let i = 0; i < photos.length; i++) {
+        const t = thumbs[i] && typeof thumbs[i] !== 'string' ? thumbs[i] : null;
+        stored.push(await storeReqPhoto(env, photos[i], t));
       }
 
-      return json({ ok: true, req_no, id: req_id });
+      const deptText = dept || (machine_no ? (zone ? `${machine_no} · ${zone}` : machine_no) : null);
+      let req_no, res;
+      for (let attempt = 0; ; attempt++) {   // req_no is random per day — retry on the rare clash
+        req_no = genReqNo();
+        try {
+          res = await env.DB.prepare(`
+            INSERT INTO requisitions (req_no, requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(req_no, requester_name, emp_code || null, deptText, machine_no || null, zone || null,
+                  purpose || null, qty > 0 ? qty : null, req_unit || null).run();
+          break;
+        } catch (e) {
+          if (attempt < 3 && e.message?.includes('UNIQUE')) continue;
+          throw e;
+        }
+      }
+
+      const req_id = res.meta.last_row_id;
+      const stmts = stored.map(p => env.DB.prepare(
+        'INSERT INTO requisition_photos (req_id, image_key, thumb_key, image_b64, thumb_b64) VALUES (?, ?, ?, ?, ?)'
+      ).bind(req_id, p.image_key, p.thumb_key, p.image_b64, p.thumb_b64));
+      for (const item of reqItems) {
+        stmts.push(env.DB.prepare(`
+          INSERT INTO requisition_items (req_id, item_id, qty_requested, note, match_score)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(req_id, item.item_id, item.qty, item.note || null, item.match_score || null));
+      }
+      if (stmts.length) await env.DB.batch(stmts);
+
+      return json({ ok: true, req_no, id: req_id, photos: stored.length });
+    }
+
+    // ── Requisition photo (binary, cached) ───────────────────
+    const reqPhotoMatch = path.match(/^\/api\/req-photos\/(\d+)\/(image|thumb)$/);
+    if (reqPhotoMatch && method === 'GET') {
+      const row = await env.DB.prepare('SELECT image_key, thumb_key, image_b64, thumb_b64 FROM requisition_photos WHERE id=?')
+        .bind(reqPhotoMatch[1]).first();
+      const resp = row && (reqPhotoMatch[2] === 'thumb'
+        ? ((await imageResponse(env, row.thumb_key, row.thumb_b64)) || (await imageResponse(env, row.image_key, row.image_b64)))
+        : (await imageResponse(env, row.image_key, row.image_b64)));
+      return resp || new Response('Not found', { status: 404, headers: CORS });
+    }
+
+    // ── Requisition: Admin review ────────────────────────────
+    // Admin looks at the photo, picks the Item Part(s) (a photo may show a whole
+    // set → several lines) and approves. action:
+    //   completed = approve + issue (deduct stock now)
+    //   approved  = approve only (issue later)
+    //   rejected  = not approved
+    const reviewMatch = path.match(/^\/api\/requisitions\/(\d+)\/review$/);
+    if (reviewMatch && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const id = Number(reviewMatch[1]);
+      const { action, items, approved_by, note } = await request.json().catch(() => ({}));
+      if (!['approved', 'completed', 'rejected'].includes(action)) return err('action ไม่ถูกต้อง');
+      const by = String(approved_by || '').trim();
+      if (!by) return err('กรุณาระบุชื่อผู้อนุมัติ');
+
+      const req = await env.DB.prepare('SELECT id, req_no, status FROM requisitions WHERE id=?').bind(id).first();
+      if (!req) return err('ไม่พบใบเบิก', 404);
+      if (req.status === 'completed' || req.status === 'rejected') return err('ใบเบิกนี้ดำเนินการเสร็จแล้ว');
+
+      // Merge duplicate lines of the same item.
+      const merged = new Map();
+      for (const it of Array.isArray(items) ? items : []) {
+        const iid = Number(it.item_id), q = Number(it.qty);
+        if (!iid || !(q > 0)) return err('จำนวนของแต่ละรายการต้องมากกว่า 0');
+        merged.set(iid, (merged.get(iid) || 0) + q);
+      }
+      if (action !== 'rejected' && !merged.size) return err('กรุณาเลือก Item Part อย่างน้อย 1 รายการ');
+      const lines = [...merged].map(([item_id, qty]) => ({ item_id, qty }));
+      const ids = lines.map(l => l.item_id);
+      const ph = ids.map(() => '?').join(',');
+      if (ids.length) {
+        const found = await env.DB.prepare(`SELECT COUNT(*) as n FROM items WHERE is_active=1 AND id IN (${ph})`).bind(...ids).first();
+        if ((found?.n ?? 0) !== ids.length) return err('มี Item ที่ไม่พบในระบบ — รีเฟรชแล้วลองใหม่');
+      }
+
+      const issue = action === 'completed';
+      const stmts = [];
+      if (action !== 'rejected') {
+        stmts.push(env.DB.prepare('DELETE FROM requisition_items WHERE req_id=?').bind(id));
+        for (const l of lines) {
+          stmts.push(env.DB.prepare('INSERT INTO requisition_items (req_id, item_id, qty_requested, qty_issued) VALUES (?, ?, ?, ?)')
+            .bind(id, l.item_id, l.qty, issue ? l.qty : 0));
+        }
+      }
+      stmts.push(env.DB.prepare(`
+        UPDATE requisitions SET status=?, approved_by=?, note=?, updated_at=datetime('now','localtime') WHERE id=?
+      `).bind(action, by, note || null, id));
+      if (issue) stmts.push(...issueStockStmts(env, id, req.req_no, lines, by));
+      await env.DB.batch(stmts);
+
+      // Report balances so Admin sees right away what is running low.
+      let balances = [];
+      if (issue && ids.length) {
+        const r = await env.DB.prepare(`SELECT id, part_code, name, unit, stock_qty, min_stock FROM items WHERE id IN (${ph})`).bind(...ids).all();
+        balances = (r.results || []).map(i => ({ ...i, low: i.stock_qty <= i.min_stock }));
+      }
+      return json({ ok: true, status: action, balances });
     }
 
     // ── Requisition: update status ───────────────────────────
@@ -1138,29 +1305,53 @@ export default {
       const validStatuses = ['pending', 'approved', 'rejected', 'completed'];
       if (!validStatuses.includes(status)) return err('status ไม่ถูกต้อง');
 
-      await env.DB.prepare(`
+      const stmts = [env.DB.prepare(`
         UPDATE requisitions SET status=?, approved_by=?, note=?, updated_at=datetime('now','localtime') WHERE id=?
-      `).bind(status, approved_by || null, note || null, id).run();
+      `).bind(status, approved_by || null, note || null, id)];
 
-      // If approved/completed → deduct stock
+      // completed → deduct stock (idempotent, see issueStockStmts)
       if (status === 'completed') {
-        const items = await env.DB.prepare(
-          `SELECT ri.item_id, ri.qty_requested, i.stock_qty FROM requisition_items ri JOIN items i ON ri.item_id=i.id WHERE ri.req_id=?`
-        ).bind(id).all();
         const req = await env.DB.prepare('SELECT req_no FROM requisitions WHERE id=?').bind(id).first();
-        for (const item of items.results || []) {
-          const newQty = Math.max(0, item.stock_qty - item.qty_requested);
-          await env.DB.prepare(`UPDATE items SET stock_qty=? WHERE id=?`).bind(newQty, item.item_id).run();
-          await env.DB.prepare(`
-            INSERT INTO stock_movements (item_id, req_id, movement, qty, balance, note, created_by)
-            VALUES (?, ?, 'out', ?, ?, ?, ?)
-          `).bind(item.item_id, id, item.qty_requested, newQty, `เบิก ${req?.req_no}`, approved_by || 'admin').run();
-          await env.DB.prepare(`UPDATE requisition_items SET qty_issued=qty_requested WHERE req_id=? AND item_id=?`)
-            .bind(id, item.item_id).run();
-        }
+        const items = await env.DB.prepare('SELECT item_id, SUM(qty_requested) as qty FROM requisition_items WHERE req_id=? GROUP BY item_id')
+          .bind(id).all();
+        const lines = (items.results || []).map(r => ({ item_id: r.item_id, qty: r.qty }));
+        if (!lines.length) return err('ยังไม่ได้ระบุ Item Part ของใบเบิกนี้');
+        stmts.push(env.DB.prepare('UPDATE requisition_items SET qty_issued=qty_requested WHERE req_id=?').bind(id));
+        stmts.push(...issueStockStmts(env, Number(id), req?.req_no, lines, approved_by));
       }
+      await env.DB.batch(stmts);
 
       return json({ ok: true });
+    }
+
+    // ── Usage summary (issued per item) + days-until-empty ──
+    // Answers "how much has been withdrawn?" so shortages are seen early.
+    if (path === '/api/usage' && method === 'GET') {
+      const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30')));
+      const since = `-${days} days`;
+      const rows = await env.DB.prepare(`
+        SELECT i.id, i.part_code, i.name, i.unit, i.stock_qty, i.min_stock, i.updated_at,
+               (i.image_key IS NOT NULL OR i.image_b64 IS NOT NULL) AS has_image,
+               SUM(m.qty) AS issued, COUNT(DISTINCT m.req_id) AS req_count, MAX(m.created_at) AS last_out
+        FROM stock_movements m JOIN items i ON i.id = m.item_id
+        WHERE m.movement = 'out' AND i.is_active = 1 AND m.created_at >= datetime('now','localtime', ?)
+        GROUP BY i.id ORDER BY issued DESC LIMIT 300
+      `).bind(since).all();
+      const reqCount = await env.DB.prepare(
+        "SELECT COUNT(*) as n FROM requisitions WHERE created_at >= datetime('now','localtime', ?)"
+      ).bind(since).first();
+      const data = (rows.results || []).map(r => {
+        const perDay = r.issued / days;
+        const v = encodeURIComponent(r.updated_at || '');
+        return {
+          ...r,
+          per_day: perDay,
+          days_left: perDay > 0 ? Math.floor(Math.max(0, r.stock_qty) / perDay) : null,
+          thumb_url: r.has_image ? `/api/items/${r.id}/thumb?v=${v}` : null,
+          image_url: r.has_image ? `/api/items/${r.id}/image?v=${v}` : null,
+        };
+      });
+      return json({ ok: true, days, requisitions: reqCount?.n ?? 0, data });
     }
 
     // ── Stats ────────────────────────────────────────────────
@@ -1175,11 +1366,13 @@ export default {
       ]);
       const reports = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending'").first().catch(() => ({ n: 0 }));
       const pendingReq = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending_new'").first().catch(() => ({ n: 0 }));
+      const toIssue = await env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='approved'").first();
       return json({
         ok: true,
         items: items?.n ?? 0,
         requisitions: reqs?.n ?? 0,
         pending: pending?.n ?? 0,
+        to_issue: toIssue?.n ?? 0,
         low_stock: lowStock?.n ?? 0,
         learned_examples: learned?.n ?? 0,
         open_reports: reports?.n ?? 0,

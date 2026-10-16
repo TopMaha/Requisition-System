@@ -273,30 +273,6 @@ textarea { resize: vertical; min-height: 70px; }
 .img-zone .zone-hint { font-size: 13px; color: var(--sub); text-align: center; pointer-events: none; }
 .img-zone .zone-icon { font-size: 40px; pointer-events: none; }
 
-/* ======= MATCH RESULTS ======= */
-.match-list { display: flex; flex-direction: column; gap: 10px; }
-.match-item {
-  display: flex; align-items: center; gap: 12px;
-  border: 2px solid var(--border); border-radius: 10px; padding: 10px;
-  cursor: pointer; transition: all .15s;
-}
-.match-item:hover, .match-item.selected { border-color: var(--primary); background: #eef2ff; }
-.match-item.selected { box-shadow: 0 0 0 3px rgba(26,86,219,.2); }
-.match-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; background: #f0f4f8; }
-.match-info { flex: 1; min-width: 0; }
-.match-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.match-code { font-size: 12px; color: var(--sub); }
-.match-conf { font-size: 12px; margin-top: 4px; }
-.learned-badge { display: inline-block; font-size: 10px; font-weight: 700; color: #7c3aed;
-  background: #ede9fe; border-radius: 8px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
-.match-detail-btn { margin-top: 7px; display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; font-weight: 600; color: var(--primary); background: #fff;
-  border: 1.5px solid var(--primary); border-radius: 7px; padding: 4px 10px;
-  cursor: pointer; transition: all .15s; }
-.match-detail-btn:hover { background: var(--primary); color: #fff; }
-#page-train .match-detail-btn { color: #7c3aed; border-color: #7c3aed; }
-#page-train .match-detail-btn:hover { background: #7c3aed; color: #fff; }
-
 /* ======= LOGIN GATE ======= */
 .login-overlay { position: fixed; inset: 0; z-index: 4000;
   background: linear-gradient(135deg, var(--primary-dk), var(--primary));
@@ -314,24 +290,6 @@ textarea { resize: vertical; min-height: 70px; }
 .user-chip { font-size: 12px; background: rgba(255,255,255,.18); color: #fff;
   padding: 4px 10px; border-radius: 20px; white-space: nowrap; max-width: 130px;
   overflow: hidden; text-overflow: ellipsis; }
-
-/* ======= SCAN REPORT (admin queue + link picker) ======= */
-.report-card { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--border);
-  border-radius: 10px; margin-bottom: 10px; background: #fff; }
-.report-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
-  flex-shrink: 0; border: 1px solid var(--border); }
-.report-info { flex: 1; min-width: 0; }
-.report-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.link-item { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px;
-  cursor: pointer; border: 1px solid var(--border); margin-bottom: 6px; }
-.link-item:hover { background: #f1f5f9; border-color: var(--primary); }
-.link-thumb { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; background: #f0f4f8; font-size: 22px; }
-.link-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.conf-bar { height: 5px; background: var(--border); border-radius: 4px; margin-top: 3px; }
-.conf-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--primary)); }
-.match-stock { font-size: 12px; font-weight: 700; color: var(--success); white-space: nowrap; }
-.match-stock.low { color: var(--danger); }
 
 /* ======= ITEM GRID ======= */
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
@@ -366,7 +324,7 @@ textarea { resize: vertical; min-height: 70px; }
 
 /* ======= STATS ROW ======= */
 .stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
-@media(min-width: 600px) { .stats-row { grid-template-columns: repeat(4, 1fr); } }
+@media(min-width: 600px) { .stats-row { grid-template-columns: repeat(5, 1fr); } }
 .stat-card { background: var(--card); border-radius: var(--radius); padding: 16px; text-align: center; box-shadow: var(--shadow); cursor: pointer; transition: transform .15s; }
 .stat-card:hover { transform: translateY(-2px); }
 .stat-num { font-size: 28px; font-weight: 800; }
@@ -486,44 +444,164 @@ textarea { resize: vertical; min-height: 70px; }
 .notif-dot.show { display: block; }
 @keyframes notifPulse { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.6); } 70% { box-shadow: 0 0 0 6px rgba(244,63,94,0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); } }
 
-/* ======= TRAINING (Teach ML) — learn-only page ======= */
-/* Purple accent throughout so it never gets confused with the real (blue) เบิก flow. */
-.teach-banner { background: linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%); border: 1.5px solid #ddd6fe;
-  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
-.teach-banner .tb-title { font-family: var(--font-display); font-weight: 700; font-size: 16px; color: #6d28d9;
-  display: flex; align-items: center; gap: 8px; }
-.teach-banner .tb-sub { font-size: 13px; color: var(--sub); margin-top: 5px; line-height: 1.5; }
-.teach-banner .tb-warn { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px;
-  background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 12px; font-weight: 700;
-  border-radius: 999px; padding: 4px 11px; }
-.teach-count { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--sub); }
-.teach-count b { color: #6d28d9; font-size: 18px; font-family: var(--font-display); }
-#page-train .img-zone.has-img { border-color: #7c3aed; }
-#page-train .btn-teach { background: #7c3aed; color: #fff; }
-#page-train .btn-teach:hover { background: #6d28d9; }
-#page-train .btn-teach:disabled { background: #c4b5fd; cursor: not-allowed; }
-#page-train .match-item.selected { border-color: #7c3aed; background: #f5f3ff; box-shadow: 0 0 0 3px rgba(124,58,237,.2); }
-#page-train .conf-fill { background: linear-gradient(90deg, #a78bfa, #7c3aed); }
-.train-done { text-align: center; padding: 26px 16px; }
-.train-done .td-check { font-size: 52px; line-height: 1; }
-.train-done .td-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--success); margin-top: 8px; }
-.train-done .td-sub { font-size: 13.5px; color: var(--sub); margin-top: 6px; }
+/* ======= REQUISITION — photo-based (employee) ======= */
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--primary); color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.photo-tile { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border);
+  background: #0f172a; cursor: zoom-in; }
+.photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-tile .pt-del { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: none;
+  background: rgba(220,38,38,.92); color: #fff; font-size: 14px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.photo-tile .pt-zoom { position: absolute; left: 6px; bottom: 6px; font-size: 11px; color: #fff; background: rgba(0,0,0,.55);
+  padding: 2px 8px; border-radius: 20px; pointer-events: none; }
+.photo-add { aspect-ratio: 1; border: 2.5px dashed var(--border); border-radius: 12px; background: #f8fafc; color: var(--sub);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px;
+  text-align: center; padding: 8px; cursor: pointer; transition: all .2s; }
+.photo-add:hover { border-color: var(--primary); background: #eef2ff; color: var(--primary); }
+.photo-add .pa-icon { font-size: 32px; line-height: 1; }
+.photo-add.photo-empty { grid-column: 1 / -1; aspect-ratio: auto; min-height: 180px; }
+.who-box { display: flex; align-items: center; gap: 10px; background: #eef2ff; border: 1.5px solid #c7d7fe; border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 14px; font-size: 14px; }
+.who-box .who-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex;
+  align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.qty-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.qty-row select { width: auto; min-width: 96px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip { border: 1.5px solid var(--border); background: #fff; color: var(--text); border-radius: 999px; padding: 7px 12px;
+  font-size: 13px; cursor: pointer; transition: all .15s; font-family: inherit; }
+.chip:hover { border-color: var(--primary); color: var(--primary); }
+.chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.done-card { text-align: center; padding: 28px 16px; }
+.done-card .dc-icon { font-size: 54px; line-height: 1; }
+.done-card .dc-title { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--success); margin-top: 8px; }
+.done-card .dc-no { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 6px; letter-spacing: .5px; }
+.done-card .dc-sub { font-size: 13.5px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
 
-/* ======= SEARCH-QUALITY (Jina) TOGGLE — scan page ======= */
-.eng-card { background: linear-gradient(135deg, #eef4ff 0%, #f5f3ff 100%); border: 1.5px solid #c7d7fe; }
-.eng-row { display: flex; align-items: center; gap: 12px; }
-.eng-text { flex: 1; min-width: 0; }
-.eng-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 7px; }
-.eng-sub { font-size: 12.5px; color: var(--sub); margin-top: 2px; line-height: 1.35; }
-.eng-sub.on { color: var(--success); font-weight: 600; }
-/* iOS-style switch */
-.switch { position: relative; flex: none; width: 52px; height: 30px; cursor: pointer; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.switch .slider { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .22s; }
-.switch .slider::before { content: ''; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .22s; }
-.switch input:checked + .slider { background: var(--primary); }
-.switch input:checked + .slider::before { transform: translateX(22px); }
-.switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+/* requisition card extras (history + admin queue) */
+.req-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 4px 12px; font-size: 13px; margin-top: 6px; }
+.req-facts span { color: var(--sub); }
+.req-photos { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; padding-bottom: 2px; }
+.req-photos img { width: 92px; height: 92px; object-fit: cover; border-radius: 10px; border: 1.5px solid var(--border);
+  cursor: zoom-in; flex-shrink: 0; background: #0f172a; }
+.req-photos img:hover { border-color: var(--primary); }
+.req-wait { font-size: 12.5px; color: #92400e; background: #fffbeb; border: 1px dashed #fcd34d; border-radius: 8px; padding: 7px 10px; margin-top: 8px; }
+.req-card.is-pending { border-left: 4px solid var(--warning); }
+.req-card.is-approved { border-left: 4px solid var(--success); }
+.count-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px;
+  border-radius: 11px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 700; }
+.count-pill.zero { background: #e2e8f0; color: var(--sub); }
+
+/* item thumbnails in search/picker rows */
+.link-item { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px;
+  cursor: pointer; border: 1px solid var(--border); margin-bottom: 6px; }
+.link-item:hover { background: #f1f5f9; border-color: var(--primary); }
+.link-thumb { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; background: #f0f4f8; font-size: 22px; }
+.link-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ======= REVIEW MODAL — Admin identifies Item Part(s) from the photo ======= */
+.modal.modal-wide { max-width: 1000px; }
+.rv-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 820px) {
+  .rv-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .rv-left { position: sticky; top: 0; align-self: start; }
+}
+.rv-main { position: relative; background: #0f172a; border-radius: 12px; overflow: hidden; cursor: zoom-in; aspect-ratio: 4 / 3;
+  display: flex; align-items: center; justify-content: center; }
+.rv-main img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.rv-main .rv-hint { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px;
+  padding: 4px 10px; border-radius: 20px; pointer-events: none; }
+.rv-main .rv-count { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px;
+  padding: 3px 9px; border-radius: 20px; pointer-events: none; }
+.rv-thumbs { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; }
+.rv-thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 2px solid transparent; cursor: pointer;
+  flex-shrink: 0; opacity: .65; }
+.rv-thumbs img.active { border-color: var(--primary); opacity: 1; }
+.rv-info { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px;
+  font-size: 13px; display: grid; gap: 4px; }
+.rv-info .ri-label { color: var(--sub); display: inline-block; min-width: 100px; }
+.rv-section { font-family: var(--font-display); font-weight: 700; font-size: 14px; margin: 2px 0 8px; display: flex;
+  align-items: center; gap: 6px; flex-wrap: wrap; }
+.rv-results { border: 1px solid var(--border); border-radius: 10px; max-height: 270px; overflow-y: auto; margin-top: 6px; background: #fff; }
+.rv-result { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.rv-result:last-child { border-bottom: none; }
+.rv-result:hover { background: #eef2ff; }
+.rv-result.added { background: #f0fdf4; }
+.rv-thumb { width: 50px; height: 50px; border-radius: 8px; flex-shrink: 0; background: #f0f4f8; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; cursor: zoom-in; }
+.rv-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rv-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-sub { font-size: 12px; color: var(--sub); }
+.rv-add-btn { flex-shrink: 0; font-weight: 800; color: var(--primary); font-size: 13px; white-space: nowrap; }
+.rv-result.added .rv-add-btn { color: var(--success); }
+.rv-lines { display: flex; flex-direction: column; gap: 8px; }
+.rv-line { border: 1.5px solid var(--border); border-radius: 10px; padding: 10px; background: #fff; }
+.rv-line-top { display: flex; align-items: center; gap: 10px; }
+.rv-line .rv-del { margin-left: auto; flex-shrink: 0; }
+.rv-line-bottom { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.rv-line .qty-stepper input { width: 64px; }
+.rv-stock { font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 8px; }
+.rv-stock.ok { background: #f0fdf4; color: #166534; }
+.rv-stock.low { background: #fffbeb; color: #92400e; }
+.rv-stock.out { background: #fef2f2; color: #b91c1c; }
+.rv-empty { text-align: center; color: var(--sub); font-size: 13px; padding: 14px; border: 1.5px dashed var(--border); border-radius: 10px; line-height: 1.5; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg label { margin: 0; }
+.seg input { display: none; }
+.seg span { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2px;
+  border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 6px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  cursor: pointer; min-height: 58px; background: #fff; }
+.seg span small { font-weight: 400; color: var(--sub); font-size: 11px; }
+.seg input:checked + span { border-color: var(--primary); background: #eef2ff; color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.12); }
+.seg input[value="rejected"]:checked + span { border-color: var(--danger); background: #fef2f2; color: var(--danger); box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+.quick-add { border: 1.5px dashed #c7d7fe; background: #f8faff; border-radius: 10px; padding: 12px; margin-top: 4px; }
+
+/* ======= LIGHTBOX — full-screen photo viewer (zoom / pan / rotate) ======= */
+.lightbox { position: fixed; inset: 0; z-index: 3000; background: rgba(2,6,23,.95); display: none; flex-direction: column; touch-action: none; }
+.lightbox.open { display: flex; }
+.lb-top { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; color: #fff; }
+.lb-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-btn { width: 42px; height: 42px; border-radius: 12px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.12);
+  color: #fff; font-size: 18px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lb-btn:hover { background: rgba(255,255,255,.24); }
+.lb-stage { flex: 1; position: relative; overflow: hidden; cursor: grab; }
+.lb-stage.dragging { cursor: grabbing; }
+.lb-stage img { position: absolute; left: 50%; top: 50%; max-width: 100%; max-height: 100%; transform-origin: center center;
+  user-select: none; -webkit-user-drag: none; will-change: transform; }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 64px; border: none; border-radius: 12px;
+  background: rgba(255,255,255,.14); color: #fff; font-size: 28px; cursor: pointer; z-index: 2; }
+.lb-nav:hover { background: rgba(255,255,255,.26); }
+.lb-nav.prev { left: 10px; }
+.lb-nav.next { right: 10px; }
+.lb-bottom { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  color: #94a3b8; font-size: 12px; flex-wrap: wrap; text-align: center; }
+.lb-dots { display: flex; gap: 6px; }
+.lb-dots img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 2px solid transparent; opacity: .55; cursor: pointer; }
+.lb-dots img.active { border-color: #fff; opacity: 1; }
+
+/* ======= USAGE SUMMARY — issued per item + days-until-empty ======= */
+.usage-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.usage-head select { width: auto; flex: 1 1 150px; }
+.usage-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.usage-kpi { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 12px; color: var(--sub); }
+.usage-kpi b { display: block; font-size: 20px; color: var(--text); font-family: var(--font-display); }
+.usage-kpi.crit { border-color: #fca5a5; background: #fef2f2; }
+.usage-kpi.crit b { color: var(--danger); }
+.usage-list { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+.usage-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.usage-row.warn { border-left: 4px solid var(--warning); background: #fffbeb; }
+.usage-row.crit { border-left: 4px solid var(--danger); background: #fef2f2; }
+.usage-bar { height: 6px; border-radius: 4px; background: #e5e7eb; overflow: hidden; margin-top: 5px; }
+.usage-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--primary)); }
+.usage-right { text-align: right; flex-shrink: 0; font-size: 12px; color: var(--sub); }
+.usage-right .ur-qty { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--text); }
+.usage-right .ur-qty small { font-size: 11px; font-weight: 400; color: var(--sub); }
+.dl-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 3px; white-space: nowrap; }
+.dl-badge.crit { background: #fee2e2; color: #b91c1c; }
+.dl-badge.warn { background: #fef3c7; color: #b45309; }
+.dl-badge.ok { background: #dcfce7; color: #166534; }
 </style>
 </head>
 <body>
@@ -619,7 +697,7 @@ textarea { resize: vertical; min-height: 70px; }
   <div class="header-right">
     <span class="user-chip" id="userChip" style="display:none"></span>
     <span class="api-status offline" id="apiStatus">● offline</span>
-    <button class="notif-btn" onclick="switchTab('admin')" title="แจ้งเตือน Stock ต่ำ" id="notifBtn">
+    <button class="notif-btn" onclick="switchTab('admin')" title="แจ้งเตือน: คำขอเบิกรอตรวจสอบ / Stock ต่ำ" id="notifBtn">
       🔔<span class="notif-dot" id="notifDot"></span>
     </button>
     <button class="btn btn-outline btn-sm" onclick="showSettings()" style="border-color:rgba(255,255,255,.4);color:#fff">⚙️</button>
@@ -630,10 +708,7 @@ textarea { resize: vertical; min-height: 70px; }
 <!-- ======= TABS ======= -->
 <div class="nav-tabs">
   <button class="nav-tab active" onclick="switchTab('scan')" id="tab-scan">
-    <span class="tab-icon">📷</span>สแกน/เบิก
-  </button>
-  <button class="nav-tab" onclick="switchTab('train')" id="tab-train">
-    <span class="tab-icon">🎓</span>สอน ML
+    <span class="tab-icon">📷</span>เบิกของ
   </button>
   <button class="nav-tab" onclick="switchTab('inventory')" id="tab-inventory">
     <span class="tab-icon">📦</span>คลังสินค้า
@@ -647,186 +722,102 @@ textarea { resize: vertical; min-height: 70px; }
   </button>
 </div>
 
-<!-- PAGE 1 : SCAN -->
+<!-- PAGE 1 : เบิกของ — ถ่ายรูป + จำนวน + เครื่อง + จุดประสงค์ (ไม่ใช้ AI) → Admin ดูรูปแล้วระบุ Item Part -->
 <div class="page active" id="page-scan">
-  <div class="card eng-card" id="scanEngineCard" style="display:none">
-    <div id="scanEngineBox"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">📷 ถ่ายรูปหรือเลือกรูปอุปกรณ์</div>
-    <div class="img-zone" id="imgZone" onclick="document.getElementById('fileInput').click()">
-      <div class="zone-icon" id="zoneIcon">📸</div>
-      <div class="zone-hint" id="zoneHint">กดเพื่อถ่ายรูปหรือเลือกรูปภาพ<br><small>รองรับ JPG, PNG, WebP</small></div>
-      <img id="previewImg" style="display:none" alt="preview">
-    </div>
-    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="onFileSelect(this)">
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="openCamera(setScanImage)" style="flex:1;min-width:140px">📷 เปิดกล้อง</button>
-      <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
-      <button class="btn btn-gray" onclick="clearImage()" id="btnClear" disabled>🗑️ ล้าง</button>
-      <button class="btn btn-success btn-block" onclick="doMatch()" id="btnMatch" disabled>🔍 ค้นหาอุปกรณ์ด้วย Machine Learning</button>
-    </div>
-  </div>
-
-  <div id="matchSection" style="display:none">
+  <div id="reqFormWrap">
     <div class="card">
-      <div class="card-title">🎯 ผลการค้นหา — เลือกอุปกรณ์ที่ตรงกัน</div>
+      <div class="card-title"><span class="step-num">1</span> ถ่ายรูปของที่ต้องการเบิก <span style="color:var(--danger)">*</span></div>
       <div class="alert alert-info" style="margin-bottom:12px">
         <span class="alert-icon">💡</span>
-        <div>กดเลือกรายการที่ตรงกับอุปกรณ์ที่ต้องการเบิก แล้วกรอกข้อมูลด้านล่าง</div>
+        <div>ถ่ายให้เห็นชิ้นงาน<b>ชัดๆ เต็มเฟรม</b> · ถ้าเบิกเป็นชุด ถ่ายรวมทั้งชุดในรูปเดียวได้ · แนบได้สูงสุด 4 รูป<br>Admin จะดูรูปแล้วระบุ Item Part ให้เอง</div>
       </div>
-      <div class="match-list" id="matchList"></div>
-      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
-        <div style="font-size:13px;color:var(--sub);margin-bottom:8px;text-align:center">ไม่ใช่ทั้งหมดนี้ใช่ไหม?</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary" style="flex:1;min-width:150px" onclick="openPickItem()">🔍 เลือก Item เอง (สอน ML)</button>
-          <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openReportModal()">❓ แจ้ง Admin ว่าไม่มี</button>
-        </div>
+      <div class="photo-grid" id="reqPhotoGrid"></div>
+      <input type="file" id="reqFileInput" accept="image/*" multiple style="display:none" onchange="onReqFileSelect(this)">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openCamera(addReqPhoto, REQ_PHOTO_DIM)" style="flex:1;min-width:140px">📷 เปิดกล้องถ่ายรูป</button>
+        <button class="btn btn-outline" onclick="document.getElementById('reqFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
       </div>
+      <div class="field-error" id="errPhotos">กรุณาถ่ายรูปของที่ต้องการเบิกอย่างน้อย 1 รูป</div>
     </div>
 
-    <div class="card" id="reqForm" style="display:none">
-      <div class="card-title">📝 กรอกข้อมูลการเบิก</div>
+    <div class="card">
+      <div class="card-title"><span class="step-num">2</span> ข้อมูลการเบิก</div>
+      <div class="who-box" id="whoBox"></div>
 
       <div class="form-group">
-        <label>อุปกรณ์ที่เลือก</label>
-        <div id="selectedItemDisplay" style="background:#eef2ff;border:1.5px solid var(--primary);border-radius:8px;padding:10px;font-weight:700;font-size:14px;color:var(--primary)"></div>
-      </div>
-
-      <div id="stockIndicatorWrap"></div>
-
-      <div class="form-group">
-        <label>จำนวนที่เบิก <span class="req">*</span></label>
-        <div class="qty-stepper">
-          <button type="button" id="btnQtyMinus" onclick="adjustQty(-1)">−</button>
-          <input type="number" id="reqQty" min="1" value="1" oninput="validateQtyInput()">
-          <button type="button" id="btnQtyPlus" onclick="adjustQty(1)">+</button>
+        <label>1. จำนวนที่ต้องการเบิก <span class="req">*</span></label>
+        <div class="qty-row">
+          <div class="qty-stepper">
+            <button type="button" onclick="adjustQty(-1)">−</button>
+            <input type="number" id="reqQty" min="1" value="1" inputmode="numeric" oninput="validateQtyInput()">
+            <button type="button" onclick="adjustQty(1)">+</button>
+          </div>
+          <select id="reqUnit" aria-label="หน่วย">
+            <option value="ชิ้น">ชิ้น</option>
+            <option value="ชุด">ชุด</option>
+            <option value="อัน">อัน</option>
+            <option value="กล่อง">กล่อง</option>
+            <option value="ม้วน">ม้วน</option>
+            <option value="เส้น">เส้น</option>
+            <option value="เมตร">เมตร</option>
+          </select>
         </div>
-        <div class="field-error" id="errQty">กรุณาระบุจำนวนที่ถูกต้อง</div>
-        <div class="field-hint" id="hintQty"></div>
+        <div class="field-error" id="errQty">จำนวนต้องมากกว่า 0</div>
       </div>
 
       <div class="form-group">
-        <label>หน่วย</label>
-        <input type="text" id="reqUnit" readonly style="background:#f0f4f8;color:var(--sub)">
-      </div>
-
-      <div class="form-group">
-        <label>รหัสพนักงาน <span class="req">*</span></label>
-        <input type="text" id="reqEmpCode" list="empCodeList" autocomplete="off" placeholder="สแกน/พิมพ์รหัสพนักงาน — ชื่อจะเติมอัตโนมัติ" oninput="lookupEmployee()">
-        <datalist id="empCodeList"></datalist>
-        <div class="field-hint" id="empCodeHint"></div>
-        <div class="field-error" id="errEmpCode">กรุณากรอกรหัสพนักงาน</div>
-      </div>
-
-      <div class="form-group">
-        <label>ชื่อผู้เบิก <span class="req">*</span></label>
-        <input type="text" id="reqRequester" placeholder="เติมอัตโนมัติจากรหัสพนักงาน (หรือพิมพ์เอง)" oninput="clearFieldError('reqRequester','errRequester')">
-        <div class="field-error" id="errRequester">กรุณากรอกชื่อผู้เบิก</div>
-      </div>
-
-      <div class="form-group">
-        <label>หมายเลขเครื่องจักร</label>
-        <input type="text" id="reqMachine" list="machineList" autocomplete="off" placeholder="สแกน/พิมพ์หมายเลขเครื่อง — Zone จะเติมอัตโนมัติ" oninput="lookupMachine()">
+        <label>2. นำไปใช้เครื่องไหน <span class="req">*</span></label>
+        <input type="text" id="reqMachine" list="machineList" autocomplete="off" placeholder="พิมพ์/เลือกหมายเลขเครื่อง เช่น M-01" oninput="lookupMachine()">
         <datalist id="machineList"></datalist>
         <div class="field-hint" id="machineHint"></div>
+        <div class="field-error" id="errMachine">กรุณาระบุเครื่องที่จะนำไปใช้</div>
       </div>
 
       <div class="form-group">
-        <label>Zone / พื้นที่</label>
-        <input type="text" id="reqZone" readonly placeholder="เติมอัตโนมัติจากหมายเลขเครื่อง" style="background:#f0f4f8;color:var(--sub)">
+        <label>3. จุดประสงค์ <span class="req">*</span></label>
+        <div class="chip-row" id="purposeChips">
+          <button type="button" class="chip" data-v="เปลี่ยนของเสีย/ชำรุด" onclick="pickPurpose(this)">🔧 เปลี่ยนของเสีย/ชำรุด</button>
+          <button type="button" class="chip" data-v="ซ่อมบำรุง (PM)" onclick="pickPurpose(this)">🛠️ ซ่อมบำรุง (PM)</button>
+          <button type="button" class="chip" data-v="ติดตั้ง/ปรับปรุงเครื่อง" onclick="pickPurpose(this)">⚙️ ติดตั้ง/ปรับปรุงเครื่อง</button>
+          <button type="button" class="chip" data-v="สำรองไว้ใช้ (Spare)" onclick="pickPurpose(this)">📦 สำรองไว้ใช้</button>
+        </div>
+        <textarea id="reqPurpose" rows="2" placeholder="เลือกด้านบน หรือพิมพ์รายละเอียดเพิ่ม เช่น ลูกปืนแตก มีเสียงดัง" oninput="clearFieldError('reqPurpose','errPurpose');syncPurposeChips()"></textarea>
+        <div class="field-error" id="errPurpose">กรุณาระบุจุดประสงค์</div>
       </div>
 
-      <div class="form-group">
-        <label>วัตถุประสงค์</label>
-        <textarea id="reqPurpose" placeholder="ระบุจุดประสงค์การใช้งาน" rows="3"></textarea>
-      </div>
-
-      <button class="btn btn-primary btn-block" onclick="submitRequisition()" id="btnSubmitReq">✅ ส่งใบเบิก</button>
+      <button class="btn btn-primary btn-block" onclick="submitRequisition()" id="btnSubmitReq" style="padding:13px 18px;font-size:15px">📨 ส่งคำขอเบิกให้ Admin</button>
     </div>
   </div>
 
-  <div id="scanEmpty" class="empty">
-    <div class="empty-icon">📷</div>
-    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด "ค้นหาอุปกรณ์ด้วย Machine Learning"</div>
-  </div>
-</div>
-
-<!-- PAGE : TRAIN (สอน ML — เรียนรู้อย่างเดียว ไม่เบิกจริง) -->
-<div class="page" id="page-train">
-  <div class="teach-banner">
-    <div class="tb-title">🎓 โหมดสอน Machine Learning</div>
-    <div class="tb-sub">
-      ถ่ายรูปอุปกรณ์<b>หลายๆ รูป</b> (กดถ่ายรัวๆ) แล้วบอกระบบว่า “นี่คือชิ้นไหน” <b>ครั้งเดียว</b> ระบบจะเอาทุกรูปไปสอนเอง
-      ยิ่งหลายมุม ครั้งหน้า “สแกน/เบิก” จะจับคู่ได้เร็วและแม่นขึ้น
-    </div>
-    <span class="tb-warn">⚠️ โหมดนี้เรียนรู้อย่างเดียว — ไม่ตัดสต็อก ไม่สร้างใบเบิก</span>
-    <div class="teach-count">🧠 สอนไปแล้วในรอบนี้: <b id="trainCount">0</b> รูป</div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📷 ถ่ายรูปอุปกรณ์ที่จะสอน <span style="font-weight:400;color:var(--sub);font-size:13px">— ถ่ายได้หลายรูป แล้วส่งสอนทีเดียว</span></div>
-    <div class="img-zone" id="trainImgZone" onclick="document.getElementById('trainFileInput').click()">
-      <div class="zone-icon" id="trainZoneIcon">📸</div>
-      <div class="zone-hint" id="trainZoneHint">กด “ถ่ายต่อเนื่อง” เพื่อถ่ายรัวๆ หลายรูป<br><small>ยิ่งหลายมุม ยิ่งสอนแม่น · รองรับ JPG, PNG, WebP</small></div>
-      <div id="trainThumbGrid" style="display:none"></div>
-    </div>
-    <input type="file" id="trainFileInput" accept="image/*" multiple style="display:none" onchange="onTrainFileSelect(this)">
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="openCameraBurst(addTrainImages)" style="flex:1;min-width:150px">📷 ถ่ายต่อเนื่อง (รัวๆ)</button>
-      <button class="btn btn-outline" onclick="document.getElementById('trainFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกหลายรูป</button>
-      <button class="btn btn-gray" onclick="clearTrainImages()" id="btnTrainClear" disabled>🗑️ ล้างทั้งหมด</button>
-    </div>
-    <button class="btn btn-teach btn-block" style="margin-top:8px" onclick="doTrainMatch()" id="btnTrainMatch" disabled>🎓 ให้ ML ทาย แล้วสอนทั้งหมด</button>
-  </div>
-
-  <div id="trainMatchSection" style="display:none">
-    <div class="card">
-      <div class="card-title">🤖 ML ทายว่าเป็นชิ้นไหน — บอกหน่อยว่าถูกหรือไม่</div>
-      <div class="alert alert-info" style="margin-bottom:12px">
-        <span class="alert-icon">💡</span>
-        <div>กดเลือก<b>รายการที่ถูกต้อง</b>แล้วกดยืนยัน — ML จะจดจำ<b>ทุกรูปที่ถ่ายไว้</b>คู่กับชิ้นนั้น และตัดตัวเลือกที่ผิดออก</div>
-      </div>
-      <div class="match-list" id="trainMatchList"></div>
-      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-teach" style="flex:2;min-width:170px" id="btnTrainConfirm" onclick="confirmTrain()" disabled>✅ ยืนยัน แล้วสอนทั้งหมด</button>
-        <button class="btn btn-outline" style="flex:1;min-width:150px" onclick="openTrainPick()">🔍 ไม่มีตัวถูก — ค้นหาเอง</button>
+  <div class="card" id="reqDone" style="display:none">
+    <div class="done-card">
+      <div class="dc-icon">✅</div>
+      <div class="dc-title">ส่งคำขอเบิกแล้ว</div>
+      <div class="dc-no" id="reqDoneNo"></div>
+      <div class="dc-sub">Admin จะดูรูป ระบุ Item Part และอนุมัติให้<br>ติดตามสถานะได้ที่แท็บ “ประวัติ”</div>
+      <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn btn-outline" style="flex:1;min-width:140px" onclick="switchTab('history')">📋 ดูสถานะ</button>
+        <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="newRequisition()">➕ เบิกรายการถัดไป</button>
       </div>
     </div>
-  </div>
-
-  <div id="trainProgress" class="card" style="display:none">
-    <div class="card-title">🧠 กำลังสอน ML...</div>
-    <div id="trainProgressText" class="text-sub" style="margin-bottom:8px">กำลังสอน 0/0 รูป...</div>
-    <div class="conf-bar" style="height:10px"><div id="trainProgressFill" class="conf-fill" style="width:0%"></div></div>
-  </div>
-
-  <div id="trainDone" class="card" style="display:none">
-    <div class="train-done">
-      <div class="td-check">🎉</div>
-      <div class="td-title">สอน ML สำเร็จ!</div>
-      <div class="td-sub" id="trainDoneSub"></div>
-      <button class="btn btn-teach btn-block" style="margin-top:16px" onclick="trainNext()">🎓 สอนชุดถัดไป</button>
-    </div>
-  </div>
-
-  <div id="trainEmpty" class="empty">
-    <div class="empty-icon">🎓</div>
-    <div>ถ่ายหรืออัปโหลดรูปอุปกรณ์<br>แล้วกด “ให้ ML ทาย แล้วสอน”</div>
   </div>
 </div>
 
 <!-- PAGE 2 : HISTORY -->
 <div class="page" id="page-history">
   <div class="search-bar">
-    <select id="histStatus" onchange="loadHistory()">
-      <option value="">ทุกสถานะ</option>
-      <option value="pending">รอดำเนินการ</option>
-      <option value="approved">อนุมัติแล้ว</option>
-      <option value="completed">เบิกแล้ว</option>
-      <option value="rejected">ปฏิเสธ</option>
+    <select id="histScope" onchange="loadHistory()" style="flex:1 1 120px;width:auto">
+      <option value="mine">👤 ของฉัน</option>
+      <option value="all">👥 ทุกคน</option>
     </select>
-    <button class="btn btn-outline" onclick="loadHistory()">🔄 รีเฟรช</button>
+    <select id="histStatus" onchange="loadHistory()" style="flex:2 1 170px;width:auto">
+      <option value="">ทุกสถานะ</option>
+      <option value="pending">⏳ รอตรวจสอบ</option>
+      <option value="approved">✅ อนุมัติ — รอจ่ายของ</option>
+      <option value="completed">📦 จ่ายของแล้ว</option>
+      <option value="rejected">❌ ไม่อนุมัติ</option>
+    </select>
+    <button class="btn btn-outline" onclick="loadHistory()" title="รีเฟรช">🔄</button>
   </div>
   <div id="historyList"><div class="loading"><div class="spinner"></div></div></div>
 </div>
@@ -859,11 +850,39 @@ textarea { resize: vertical; min-height: 70px; }
 
   <div id="adminPanel" style="display:none">
     <div class="stats-row">
+      <div class="stat-card warning" onclick="focusQueue()"><div class="stat-num" id="statPending">—</div><div class="stat-label">📥 รอตรวจสอบ</div></div>
+      <div class="stat-card" onclick="focusQueue('approved')"><div class="stat-num" id="statToIssue" style="color:var(--success)">—</div><div class="stat-label">📦 รอจ่ายของ</div></div>
+      <div class="stat-card danger"><div class="stat-num" id="statLow">—</div><div class="stat-label">⚠️ Stock ต่ำ</div></div>
       <div class="stat-card primary" onclick="switchTab('inventory')"><div class="stat-num" id="statItems">—</div><div class="stat-label">อุปกรณ์ทั้งหมด</div></div>
       <div class="stat-card" onclick="switchTab('history')"><div class="stat-num" id="statReqs">—</div><div class="stat-label">ใบเบิกทั้งหมด</div></div>
-      <div class="stat-card warning"><div class="stat-num" id="statPending">—</div><div class="stat-label">รออนุมัติ</div></div>
-      <div class="stat-card danger"><div class="stat-num" id="statLow">—</div><div class="stat-label">⚠️ Stock ต่ำ</div></div>
-      <div class="stat-card" style="background:#ede9fe"><div class="stat-num" id="statLearned" style="color:#7c3aed">—</div><div class="stat-label">🧠 ML เรียนรู้ (ครั้ง)</div></div>
+    </div>
+
+    <div class="card" id="reqQueueCard" data-default-open="1">
+      <div class="card-title">📥 คำขอเบิกรอตรวจสอบ <span class="count-pill zero" id="queueCount">0</span></div>
+      <div class="search-bar" style="margin-bottom:10px">
+        <select id="queueStatus" onchange="loadPending()" style="flex:1 1 200px;width:auto">
+          <option value="pending">⏳ รอตรวจสอบ / ระบุ Item</option>
+          <option value="approved">✅ อนุมัติแล้ว — รอจ่ายของ</option>
+        </select>
+        <button class="btn btn-outline" onclick="loadPending()" title="รีเฟรช">🔄</button>
+      </div>
+      <div id="pendingList"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <div class="card" id="usageCard" data-default-open="1">
+      <div class="card-title">📊 ยอดเบิก & คาดการณ์ของหมด</div>
+      <div class="usage-head">
+        <select id="usageDays" onchange="loadUsage()">
+          <option value="7">7 วันล่าสุด</option>
+          <option value="30" selected>30 วันล่าสุด</option>
+          <option value="90">90 วันล่าสุด</option>
+        </select>
+        <select id="usageSort" onchange="renderUsage()">
+          <option value="issued">เรียง: เบิกมากสุด</option>
+          <option value="days_left">เรียง: ใกล้หมดก่อน</option>
+        </select>
+      </div>
+      <div id="usageBox"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <div class="card">
@@ -875,15 +894,9 @@ textarea { resize: vertical; min-height: 70px; }
       <div class="card-title">📥 รับของเข้า (เติมสต๊อก)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <input type="text" id="recvSearch" placeholder="พิมพ์รหัส/ชื่อ เพื่อเลือกของ..." autocomplete="off" oninput="recvSearch()" style="flex:1;min-width:170px">
-        <button class="btn btn-primary" onclick="recvScan()">📷 ถ่ายรูปหาของ</button>
       </div>
       <div class="text-sub" id="recvHint" style="margin-bottom:6px">เลือกของแล้วใส่จำนวนที่รับเข้า — ระบบตั้งค่า "📥 รับเข้า" ให้อัตโนมัติ</div>
       <div id="recvList"></div>
-    </div>
-
-    <div class="card" id="aiEngineCard">
-      <div class="card-title">⚙️ เครื่องมือค้นหาด้วยรูป (Machine Learning)</div>
-      <div id="engineBox"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <div class="card">
@@ -926,7 +939,7 @@ textarea { resize: vertical; min-height: 70px; }
         <textarea id="newDesc" placeholder="รายละเอียดอุปกรณ์ (ไม่บังคับ)"></textarea>
       </div>
       <div class="form-group">
-        <label>รูปภาพอุปกรณ์ <span class="req">*</span> <span style="font-weight:400;color:var(--sub)">(ใช้สำหรับ Machine Learning)</span></label>
+        <label>รูปภาพอุปกรณ์ <span style="font-weight:400;color:var(--sub)">(ช่วยให้ Admin เทียบกับรูปที่พนักงานถ่าย)</span></label>
         <div class="img-zone" id="adminImgZone" onclick="openCamera(setAdminImage)">
           <div class="zone-icon" id="adminZoneIcon">📸</div>
           <div class="zone-hint">แตะเพื่อเปิดกล้องถ่ายรูป<br><small>ถ่ายในที่แสงดี เห็นอุปกรณ์ชัดเจน</small></div>
@@ -939,7 +952,7 @@ textarea { resize: vertical; min-height: 70px; }
         <input type="file" id="adminFileInput" accept="image/*" style="display:none" onchange="onAdminFileSelect(this)">
         <div id="adminImgWarning" class="alert alert-warning" style="display:none;margin-top:8px">
           <span class="alert-icon">⚠️</span>
-          <div>ไม่มีรูป — อุปกรณ์จะถูกเพิ่มได้ แต่ Machine Learning จะไม่ทำงานกับรายการนี้</div>
+          <div>ไม่มีรูป — เพิ่มได้ แต่จะเทียบกับรูปที่พนักงานถ่ายได้ยากขึ้น</div>
         </div>
       </div>
       <button class="btn btn-primary btn-block" onclick="addItem()" id="btnAddItem">➕ เพิ่มอุปกรณ์</button>
@@ -955,7 +968,7 @@ textarea { resize: vertical; min-height: 70px; }
     </div>
 
     <div class="card">
-      <div class="card-title">👥 ฐานข้อมูลพนักงาน <span style="font-weight:400;font-size:12px;color:var(--sub)">(รหัส ↔ ชื่อ — ใช้เติมชื่อผู้เบิกอัตโนมัติ)</span></div>
+      <div class="card-title">👥 ฐานข้อมูลพนักงาน <span style="font-weight:400;font-size:12px;color:var(--sub)">(รหัส ↔ ชื่อ — ใช้เข้าสู่ระบบและระบุผู้เบิก)</span></div>
       <div class="row">
         <div class="col form-group">
           <label>รหัสพนักงาน</label>
@@ -984,26 +997,6 @@ textarea { resize: vertical; min-height: 70px; }
       </div>
       <button class="btn btn-primary btn-sm" onclick="addMachine()" id="btnAddMachine">➕ เพิ่มเครื่องจักร</button>
       <div id="machineListAdmin" style="margin-top:12px"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">📨 รายการที่ผู้ใช้แจ้งว่าไม่พบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบ → มีอยู่แล้ว/เพิ่มใหม่/พักงานค้าง)</span></div>
-      <div id="scanReportList"><div class="loading"><div class="spinner"></div></div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">🧠 ประวัติการสอนระบบ (Feedback Log) <span style="font-weight:400;font-size:12px;color:var(--sub)">(ตรวจสอบได้ว่าใครยืนยัน/แก้ผลค้นหาเมื่อไหร่)</span></div>
-      <div id="feedbackLogList"><div class="loading"><div class="spinner"></div></div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">⏳ งานค้าง — รอเพิ่ม Item เข้าระบบ <span style="font-weight:400;font-size:12px;color:var(--sub)">(ปิดอัตโนมัติเมื่อเพิ่มของที่ตรงกัน)</span></div>
-      <div id="pendingReqList"><div class="loading"><div class="spinner"></div></div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">⏳ ใบเบิกรอดำเนินการ</div>
-      <div id="pendingList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <button class="btn btn-gray btn-block" onclick="adminLogout()" style="margin-top:8px">🚪 ออกจาก Admin</button>
@@ -1110,36 +1103,74 @@ textarea { resize: vertical; min-height: 70px; }
   </div>
 </div>
 
-<!-- APPROVE MODAL -->
-<div class="modal-overlay" id="approveModal">
-  <div class="modal">
+<!-- REVIEW MODAL — Admin looks at the photo, picks Item Part(s), approves -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal modal-wide">
     <div class="modal-header">
-      <span class="modal-title">✅ ดำเนินการใบเบิก</span>
-      <button class="modal-close" onclick="closeModal('approveModal')">✕</button>
+      <span class="modal-title" id="rvTitle">🔍 ตรวจสอบคำขอเบิก</span>
+      <button class="modal-close" onclick="closeModal('reviewModal')">✕</button>
     </div>
     <div class="modal-body">
-      <div id="approveModalInfo" style="margin-bottom:14px;font-size:14px;background:#f0f4f8;border-radius:8px;padding:10px;"></div>
-      <div class="form-group">
-        <label>ดำเนินการ</label>
-        <select id="approveStatus">
-          <option value="approved">✅ อนุมัติ</option>
-          <option value="completed">✅ อนุมัติ + จ่ายของ (ตัด Stock)</option>
-          <option value="rejected">❌ ปฏิเสธ</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>ผู้ดำเนินการ <span class="req">*</span></label>
-        <input type="text" id="approveBy" placeholder="ชื่อผู้อนุมัติ" oninput="clearFieldError('approveBy','errApproveBy')">
-        <div class="field-error" id="errApproveBy">กรุณากรอกชื่อผู้ดำเนินการ</div>
-      </div>
-      <div class="form-group">
-        <label>หมายเหตุ</label>
-        <textarea id="approveNote" placeholder="(ถ้ามี)"></textarea>
+      <div class="rv-grid">
+        <div class="rv-left">
+          <div class="rv-main" id="rvMain" onclick="rvOpenPhoto()" title="แตะเพื่อดูรูปขนาดใหญ่">
+            <img id="rvMainImg" alt="รูปที่พนักงานถ่าย">
+            <span class="rv-count" id="rvCount"></span>
+            <span class="rv-hint">🔍 แตะเพื่อขยาย</span>
+          </div>
+          <div class="rv-thumbs" id="rvThumbs"></div>
+          <div class="rv-info" id="rvInfo"></div>
+        </div>
+        <div class="rv-right">
+          <div class="rv-section">🧩 Item Part ที่เบิก <span class="text-sub" style="font-weight:400">(1 รูปเพิ่มได้หลาย Item)</span></div>
+          <div id="rvLines" class="rv-lines"></div>
+
+          <div style="margin-top:12px">
+            <input type="text" id="rvSearch" placeholder="🔎 ค้นหารหัส / ชื่อ Item Part เพื่อเพิ่ม..." autocomplete="off" oninput="rvSearchDebounced()">
+          </div>
+          <div id="rvResults"></div>
+          <button type="button" class="btn-link" style="text-align:left;padding:8px 0 4px" onclick="rvToggleQuickAdd()">➕ ไม่มีในระบบ? เพิ่ม Item ใหม่จากรูปนี้</button>
+          <div class="quick-add" id="rvQuickAdd" style="display:none">
+            <div class="row">
+              <div class="col form-group"><label>รหัส Item <span class="req">*</span></label><input type="text" id="qaCode"></div>
+              <div class="col form-group"><label>ชื่อ Item <span class="req">*</span></label><input type="text" id="qaName" placeholder="เช่น ลูกปืน 6204"></div>
+            </div>
+            <div class="row">
+              <div class="col form-group"><label>หน่วย</label><input type="text" id="qaUnit" value="ชิ้น"></div>
+              <div class="col form-group"><label>Stock ปัจจุบัน</label><input type="number" id="qaStock" value="0" min="0"></div>
+              <div class="col form-group"><label>Stock ขั้นต่ำ</label><input type="number" id="qaMin" value="1" min="0"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:10px">
+              <input type="checkbox" id="qaUsePhoto" checked style="width:auto"> ใช้รูปที่กำลังดูอยู่เป็นรูปของ Item
+            </label>
+            <button type="button" class="btn btn-success btn-sm" id="btnQaSave" onclick="rvCreateItem()">💾 เพิ่ม Item แล้วใส่ในใบเบิก</button>
+          </div>
+
+          <hr class="divider">
+          <div class="rv-section">✅ ผลการตรวจสอบ</div>
+          <div class="seg">
+            <label><input type="radio" name="rvAction" value="completed" checked onchange="rvSyncAction()"><span>📦 อนุมัติ + จ่ายของ<small>ตัด Stock ทันที</small></span></label>
+            <label><input type="radio" name="rvAction" value="approved" onchange="rvSyncAction()"><span>✅ อนุมัติ<small>จ่ายของภายหลัง</small></span></label>
+            <label><input type="radio" name="rvAction" value="rejected" onchange="rvSyncAction()"><span>❌ ไม่อนุมัติ<small>ระบุเหตุผล</small></span></label>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <div class="col form-group">
+              <label>ผู้อนุมัติ <span class="req">*</span></label>
+              <input type="text" id="rvBy" placeholder="ชื่อผู้อนุมัติ" oninput="clearFieldError('rvBy','errRvBy')">
+              <div class="field-error" id="errRvBy">กรุณากรอกชื่อผู้อนุมัติ</div>
+            </div>
+            <div class="col form-group">
+              <label id="rvNoteLabel">หมายเหตุ</label>
+              <input type="text" id="rvNote" placeholder="(ถ้ามี)" oninput="clearFieldError('rvNote','errRvNote')">
+              <div class="field-error" id="errRvNote">กรุณาระบุเหตุผลที่ไม่อนุมัติ</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-gray" onclick="closeModal('approveModal')">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="confirmApprove()">ยืนยัน</button>
+      <button class="btn btn-gray" onclick="closeModal('reviewModal')">ยกเลิก</button>
+      <button class="btn btn-primary" id="btnRvConfirm" onclick="confirmReview()">📦 ยืนยัน อนุมัติ + จ่ายของ</button>
     </div>
   </div>
 </div>
@@ -1205,14 +1236,6 @@ textarea { resize: vertical; min-height: 70px; }
     </div>
     <div class="modal-body" style="padding:0;background:#000;position:relative;overflow:hidden">
       <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain;transform-origin:center center"></video>
-      <!-- Burst (multi-shot) strip — only shown in burst mode -->
-      <div id="camBurstBar" style="position:absolute;top:0;left:0;right:0;display:none;flex-direction:column;gap:6px;padding:8px 10px 10px;background:linear-gradient(rgba(0,0,0,.65),transparent)">
-        <div style="color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">
-          📸 ถ่ายแล้ว <span id="camBurstCount">0</span> รูป
-          <span style="font-weight:400;opacity:.8;font-size:12px">— กดถ่ายต่อได้เลย</span>
-        </div>
-        <div id="camBurstThumbs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px"></div>
-      </div>
       <div id="camZoomWrap" style="position:absolute;left:0;right:0;bottom:0;display:none;align-items:center;gap:10px;padding:10px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.6))">
         <button type="button" onclick="bumpCamZoom(-1)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer">−</button>
         <input type="range" id="camZoom" min="1" max="4" step="0.1" value="1" oninput="setCamZoom(this.value)" style="flex:1;accent-color:#fff">
@@ -1226,69 +1249,27 @@ textarea { resize: vertical; min-height: 70px; }
     <div class="modal-footer" style="justify-content:space-between;gap:8px">
       <button class="btn btn-gray" onclick="flipCamera()" id="btnFlipCam">🔄 สลับ</button>
       <button class="btn btn-primary" onclick="capturePhoto()" id="btnCapture" style="flex:1">📸 ถ่าย</button>
-      <button class="btn" onclick="finishBurst()" id="btnBurstDone" style="display:none;background:#16a34a;color:#fff">✅ เสร็จ (<span id="btnBurstDoneN">0</span>)</button>
     </div>
   </div>
 </div>
 
-<!-- REPORT NOT-FOUND MODAL -->
-<div class="modal-overlay" id="reportModal">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">❓ แจ้ง Admin: ไม่พบอุปกรณ์นี้</span>
-      <button class="modal-close" onclick="closeModal('reportModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="alert alert-info" style="margin-bottom:12px">
-        <span class="alert-icon">💡</span>
-        <div>ส่งรูปนี้ให้ Admin ตรวจสอบ — ถ้ายังไม่มีในระบบ Admin จะเพิ่มและสั่งซื้อให้ ถ้ามีอยู่แล้วระบบจะเรียนรู้ให้แม่นขึ้นในครั้งถัดไป</div>
-      </div>
-      <img id="reportPreview" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#f8fafc" alt="">
-      <div class="form-group" style="margin-top:12px">
-        <label>รายละเอียดเพิ่มเติม (ชื่อ / ลักษณะ / จุดที่ใช้)</label>
-        <textarea id="reportNote" placeholder="เช่น น็อตหัวจม M8, ใช้กับเครื่อง M-01" rows="3"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-gray" onclick="closeModal('reportModal')">ยกเลิก</button>
-      <button class="btn btn-primary" id="btnSendReport" onclick="sendReport()">📨 ส่งให้ Admin</button>
-    </div>
+<!-- LIGHTBOX — full-screen photo viewer (zoom / pan / rotate / prev-next) -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="ดูรูปขนาดใหญ่">
+  <div class="lb-top">
+    <div class="lb-title" id="lbTitle"></div>
+    <button class="lb-btn" onclick="lbZoomBy(1/1.5)" title="ซูมออก">−</button>
+    <button class="lb-btn" onclick="lbZoomBy(1.5)" title="ซูมเข้า">＋</button>
+    <button class="lb-btn" onclick="lbRotate()" title="หมุนรูป">⟳</button>
+    <button class="lb-btn" onclick="closeLightbox()" title="ปิด">✕</button>
   </div>
-</div>
-
-<!-- LINK-TO-EXISTING-ITEM MODAL (admin resolves a report) -->
-<div class="modal-overlay" id="linkItemModal">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">🔗 เลือกอุปกรณ์ที่ตรงกัน</span>
-      <button class="modal-close" onclick="closeModal('linkItemModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="alert alert-info" style="margin-bottom:10px">
-        <span class="alert-icon">🧠</span>
-        <div>เลือกอุปกรณ์ที่ใช่ — ระบบจะจำรูปนี้ไว้ ครั้งหน้าถ่ายแบบนี้มาจะแม่นขึ้น</div>
-      </div>
-      <div class="search-bar"><input type="text" id="linkSearch" placeholder="ค้นหาชื่อ / รหัสอุปกรณ์..." oninput="loadLinkItems()"></div>
-      <div id="linkItemList" style="margin-top:10px"></div>
-    </div>
+  <div class="lb-stage" id="lbStage">
+    <img id="lbImg" alt="" draggable="false">
+    <button class="lb-nav prev" id="lbPrev" onclick="lbGo(-1)" aria-label="รูปก่อนหน้า">‹</button>
+    <button class="lb-nav next" id="lbNext" onclick="lbGo(1)" aria-label="รูปถัดไป">›</button>
   </div>
-</div>
-
-<!-- PICK ITEM MANUALLY (scan flow) — user selects the correct item, which trains the AI -->
-<div class="modal-overlay" id="pickItemModal">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">🔍 เลือก Item ที่ถูกต้อง</span>
-      <button class="modal-close" onclick="closeModal('pickItemModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="alert alert-info" style="margin-bottom:10px">
-        <span class="alert-icon">🧠</span>
-        <div>เลือกอุปกรณ์ที่ใช่จริง — ระบบจะ<b>จดจำรูปที่คุณถ่ายคู่กับ Item นี้</b> ครั้งหน้าถ่ายแบบเดียวกันจะเจอทันที</div>
-      </div>
-      <div class="search-bar"><input type="text" id="pickSearch" placeholder="พิมพ์รหัส (เช่น I-0050) หรือชื่ออุปกรณ์..." oninput="loadPickItems()"></div>
-      <div id="pickItemList" style="margin-top:10px"></div>
-    </div>
+  <div class="lb-bottom">
+    <div class="lb-dots" id="lbDots"></div>
+    <div>แตะสองครั้ง / หมุนล้อเมาส์ / ถ่างสองนิ้ว เพื่อซูม · ลากเพื่อเลื่อน</div>
   </div>
 </div>
 
@@ -1302,14 +1283,6 @@ textarea { resize: vertical; min-height: 70px; }
 let API_URL = localStorage.getItem('req_api_url') || 'https://requisition-system.wiphawas-sketchup.workers.dev';
 let ADMIN_PWD = localStorage.getItem('req_admin_pwd') || 'admin1234';
 let isAdmin = false;
-let selectedImage = null;
-let selectedItemId = null;
-let selectedMatchScore = null;
-let selectedFromScan = false; // true when the item was picked from an AI scan match (enables ML feedback)
-let selectedVia = '';         // 'scan' (chose an AI match) | 'manual_pick' (rejected all, searched manually)
-let selectedItemStock = 0;
-let selectedItemMinStock = 0;
-let pendingApproveId = null;
 let pendingStockItemId = null;
 let editImageB64 = null;
 let searchTimer = null;
@@ -1318,65 +1291,12 @@ let employees = [];
 let machines = [];
 let _confirmResolve = null;
 let currentUser = null;       // { code, name, isAdmin }
-let MATCH_ENGINE = 'legacy';  // server default: 'legacy' (caption ensemble) | 'jina' (image embedding)
-let JINA_READY = false;       // true when the server has a Jina API key
-const ENGINE_PREF_KEY = 'req_engine_pref'; // per-device override set from the scan page
-async function loadEngineSetting() {
-  try {
-    const d = await api('GET', '/api/settings');
-    MATCH_ENGINE = (d.settings && d.settings.match_engine) || 'legacy';
-    JINA_READY = !!(d.settings && d.settings.jina_ready);
-  } catch {}
-  renderScanEngineToggle();
-}
-// Effective engine for THIS device = local preference if set, else server default.
-// Jina can only be active when the server actually has an API key.
-function activeEngine() {
-  const pref = localStorage.getItem(ENGINE_PREF_KEY);
-  const want = (pref === 'jina' || pref === 'legacy') ? pref : MATCH_ENGINE;
-  return (want === 'jina' && JINA_READY) ? 'jina' : 'legacy';
-}
-// Scan-page toggle: "เพิ่มประสิทธิภาพการค้นหา" — flips the per-device engine.
-function setEnginePref(on) {
-  if (on && !JINA_READY) { showToast('⚠️ ผู้ดูแลยังไม่ได้ตั้งค่า API key สำหรับโหมดนี้', 'error'); return; }
-  localStorage.setItem(ENGINE_PREF_KEY, on ? 'jina' : 'legacy');
-  renderScanEngineToggle();
-  showToast(on ? '⚡ เปิดโหมดค้นหาแม่นยำสูงแล้ว — ผลลัพธ์จะตรงขึ้น' : 'ปิดโหมดค้นหาแม่นยำสูงแล้ว');
-}
-// Render the search-quality switch on the scan page (hidden until settings load).
-function renderScanEngineToggle() {
-  const card = document.getElementById('scanEngineCard');
-  const box = document.getElementById('scanEngineBox');
-  if (!card || !box) return;
-  card.style.display = 'block';
-  const on = activeEngine() === 'jina';
-  const sub = !JINA_READY
-    ? '⚠️ ยังไม่พร้อมใช้ — ผู้ดูแลต้องตั้งค่า API key ก่อน'
-    : (on ? '✅ กำลังใช้โหมดแม่นยำสูง — เหมาะกับอะไหล่หน้าตาคล้ายกัน'
-          : 'เปิดเพื่อให้ค้นหาแม่นยำขึ้น โดยเฉพาะของที่หน้าตาคล้ายกัน');
-  box.innerHTML = `
-    <div class="eng-row">
-      <div class="eng-text">
-        <div class="eng-title">⚡ เพิ่มประสิทธิภาพการค้นหา</div>
-        <div class="eng-sub ${on ? 'on' : ''}">${sub}</div>
-      </div>
-      <label class="switch" title="เพิ่มประสิทธิภาพการค้นหา">
-        <input type="checkbox" ${on ? 'checked' : ''} ${!JINA_READY ? 'disabled' : ''}
-          onchange="setEnginePref(this.checked)">
-        <span class="slider"></span>
-      </label>
-    </div>`;
-}
-// Enroll an item's image as a Jina vector (admin context: add/edit item).
-async function enrollJina(itemId, dataUrl, source = 'enroll', variant = 'original') {
-  if (!JINA_READY || !itemId || !dataUrl) return;
-  try {
-    const img = await preprocessImage(dataUrl, 512);
-    await api('POST', '/api/jina/embed-store', { item_id: itemId, image_b64: img, source, variant }, true);
-  } catch {}
-}
+let reqPhotos = [];           // employee's photos for the current requisition (data URLs)
+const REQ_MAX_PHOTOS = 4;
+const REQ_PHOTO_DIM = 1600;   // keep detail so Admin can zoom in on part numbers
 // Turn each admin section card into a collapsible accordion (tap title to
-// expand/collapse). State persists per-section. Default: collapsed.
+// expand/collapse). State persists per-section. Default: collapsed, unless the
+// card is marked data-default-open (e.g. the requisition queue).
 function makeAdminCollapsible() {
   const panel = document.getElementById('adminPanel');
   if (!panel) return;
@@ -1395,74 +1315,15 @@ function makeAdminCollapsible() {
     const chev = document.createElement('span');
     chev.className = 'card-chevron'; chev.textContent = '▸';
     title.appendChild(chev);
-    const key = 'admincol:' + (title.textContent || '').replace(/▸/g, '').trim().slice(0, 28);
-    card.classList.toggle('collapsed', localStorage.getItem(key) !== 'open');
+    const key = 'admincol:' + (card.id || (title.textContent || '').replace(/▸/g, '').trim().slice(0, 28));
+    const saved = localStorage.getItem(key);
+    card.classList.toggle('collapsed', saved ? saved !== 'open' : !card.dataset.defaultOpen);
     title.addEventListener('click', () => {
       const collapsed = card.classList.toggle('collapsed');
       localStorage.setItem(key, collapsed ? 'closed' : 'open');
     });
   });
 }
-// Admin: show & toggle the active match engine (legacy ↔ jina).
-async function renderEngineCard() {
-  const el = document.getElementById('engineBox');
-  if (!el) return;
-  await loadEngineSetting();
-  let vecInfo = '';
-  try { const s = await api('GET', '/api/jina/stats', null, true); vecInfo = `${s.items_with_vectors} ชิ้น · ${s.total} เวกเตอร์`; } catch {}
-  const jinaOn = MATCH_ENGINE === 'jina';
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="flex:1;min-width:170px">
-        <div style="font-weight:700">ใช้งานอยู่: ${jinaOn ? '🚀 Jina CLIP (image embedding)' : '🧩 Legacy (caption + pHash)'}</div>
-        <div class="text-sub">${JINA_READY ? '✅ Jina พร้อมใช้' : '⚠️ ยังไม่ได้ตั้ง API key'}${vecInfo ? ' · ' + vecInfo : ''}</div>
-      </div>
-      <button class="btn ${jinaOn ? 'btn-gray' : 'btn-primary'} btn-sm" ${!JINA_READY ? 'disabled' : ''}
-        onclick="setMatchEngine('${jinaOn ? 'legacy' : 'jina'}')">
-        ${jinaOn ? '↩ สลับไป Legacy' : '🚀 เปิดใช้ Jina'}
-      </button>
-    </div>
-    <div class="text-sub" style="margin-top:8px">Jina = แม่นกว่า โดยเฉพาะของหน้าตาคล้ายกัน (ทดสอบ 10/10) · Legacy = ไม่พึ่ง API ภายนอก</div>`;
-}
-async function setMatchEngine(engine) {
-  try {
-    await api('POST', '/api/settings', { key: 'match_engine', value: engine }, true);
-    MATCH_ENGINE = engine;
-    showToast(engine === 'jina' ? '🚀 เปิดใช้ Jina แล้ว' : '↩ กลับไป Legacy แล้ว');
-    renderEngineCard();
-    renderScanEngineToggle();  // server default changed → refresh the scan-page switch
-  } catch {}
-}
-// Train (online learning): remember this scanned photo ↔ item, on the active engine.
-// opts.source: 'scan' (picked one of the AI's matches) | 'manual_pick' (rejected all,
-// searched manually → the AI's matches become negative examples).
-async function trainItem(itemId, opts = {}) {
-  // Image + candidate store default to the scan flow, but the dedicated
-  // "สอน ML" page passes its own (opts.image / opts.store) so it can teach
-  // without touching the requisition state.
-  const image = opts.image || selectedImage;
-  const store = opts.store || _matchStore;
-  if (!image || !itemId) return;
-  const jina = activeEngine() === 'jina';
-  const source = opts.source || 'scan';
-  // Candidates the AI showed for this scan (snapshot for the audit log).
-  const shown = Object.keys(store).map(Number).filter(Boolean);
-  const candidates = shown.map(id => ({ id, confidence: store[id]?.confidence ?? null }));
-  // Negatives = AI suggestions the user did NOT pick (only meaningful on manual_pick).
-  const negatives = shown.filter(id => id !== Number(itemId));
-  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})`
-    : (document.getElementById('reqEmpCode')?.value.trim() || '');
-  const body = {
-    item_id: itemId, engine: jina ? 'jina' : 'legacy',
-    source, negatives, candidates, reporter,
-  };
-  body.image_b64 = jina ? await preprocessImage(image, 512) : image;
-  try { return await api('POST', '/api/match/feedback', body); } catch {}
-}
-let _lastTopGuess = '';       // best AI guess from last scan (context for reports)
-let _reportStore = {};        // id -> report (admin queue)
-let _reportContext = null;    // { id } when admin is adding an item from a report
-let _linkReportId = null;     // report id being linked to an existing item
 
 // ============================================================
 // INIT
@@ -1475,16 +1336,20 @@ document.addEventListener('DOMContentLoaded', () => {
     checkLowStockNotif();
   }
   loadCategories();
-  loadMasterData();
-  loadEngineSetting();
+  loadMasterData().then(lookupMachine);
   makeAdminCollapsible();
-  const lastEmp = localStorage.getItem('req_last_emp_code');
-  const lastReq = localStorage.getItem('req_last_requester');
+  initLightbox();
+  renderReqPhotos();
   const lastMachine = localStorage.getItem('req_last_machine');
-  if (lastEmp) document.getElementById('reqEmpCode').value = lastEmp;
-  if (lastReq) document.getElementById('reqRequester').value = lastReq;
   if (lastMachine) document.getElementById('reqMachine').value = lastMachine;
   restoreSession();
+  // Keep the Admin badge / queue fresh so new requisitions don't sit unnoticed.
+  setInterval(() => {
+    if (document.hidden || !API_URL || !currentUser) return;
+    checkLowStockNotif();
+    const reviewing = document.getElementById('reviewModal').classList.contains('open');
+    if (isAdmin && !reviewing && document.getElementById('page-admin').classList.contains('active')) { loadPending(); loadStats(); }
+  }, 60000);
 });
 
 // ============================================================
@@ -1495,6 +1360,20 @@ function restoreSession() {
   if (saved) { try { currentUser = JSON.parse(saved); } catch {} }
   if (currentUser) applyLogin(currentUser, true);
   else showLoginGate();
+  if (currentUser?.isAdmin) restoreAdmin();
+}
+// Admin reloading the page: re-check the saved password with the server and
+// unlock the panel, so the review queue is one tap away (no re-typing).
+async function restoreAdmin() {
+  if (!API_URL || !ADMIN_PWD) return;
+  try {
+    const res = await fetch(API_URL + '/api/admin/verify', { method: 'POST', headers: { 'X-Admin-Key': ADMIN_PWD } });
+    if (!res.ok) return;
+    isAdmin = true;
+    document.getElementById('adminLoginSection').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    if (document.getElementById('page-admin').classList.contains('active')) loadAdminPanel();
+  } catch {}
 }
 function showLoginGate() {
   document.getElementById('loginOverlay').classList.remove('hidden');
@@ -1549,8 +1428,8 @@ async function doAdminGateLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
-    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+    loadCategories();
+    switchTab('admin');
   } catch {
     showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
   }
@@ -1563,13 +1442,8 @@ function applyLogin(u, restored) {
   chip.style.display = ''; chip.textContent = (u.isAdmin ? '🔧 ' : '👤 ') + u.name;
   document.getElementById('logoutBtn').style.display = '';
   document.getElementById('loginEmpCode').value = '';
-  // prefill requester fields for regular employees
-  if (!u.isAdmin) {
-    const ec = document.getElementById('reqEmpCode');
-    const rn = document.getElementById('reqRequester');
-    if (ec && !ec.value) ec.value = u.code;
-    if (rn && !rn.value) rn.value = u.name;
-  }
+  renderWho();
+  document.getElementById('histScope').value = u.isAdmin ? 'all' : 'mine';
   if (!restored) showToast('✅ ยินดีต้อนรับ ' + u.name);
 }
 function logout() {
@@ -1621,7 +1495,8 @@ async function checkHealth() {
 async function checkLowStockNotif() {
   try {
     const d = await api('GET', '/api/stats');
-    const count = (d.low_stock || 0) + (d.open_reports || 0);
+    const count = (d.low_stock || 0) + (d.pending || 0);   // badge = waiting requisitions + low stock
+    setQueueCount(d.pending);
     document.getElementById('notifDot').classList.toggle('show', count > 0);
     const badge = document.getElementById('adminBadge');
     if (count > 0) { badge.textContent = count; badge.classList.add('show'); }
@@ -1672,41 +1547,22 @@ async function loadCategories() {
 async function loadMasterData() {
   try { const e = await api('GET', '/api/employees'); employees = e.data || []; } catch { employees = []; }
   try { const m = await api('GET', '/api/machines'); machines = m.data || []; } catch { machines = []; }
-  // Populate the requisition-form autocomplete lists
-  const ecl = document.getElementById('empCodeList');
-  if (ecl) ecl.innerHTML = employees.map(e => `<option value="${escHtml(e.emp_code)}">${escHtml(e.emp_name)}</option>`).join('');
+  // Populate the requisition-form machine autocomplete
   const mcl = document.getElementById('machineList');
   if (mcl) mcl.innerHTML = machines.map(m => `<option value="${escHtml(m.machine_no)}">${escHtml(m.zone || '')}</option>`).join('');
 }
 
-// Requisition form: รหัสพนักงาน → เติมชื่อผู้เบิกอัตโนมัติ
-function lookupEmployee() {
-  const code = document.getElementById('reqEmpCode').value.trim();
-  const hint = document.getElementById('empCodeHint');
-  clearFieldError('reqEmpCode', 'errEmpCode');
-  const emp = employees.find(e => (e.emp_code || '').toLowerCase() === code.toLowerCase());
-  if (emp) {
-    document.getElementById('reqRequester').value = emp.emp_name;
-    clearFieldError('reqRequester', 'errRequester');
-    hint.textContent = '✅ ' + emp.emp_name; hint.style.color = 'var(--success)';
-  } else {
-    hint.textContent = code ? '⚠️ ไม่พบรหัสนี้ — กรอกชื่อผู้เบิกเองด้านล่างได้' : '';
-    hint.style.color = 'var(--sub)';
-  }
-}
-
-// Requisition form: หมายเลขเครื่อง → เติม Zone อัตโนมัติ
+// Requisition form: หมายเลขเครื่อง → แสดง Zone อัตโนมัติ
 function lookupMachine() {
   const no = document.getElementById('reqMachine').value.trim();
   const hint = document.getElementById('machineHint');
-  const zoneEl = document.getElementById('reqZone');
+  clearFieldError('reqMachine', 'errMachine');
   const mc = machines.find(m => (m.machine_no || '').toLowerCase() === no.toLowerCase());
   if (mc) {
-    zoneEl.value = mc.zone || '';
-    hint.textContent = '✅ ' + (mc.zone || '(ไม่ระบุ Zone)'); hint.style.color = 'var(--success)';
+    hint.textContent = '✅ ' + mc.machine_no + (mc.zone ? ' · ' + mc.zone : '');
+    hint.style.color = 'var(--success)';
   } else {
-    zoneEl.value = '';
-    hint.textContent = no ? '⚠️ ไม่พบหมายเลขเครื่องนี้' : '';
+    hint.textContent = no ? 'ℹ️ ไม่พบหมายเลขนี้ในระบบ — ส่งได้ Admin จะตรวจสอบ' : '';
     hint.style.color = 'var(--sub)';
   }
 }
@@ -1793,12 +1649,10 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'train') resetTrain();
   if (tab === 'history') loadHistory();
   if (tab === 'inventory') loadInventory();
   if (tab === 'admin' && isAdmin) {
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode();
-    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+    loadAdminPanel();
   }
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -1819,94 +1673,6 @@ window.addEventListener('scroll', () => {
 // Small thumbnail (~256px) for fast list/grid loading.
 function makeThumb(dataUrl) {
   return compressImageDataUrl(dataUrl, 256, 0.7);
-}
-// Augmentation (FREE engine): from ONE photo, render variants (crop / brightness
-// / contrast / mild rotation) and hash each, so a real-world scan at a different
-// angle/lighting still matches one of them — all client-side, no API, no cost.
-function _loadImg(dataUrl) {
-  return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = dataUrl; });
-}
-function _renderVariant(img, { rotate = 0, brightness = 1, contrast = 1, crop = 1, size = 256 }) {
-  const c = document.createElement('canvas'); c.width = size; c.height = size;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
-  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-  const s = Math.min(iw, ih) * crop, sx = (iw - s) / 2, sy = (ih - s) / 2;
-  ctx.save();
-  ctx.translate(size / 2, size / 2);
-  if (rotate) ctx.rotate(rotate * Math.PI / 180);
-  if (brightness !== 1 || contrast !== 1) ctx.filter = `brightness(${brightness}) contrast(${contrast})`;
-  ctx.drawImage(img, sx, sy, s, s, -size / 2, -size / 2, size, size);
-  ctx.restore();
-  return c.toDataURL('image/jpeg', 0.85);
-}
-async function augmentHashes(dataUrl) {
-  const img = await _loadImg(dataUrl);
-  if (!img) { const h = await computeDHash(dataUrl, 1); return h ? [h] : []; }
-  // dHash is invariant to brightness/contrast, so we augment GEOMETRY only
-  // (crop + rotation) — the transforms that actually change the hash.
-  const variants = [
-    { crop: 1 }, { crop: 0.9 }, { crop: 0.8 }, { crop: 0.7 },
-    { rotate: 8, crop: 0.85 }, { rotate: -8, crop: 0.85 },
-    { rotate: 15, crop: 0.75 }, { rotate: -15, crop: 0.75 },
-    { rotate: 22, crop: 0.68 }, { rotate: -22, crop: 0.68 },
-  ];
-  const hashes = [];
-  for (const v of variants) {
-    try { const h = await computeDHash(_renderVariant(img, v), 1); if (h && !hashes.includes(h)) hashes.push(h); } catch {}
-  }
-  return hashes;
-}
-// preprocessImage: centre-crop to a square (short side) + resize to `size`.
-// SAME preprocessing for enroll and query (must match the sharp driver) so the
-// Jina embedding sees the object framed identically — background trimmed out.
-function preprocessImage(dataUrl, size = 512, quality = 0.85) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-        const s = Math.min(iw, ih), sx = (iw - s) / 2, sy = (ih - s) / 2;
-        const c = document.createElement('canvas'); c.width = size; c.height = size;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
-        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
-        resolve(c.toDataURL('image/jpeg', quality));
-      } catch { resolve(dataUrl); }
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
-// dHash: a 64-bit perceptual hash (16 hex chars) — a deterministic visual
-// fingerprint. Resize to 9x8 grayscale, compare horizontally adjacent pixels.
-// `crop` (0..1) samples only the centre fraction of the image — used at query
-// time to cut out background so the part fills the frame (closer to the clean
-// reference shot). crop=1 (full) must match the backfill script (sharp).
-function computeDHash(dataUrl, crop = 1) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const W = 9, H = 8;
-        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-        const cw = iw * crop, ch = ih * crop, sx = (iw - cw) / 2, sy = (ih - ch) / 2;
-        const c = document.createElement('canvas'); c.width = W; c.height = H;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, sx, sy, cw, ch, 0, 0, W, H);
-        const d = ctx.getImageData(0, 0, W, H).data;
-        const g = [];
-        for (let i = 0; i < W * H; i++) g.push(0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2]);
-        let bits = '';
-        for (let y = 0; y < H; y++) for (let x = 0; x < W - 1; x++) bits += g[y*W+x] > g[y*W+x+1] ? '1' : '0';
-        let hex = '';
-        for (let i = 0; i < 64; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
-        resolve(hex);
-      } catch { resolve(null); }
-    };
-    img.onerror = () => resolve(null);
-    img.src = dataUrl;
-  });
 }
 function compressImageDataUrl(dataUrl, maxDim = 1024, quality = 0.85) {
   return new Promise(resolve => {
@@ -1959,37 +1725,45 @@ async function fileToCompressedDataUrl(file, maxDim = 1024, quality = 0.85) {
   }
 }
 
-// Apply a finished image (data URL) to the scan/requisition flow
-function setScanImage(dataUrl) {
-  selectedImage = dataUrl;
-  const img = document.getElementById('previewImg');
-  img.src = dataUrl; img.style.display = 'block';
-  document.getElementById('zoneIcon').style.display = 'none';
-  document.getElementById('zoneHint').style.display = 'none';
-  document.getElementById('imgZone').classList.add('has-img');
-  document.getElementById('btnMatch').disabled = false;
-  document.getElementById('btnClear').disabled = false;
-  document.getElementById('matchSection').style.display = 'none';
-  document.getElementById('scanEmpty').style.display = 'none';
-  selectedItemId = null;
+// ============================================================
+// REQUISITION PHOTOS (employee) — no AI: the photo goes to Admin as-is
+// ============================================================
+function addReqPhoto(dataUrl) {
+  if (!dataUrl) return;
+  if (reqPhotos.length >= REQ_MAX_PHOTOS) { showToast(`⚠️ แนบได้สูงสุด ${REQ_MAX_PHOTOS} รูป`, 'error'); return; }
+  reqPhotos.push(dataUrl);
+  document.getElementById('errPhotos').classList.remove('show');
+  renderReqPhotos();
 }
-async function onFileSelect(input) {
-  const file = input.files[0]; if (!file) return;
-  try { setScanImage(await fileToCompressedDataUrl(file)); }
-  catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+async function onReqFileSelect(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';
+  for (const f of files) {
+    if (reqPhotos.length >= REQ_MAX_PHOTOS) { showToast(`⚠️ แนบได้สูงสุด ${REQ_MAX_PHOTOS} รูป`, 'error'); break; }
+    try { addReqPhoto(await fileToCompressedDataUrl(f, REQ_PHOTO_DIM, 0.85)); }
+    catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
+  }
 }
-function clearImage() {
-  selectedImage = null; selectedItemId = null; selectedFromScan = false; selectedVia = '';
-  document.getElementById('previewImg').style.display = 'none';
-  document.getElementById('previewImg').src = '';
-  document.getElementById('zoneIcon').style.display = '';
-  document.getElementById('zoneHint').style.display = '';
-  document.getElementById('imgZone').classList.remove('has-img');
-  document.getElementById('btnMatch').disabled = true;
-  document.getElementById('btnClear').disabled = true;
-  document.getElementById('matchSection').style.display = 'none';
-  document.getElementById('scanEmpty').style.display = '';
-  document.getElementById('fileInput').value = '';
+function removeReqPhoto(i) {
+  reqPhotos.splice(i, 1);
+  renderReqPhotos();
+}
+function renderReqPhotos() {
+  const grid = document.getElementById('reqPhotoGrid');
+  if (!grid) return;
+  const n = reqPhotos.length;
+  const tiles = reqPhotos.map((src, i) => `
+    <div class="photo-tile" onclick="openLightbox(reqPhotos, ${i}, 'รูปที่ถ่าย')">
+      <img src="${src}" alt="รูปที่ ${i + 1}">
+      <button type="button" class="pt-del" title="ลบรูป" onclick="event.stopPropagation();removeReqPhoto(${i})">✕</button>
+      <span class="pt-zoom">🔍 ${i + 1}/${n}</span>
+    </div>`).join('');
+  const add = n < REQ_MAX_PHOTOS ? `
+    <div class="photo-add${n ? '' : ' photo-empty'}" onclick="openCamera(addReqPhoto, REQ_PHOTO_DIM)">
+      <span class="pa-icon">📸</span>
+      <span>${n ? 'ถ่ายเพิ่ม' : 'แตะเพื่อถ่ายรูปของที่ต้องการเบิก'}</span>
+    </div>` : '';
+  grid.innerHTML = tiles + add;
 }
 async function onEditFileSelect(input) {
   const file = input.files[0]; if (!file) return;
@@ -2008,32 +1782,16 @@ async function onEditFileSelect(input) {
 let _cameraStream = null;
 let _cameraFacing = 'environment';
 let _cameraCapture = null;
-let _cameraBurst = false;     // burst (multi-shot) mode — keep the camera open & collect photos
-let _burstPhotos = [];        // captured data URLs in the current burst
-let _cameraBurstDone = null;  // callback(arrayOfDataUrls) when the user taps "เสร็จ"
+let _cameraMaxDim = 1024;     // longest side of captured frames (requisition photos keep more detail)
 
-function openCamera(onCapture) {
+function openCamera(onCapture, maxDim = 1024) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
     return;
   }
-  _cameraBurst = false;
   _cameraCapture = onCapture;
+  _cameraMaxDim = maxDim;
   openModal('cameraModal');
-  syncBurstUI();
-  startCameraStream();
-}
-// Burst mode: keep snapping; each tap adds a photo, then hand the whole batch back.
-function openCameraBurst(onDone) {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
-    return;
-  }
-  _cameraBurst = true;
-  _burstPhotos = [];
-  _cameraBurstDone = onDone;
-  openModal('cameraModal');
-  syncBurstUI();
   startCameraStream();
 }
 async function startCameraStream() {
@@ -2112,7 +1870,7 @@ function _grabFrame() {
   if (!vw || !vh) return null;
   const z = _nativeZoom ? 1 : Math.max(1, _digitalZoom);
   const sw = vw / z, sh = vh / z, sx = (vw - sw) / 2, sy = (vh - sh) / 2;
-  const maxDim = 1024;
+  const maxDim = _cameraMaxDim;
   let w = sw, h = sh;
   if (w > maxDim || h > maxDim) {
     if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
@@ -2126,63 +1884,12 @@ function _grabFrame() {
 function capturePhoto() {
   const dataUrl = _grabFrame();
   if (!dataUrl) { showToast('⏳ กล้องยังไม่พร้อม', 'error'); return; }
-  if (_cameraBurst) {
-    _burstPhotos.push(dataUrl);   // stay open — keep snapping
-    flashCamera();
-    syncBurstUI();
-    return;
-  }
   const cb = _cameraCapture;
   closeCamera();
   if (cb) cb(dataUrl);
 }
-// ----- Burst helpers -----
-function syncBurstUI() {
-  const bar = document.getElementById('camBurstBar');
-  const doneBtn = document.getElementById('btnBurstDone');
-  if (!bar || !doneBtn) return;
-  if (!_cameraBurst) { bar.style.display = 'none'; doneBtn.style.display = 'none'; return; }
-  const n = _burstPhotos.length;
-  bar.style.display = 'flex';
-  doneBtn.style.display = '';
-  doneBtn.disabled = n === 0;
-  doneBtn.style.opacity = n === 0 ? '.55' : '1';
-  document.getElementById('camBurstCount').textContent = n;
-  document.getElementById('btnBurstDoneN').textContent = n;
-  const thumbs = document.getElementById('camBurstThumbs');
-  thumbs.innerHTML = _burstPhotos.map((src, i) => `
-    <div style="position:relative;flex:0 0 auto">
-      <img src="${src}" style="width:46px;height:46px;object-fit:cover;border-radius:6px;border:2px solid #fff">
-      <button type="button" onclick="removeBurstPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:11px;line-height:1;cursor:pointer">✕</button>
-    </div>`).join('');
-  thumbs.scrollLeft = thumbs.scrollWidth;  // keep newest in view
-}
-function removeBurstPhoto(i) {
-  _burstPhotos.splice(i, 1);
-  syncBurstUI();
-}
-// Brief white flash so each shot feels registered.
-function flashCamera() {
-  const body = document.querySelector('#cameraModal .modal-body');
-  if (!body) return;
-  const fl = document.createElement('div');
-  fl.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:.7;pointer-events:none;transition:opacity .25s;z-index:6';
-  body.appendChild(fl);
-  requestAnimationFrame(() => { fl.style.opacity = '0'; });
-  setTimeout(() => fl.remove(), 280);
-}
-function finishBurst() {
-  const photos = _burstPhotos.slice();
-  const cb = _cameraBurstDone;
-  closeCamera();
-  if (photos.length && cb) cb(photos);
-}
 function closeCamera() {
   stopCameraStream();
-  _cameraBurst = false;
-  _burstPhotos = [];
-  _cameraBurstDone = null;
-  syncBurstUI();
   closeModal('cameraModal');
 }
 function stopCameraStream() {
@@ -2192,114 +1899,12 @@ function stopCameraStream() {
 }
 
 // ============================================================
-// AI MATCHING
-// ============================================================
-async function doMatch() {
-  if (!selectedImage) return;
-  const btn = document.getElementById('btnMatch');
-  btn.disabled = true; btn.textContent = '⏳ กำลังวิเคราะห์...';
-  document.getElementById('matchSection').style.display = 'none';
-  document.getElementById('scanEmpty').style.display = 'none';
-  try {
-    let data;
-    if (activeEngine() === 'jina') {
-      // Jina path: send the SAME square-cropped image used at enroll time.
-      const q = await preprocessImage(selectedImage, 512);
-      data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
-    } else {
-      // Legacy path: full image + AUGMENTED query hashes (crops + counter-
-      // rotations) so a tilted scan still aligns with one of the item's hashes.
-      const phashes = await augmentHashes(selectedImage);
-      data = await api('POST', '/api/match', { image_b64: selectedImage, top_k: 5, phashes });
-    }
-    const matches = data.matches || [];
-    if (!matches.length) {
-      // No match — still show the section so the user can report it to Admin.
-      _lastTopGuess = '';
-      document.getElementById('matchList').innerHTML =
-        '<div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>ไม่พบอุปกรณ์ที่ตรงกันในระบบ<br><small>แจ้ง Admin เพื่อเพิ่มเข้าระบบได้ด้านล่าง</small></div>';
-      document.getElementById('matchSection').style.display = 'block';
-      document.getElementById('reqForm').style.display = 'none';
-      document.getElementById('scanEmpty').style.display = 'none';
-      selectedItemId = null;
-      return;
-    }
-    renderMatches(matches);
-    document.getElementById('matchSection').style.display = 'block';
-    document.getElementById('reqForm').style.display = 'none';
-    selectedItemId = null;
-  } catch { document.getElementById('scanEmpty').style.display = ''; }
-  finally { btn.disabled = false; btn.textContent = '🔍 ค้นหาอุปกรณ์ด้วย Machine Learning'; }
-}
-
-let _matchStore = {};
-function renderMatches(matches) {
-  _matchStore = {};
-  // Remember the best guess to give Admin context if the user reports it.
-  _lastTopGuess = matches[0] ? `${matches[0].name} (${matches[0].confidence}%)` : '';
-  const list = document.getElementById('matchList');
-  list.innerHTML = matches.map(m => {
-    _matchStore[m.id] = m;
-    const confColor = m.confidence >= 70 ? 'var(--success)' : m.confidence >= 40 ? 'var(--warning)' : 'var(--danger)';
-    const stockClass = m.stock_qty <= 0 ? 'low' : '';
-    const stockText = m.stock_qty <= 0 ? '⛔ หมด' : `📦 ${m.stock_qty}`;
-    return `
-      <div class="match-item" id="match-${m.id}" onclick="selectMatch(${m.id})">
-        ${thumbSrc(m) ? `<img class="match-thumb" src="${thumbSrc(m)}" alt="${escHtml(m.name)}" loading="lazy">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
-        <div class="match-info">
-          <div class="match-name">${escHtml(m.name)}${m.learned ? ' <span class="learned-badge" title="แม่นขึ้นจากการเรียนรู้ของผู้ใช้">🧠 เรียนรู้แล้ว</span>' : ''}</div>
-          <div class="match-code">${escHtml(m.part_code)}</div>
-          <div class="match-conf" style="color:${confColor}">ความมั่นใจ: ${m.confidence}%</div>
-          <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
-          <button class="match-detail-btn" onclick="event.stopPropagation();showItemDetail(${m.id})">🔍 ดูรายละเอียด</button>
-        </div>
-        <div class="match-stock ${stockClass}">${stockText}</div>
-      </div>`;
-  }).join('');
-}
-
-function selectMatch(id) {
-  const m = _matchStore[id]; if (!m) return;
-  document.querySelectorAll('.match-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById('match-' + id)?.classList.add('selected');
-  selectedItemId = id;
-  selectedFromScan = true;
-  selectedVia = 'scan';   // chose one of the AI's suggestions (manual pick overrides this after)
-  selectedItemStock = m.stock_qty;
-  selectedItemMinStock = m.min_stock || 0;
-  selectedMatchScore = m.confidence;
-  document.getElementById('selectedItemDisplay').innerHTML =
-    `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-       <span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${escHtml(m.name)} (${escHtml(m.part_code)})</span>
-       <button class="match-detail-btn" style="margin:0;flex-shrink:0;background:#fff" onclick="showItemDetail(${id})">🔍 รายละเอียด</button>
-     </div>`;
-  document.getElementById('reqUnit').value = m.unit;
-
-  const wrap = document.getElementById('stockIndicatorWrap');
-  if (m.stock_qty <= 0) {
-    wrap.innerHTML = `<div class="stock-indicator empty">⛔ Stock หมด — ยังสามารถส่งใบเบิกได้ รอ Admin อนุมัติ</div>`;
-    document.getElementById('reqQty').max = '';
-    document.getElementById('hintQty').textContent = '';
-  } else {
-    const cls = m.stock_qty <= selectedItemMinStock ? 'low' : 'ok';
-    wrap.innerHTML = `<div class="stock-indicator ${cls}">${cls === 'low' ? '⚠️' : '✅'} คงเหลือ: <b>${m.stock_qty} ${m.unit}</b>${cls === 'low' ? ' — Stock ใกล้หมด ควรแจ้ง Admin' : ''}</div>`;
-    document.getElementById('reqQty').max = m.stock_qty;
-    document.getElementById('hintQty').textContent = `เบิกได้สูงสุด ${m.stock_qty} ${m.unit}`;
-  }
-  document.getElementById('reqQty').value = 1;
-  document.getElementById('reqForm').style.display = 'block';
-  document.getElementById('reqForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// ============================================================
 // QTY STEPPER
 // ============================================================
 function adjustQty(delta) {
   const inp = document.getElementById('reqQty');
-  let v = parseInt(inp.value) || 1;
-  v = Math.max(1, v + delta);
-  if (selectedItemStock > 0) v = Math.min(selectedItemStock, v);
-  inp.value = v; validateQtyInput();
+  inp.value = Math.max(1, (parseInt(inp.value) || 1) + delta);
+  validateQtyInput();
 }
 function adjustStockQty(delta) {
   const inp = document.getElementById('stockQty');
@@ -2308,14 +1913,10 @@ function adjustStockQty(delta) {
 }
 function validateQtyInput() {
   const inp = document.getElementById('reqQty');
-  const err = document.getElementById('errQty');
-  const v = parseInt(inp.value);
-  if (!v || v < 1) { inp.classList.add('error'); err.textContent = 'จำนวนต้องมากกว่า 0'; err.classList.add('show'); return false; }
-  if (selectedItemStock > 0 && v > selectedItemStock) {
-    inp.classList.add('error'); err.textContent = `เบิกได้สูงสุด ${selectedItemStock}`; err.classList.add('show');
-    inp.value = selectedItemStock; return false;
-  }
-  inp.classList.remove('error'); err.classList.remove('show'); return true;
+  const ok = parseInt(inp.value) >= 1;
+  inp.classList.toggle('error', !ok);
+  document.getElementById('errQty').classList.toggle('show', !ok);
+  return ok;
 }
 function validatePositiveInt(inp) {
   const v = parseFloat(inp.value);
@@ -2345,478 +1946,113 @@ function validateField(inputId, errId, label) {
 }
 
 // ============================================================
-// SUBMIT REQUISITION
+// REQUISITION FORM (employee): photo + qty + machine + purpose
 // ============================================================
+function renderWho() {
+  const el = document.getElementById('whoBox');
+  if (!el) return;
+  const u = currentUser;
+  el.innerHTML = u
+    ? `<div class="who-avatar">${u.isAdmin ? '🔧' : '👤'}</div>
+       <div style="min-width:0"><div style="font-weight:700">${escHtml(u.name)}</div>
+       <div class="text-sub">ผู้เบิก · รหัส ${escHtml(u.code)}</div></div>`
+    : '<div class="text-sub">กรุณาเข้าสู่ระบบก่อนเบิก</div>';
+}
+// Purpose quick-picks: a chip sets the leading phrase; free text after " — " is kept.
+function purposeChipValues() {
+  return [...document.querySelectorAll('#purposeChips .chip')].map(c => c.dataset.v);
+}
+function pickPurpose(btn) {
+  const ta = document.getElementById('reqPurpose');
+  let rest = ta.value.trim();
+  for (const p of purposeChipValues()) {
+    if (rest === p || rest.startsWith(p + ' — ')) { rest = rest.slice(p.length).replace(/^ — /, ''); break; }
+  }
+  ta.value = rest ? `${btn.dataset.v} — ${rest}` : btn.dataset.v;
+  clearFieldError('reqPurpose', 'errPurpose');
+  syncPurposeChips();
+}
+function syncPurposeChips() {
+  const val = document.getElementById('reqPurpose').value.trim();
+  document.querySelectorAll('#purposeChips .chip').forEach(c =>
+    c.classList.toggle('active', val === c.dataset.v || val.startsWith(c.dataset.v + ' — ')));
+}
+function dataUrlToBlob(dataUrl) {
+  return fetch(dataUrl).then(r => r.blob());
+}
+
 async function submitRequisition() {
-  if (!selectedItemId) { showToast('❌ กรุณาเลือกอุปกรณ์ก่อน', 'error'); return; }
-  let valid = true;
-  if (!validateField('reqEmpCode', 'errEmpCode', 'รหัสพนักงาน')) valid = false;
-  if (!validateField('reqRequester', 'errRequester', 'ชื่อผู้เบิก')) valid = false;
-  if (!validateQtyInput()) valid = false;
-  if (!valid) return;
-
-  const qty = parseInt(document.getElementById('reqQty').value);
-  const empCode = document.getElementById('reqEmpCode').value.trim();
-  const requester = document.getElementById('reqRequester').value.trim();
+  if (!currentUser) { showLoginGate(); return; }
+  if (!API_URL) { showToast('❌ ยังไม่ได้ตั้งค่า Worker URL', 'error'); return; }
   const machine = document.getElementById('reqMachine').value.trim();
-  const zone = document.getElementById('reqZone').value.trim();
-  // requester_name เก็บชื่อพร้อมรหัสพนักงาน; dept = หมายเลขเครื่อง + Zone
-  const requesterFull = empCode ? `${requester} (${empCode})` : requester;
-  const dept = machine ? (zone ? `${machine} · ${zone}` : machine) : '';
-  const btn = document.getElementById('btnSubmitReq');
-  btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
-  try {
-    const data = await api('POST', '/api/requisitions', {
-      requester_name: requesterFull,
-      dept,
-      purpose: document.getElementById('reqPurpose').value.trim(),
-      items: [{ item_id: selectedItemId, qty, match_score: selectedMatchScore }],
-    });
-    showToast(`✅ ส่งใบเบิกสำเร็จ! เลขที่: ${data.req_no}`);
-    localStorage.setItem('req_last_emp_code', empCode);
-    localStorage.setItem('req_last_requester', requester);
-    localStorage.setItem('req_last_machine', machine);
-    // 🧠 Machine learning: teach the system that this scanned photo = this item.
-    // Fire-and-forget so it never blocks or breaks the requisition flow.
-    // Skip when the item was a manual pick — that path already trained on selection.
-    if (selectedImage && selectedItemId && selectedFromScan && selectedVia !== 'manual_pick') {
-      trainItem(selectedItemId, { source: 'scan' })
-        .then(() => showToast('🧠 ระบบจดจำรูปนี้แล้ว — ครั้งหน้าจะแม่นขึ้น'))
-        .catch(() => {});
-    }
-    clearImage();
-    checkLowStockNotif();
-  } catch {} finally { btn.disabled = false; btn.textContent = '✅ ส่งใบเบิก'; }
-}
-
-// ============================================================
-// REPORT "NOT FOUND" → ADMIN  (user side)
-// ============================================================
-function openReportModal() {
-  if (!selectedImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
-  document.getElementById('reportPreview').src = selectedImage;
-  document.getElementById('reportNote').value = '';
-  openModal('reportModal');
-}
-async function sendReport() {
-  if (!selectedImage) return;
-  const note = document.getElementById('reportNote').value.trim();
-  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})` : '';
-  const btn = document.getElementById('btnSendReport');
-  btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
-  try {
-    const r = await api('POST', '/api/scan-reports', { image_b64: selectedImage, note, reporter, top_guess: _lastTopGuess });
-    closeModal('reportModal');
-    showToast(`✅ ส่งให้ Admin แล้ว (เลขที่แจ้ง #${r.id}) — Admin จะตรวจสอบว่าตรงกับ Item ใด หรือยังไม่มีในระบบ`);
-  } catch {} finally { btn.disabled = false; btn.textContent = '📨 ส่งให้ Admin'; }
-}
-
-// ============================================================
-// SCAN REPORTS QUEUE  (admin side)
-// ============================================================
-async function loadScanReports() {
-  const el = document.getElementById('scanReportList');
-  if (!el) return;
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const d = await api('GET', '/api/scan-reports?status=pending', null, true);
-    const reports = d.data || [];
-    _reportStore = {};
-    if (!reports.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่มีรายการแจ้ง 🎉</div>'; return; }
-    el.innerHTML = reports.map(r => { _reportStore[r.id] = r; return renderReportCard(r); }).join('');
-  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
-}
-// ML feedback audit log — what users confirmed / corrected, and what the AI had guessed.
-async function loadFeedbackLog() {
-  const el = document.getElementById('feedbackLogList');
-  if (!el) return;
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const d = await api('GET', '/api/match/feedback-log', null, true);
-    const rows = d.data || [];
-    if (!rows.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ยังไม่มีประวัติการสอนระบบ</div>'; return; }
-    el.innerHTML = rows.map(r => {
-      const eng = r.engine === 'jina' ? '⚡ Jina' : '🧩 Legacy';
-      const srcTag =
-        r.source === 'manual_pick'   ? '<span style="color:var(--danger);font-weight:700">🙅 แก้ผล (AI เดาผิด)</span>'
-      : r.source === 'train_pick'    ? '<span style="color:#7c3aed;font-weight:700">🎓 สอน ML (ค้นเอง)</span>'
-      : r.source === 'train_confirm' ? '<span style="color:#7c3aed;font-weight:700">🎓 สอน ML (ยืนยัน)</span>'
-      :                                '<span style="color:var(--success);font-weight:700">✅ ยืนยันผล</span>';
-      const rejected = (r.rejected || []);
-      const rejHtml = rejected.length
-        ? `<div style="font-size:12px;color:var(--danger);margin-top:3px">✗ ตัดออก (negative): ${rejected.map(x => escHtml(x.label)).join(', ')}</div>`
-        : '';
-      return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;background:#fff">
-        <div style="font-size:11px;color:var(--sub)">#${r.id} · 👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)} · ${eng} · ${srcTag}</div>
-        <div style="font-size:13px;font-weight:700;margin-top:3px;color:var(--success)">✓ ${escHtml(r.chosen_label || ('#' + r.chosen_item_id))}</div>
-        ${rejHtml}
-      </div>`;
-    }).join('');
-  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
-}
-function renderReportCard(r, mode) {
-  const actions = mode === 'pending_new'
-    ? `<button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่ม Item นี้เข้าระบบ</button>
-       <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`
-    : `<button class="btn btn-primary btn-sm" onclick="reportLink(${r.id})">🔗 มีอยู่แล้ว — ระบุเบอร์ (สอน ML)</button>
-       <button class="btn btn-success btn-sm" onclick="reportAddNew(${r.id})">➕ เพิ่มของใหม่</button>
-       <button class="btn btn-warning btn-sm" onclick="reportPending(${r.id})">⏳ ยืนยันว่ายังไม่มี (พักงานค้าง)</button>
-       <button class="btn btn-gray btn-sm" onclick="reportDismiss(${r.id})">🗑️ ปิด</button>`;
-  return `<div class="report-card${mode === 'pending_new' ? ' low' : ''}" id="report-${r.id}" style="${mode === 'pending_new' ? 'border-left:4px solid var(--warning);background:#fffbeb' : ''}">
-    <img class="report-thumb" src="${r.image_b64}" alt="">
-    <div class="report-info">
-      <div style="font-size:12px;color:var(--sub)">#${r.id} · 👤 ${escHtml(r.reporter || '-')} · 🕒 ${fmtDate(r.created_at)}</div>
-      ${r.note ? `<div style="font-size:13px;margin-top:2px">📝 ${escHtml(r.note)}</div>` : ''}
-      ${r.top_guess ? `<div style="font-size:11px;color:var(--sub);margin-top:2px">🤖 ML เดา: ${escHtml(r.top_guess)}</div>` : ''}
-      ${mode === 'pending_new' ? `<div style="font-size:11px;color:var(--warning);font-weight:700;margin-top:3px">⏳ งานค้าง — รอเพิ่ม Item (ระบบจะปิดให้เองเมื่อเพิ่มของที่ตรงกัน)</div>` : ''}
-      <div class="report-actions">${actions}</div>
-    </div>
-  </div>`;
-}
-function reportPending(id) {
-  resolveReport(id, 'pending_new');
-}
-function reportAddNew(id) {
-  const r = _reportStore[id]; if (!r) return;
-  setAdminImage(r.image_b64);          // load photo into the add-item form
-  _reportContext = { id };
-  if (r.note) document.getElementById('newName').value = r.note.slice(0, 60);
-  showToast('📸 ใส่รูปในฟอร์ม "เพิ่มอุปกรณ์" แล้ว — กรอกรหัส/ชื่อ แล้วกดเพิ่ม');
-  document.getElementById('newPartCode').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(() => document.getElementById('newPartCode').focus(), 300);
-}
-function reportLink(id) {
-  _linkReportId = id;
-  document.getElementById('linkSearch').value = '';
-  openModal('linkItemModal');
-  loadLinkItems();
-}
-async function loadLinkItems() {
-  const el = document.getElementById('linkItemList');
-  const s = document.getElementById('linkSearch').value.trim();
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=30`);
-    const items = d.data || [];
-    if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบอุปกรณ์</div>'; return; }
-    el.innerHTML = items.map(it => `
-      <div class="link-item" onclick="confirmLink(${it.id})">
-        <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
-        <div style="min-width:0">
-          <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
-          <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
-        </div>
-      </div>`).join('');
-  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
-}
-function confirmLink(itemId) {
-  if (!_linkReportId) return;
-  const id = _linkReportId; _linkReportId = null;
-  closeModal('linkItemModal');
-  resolveReport(id, 'linked', itemId);
-}
-
-// ===== Manual item pick (scan flow): pick the correct item + train the AI =====
-let _pickStore = {};
-let _pickMode = 'req';   // 'req' = pick into requisition form · 'train' = teach ML only
-function openPickItem() {
-  if (!selectedImage) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
-  _pickMode = 'req';
-  document.getElementById('pickSearch').value = '';
-  document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
-  openModal('pickItemModal');
-  loadPickItems();
-}
-async function loadPickItems() {
-  const el = document.getElementById('pickItemList');
-  const s = document.getElementById('pickSearch').value.trim();
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=40`);
-    const items = d.data || [];
-    _pickStore = {};
-    if (!items.length) { el.innerHTML = '<div class="text-sub" style="padding:8px">ไม่พบอุปกรณ์</div>'; return; }
-    el.innerHTML = items.map(it => { _pickStore[it.id] = it; return `
-      <div class="link-item" onclick="choosePickItem(${it.id})">
-        <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
-        <div style="min-width:0">
-          <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
-          <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · 📦 ${it.stock_qty} ${escHtml(it.unit || '')}</div>
-        </div>
-      </div>`; }).join('');
-  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
-}
-function choosePickItem(id) {
-  const m = _pickStore[id]; if (!m) return;
-  if (_pickMode === 'train') { closeModal('pickItemModal'); trainChoosePick(id, m); return; }
-  _matchStore[id] = { ...m, confidence: null };  // let selectMatch render it
-  closeModal('pickItemModal');
-  selectMatch(id);                                // load into the requisition form
-  selectedFromScan = true;
-  selectedVia = 'manual_pick';                    // rejected the AI's matches → they become negatives
-  // Train immediately: confirm this photo ↔ this item, AND mark the rejected AI guesses as negatives.
-  if (selectedImage) {
-    trainItem(id, { source: 'manual_pick' })
-      .then(r => showToast(`🧠 จดจำแล้ว: รูปนี้ = ${m.part_code}${r && r.negatives ? ` · ตัดตัวเลือกที่ผิด ${r.negatives} รายการ` : ''} — ครั้งหน้าจะแม่นขึ้น`))
-      .catch(() => {});
-  }
-}
-// ============================================================
-// TRAIN — "สอน ML" page (learn-only; never deducts stock or files a requisition)
-// Mirrors the scan pipeline but keeps its own state so it can't contaminate
-// the requisition flow. Every confirm hits the same /api/match/feedback path.
-// ============================================================
-let trainImages = [];        // photos queued to teach (1..N), ALL the same item
-let _trainStore = {};        // id -> candidate from last ML guess
-let trainSelectedId = null;
-let trainCount = 0;          // how many photos taught this session (cumulative)
-const TRAIN_MAX = 30;        // safety cap per round
-
-function resetTrain() {
-  clearTrainImages();
-  document.getElementById('trainCount').textContent = trainCount;
-}
-// Append one (or many) data URLs to the teaching queue.
-function addTrainImages(input) {
-  const arr = Array.isArray(input) ? input : [input];
-  let hitCap = false;
-  for (const d of arr) {
-    if (!d) continue;
-    if (trainImages.length >= TRAIN_MAX) { hitCap = true; break; }
-    trainImages.push(d);
-  }
-  if (hitCap) showToast(`⚠️ สอนได้สูงสุด ${TRAIN_MAX} รูปต่อรอบ`, 'error');
-  // A fresh photo set means the previous "done" panel no longer applies.
-  document.getElementById('trainDone').style.display = 'none';
-  renderTrainImages();
-}
-function removeTrainImage(i) {
-  trainImages.splice(i, 1);
-  // Removing the preview (index 0) invalidates the standing ML guess.
-  if (i === 0) document.getElementById('trainMatchSection').style.display = 'none';
-  renderTrainImages();
-}
-function renderTrainImages() {
-  const grid = document.getElementById('trainThumbGrid');
-  const icon = document.getElementById('trainZoneIcon');
-  const hint = document.getElementById('trainZoneHint');
-  const zone = document.getElementById('trainImgZone');
-  const matchBtn = document.getElementById('btnTrainMatch');
-  const n = trainImages.length;
-  if (n === 0) {
-    grid.style.display = 'none'; grid.innerHTML = '';
-    icon.style.display = ''; hint.style.display = '';
-    zone.classList.remove('has-img');
-    matchBtn.disabled = true;
-    matchBtn.textContent = '🎓 ให้ ML ทาย แล้วสอนทั้งหมด';
-    document.getElementById('btnTrainClear').disabled = true;
-    document.getElementById('trainEmpty').style.display = '';
+  const purpose = document.getElementById('reqPurpose').value.trim();
+  const checks = [
+    [reqPhotos.length > 0, null, 'errPhotos'],
+    [validateQtyInput(), 'reqQty', 'errQty'],
+    [!!machine, 'reqMachine', 'errMachine'],
+    [!!purpose, 'reqPurpose', 'errPurpose'],
+  ];
+  const failed = checks.filter(([ok]) => !ok);
+  checks.forEach(([ok, inputId, errId]) => {
+    if (inputId) document.getElementById(inputId).classList.toggle('error', !ok);
+    document.getElementById(errId).classList.toggle('show', !ok);
+  });
+  if (failed.length) {
+    const [, inputId, errId] = failed[0];
+    (inputId ? document.getElementById(inputId) : document.getElementById(errId).parentElement)
+      .scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (inputId) document.getElementById(inputId).focus({ preventScroll: true });
+    showToast('⚠️ กรอกข้อมูลให้ครบก่อนส่ง', 'error');
     return;
   }
-  icon.style.display = 'none'; hint.style.display = 'none';
-  zone.classList.add('has-img');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;width:100%;padding:10px';
-  grid.innerHTML = trainImages.map((src, i) => `
-    <div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-      <img src="${src}" style="width:100%;height:100%;object-fit:cover" alt="">
-      <button type="button" onclick="event.stopPropagation();removeTrainImage(${i})" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(239,68,68,.92);color:#fff;font-size:12px;line-height:1;cursor:pointer">✕</button>
-      ${i === 0 ? '<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;font-size:9px;text-align:center;padding:1px 0">รูปที่ให้ ML ทาย</span>' : ''}
-    </div>`).join('') +
-    `<button type="button" onclick="event.stopPropagation();document.getElementById('trainFileInput').click()" title="เพิ่มรูป" style="aspect-ratio:1;border:2px dashed var(--border);border-radius:8px;background:transparent;color:var(--sub);font-size:24px;cursor:pointer">＋</button>`;
-  grid.style.display = 'grid';
-  matchBtn.disabled = false;
-  matchBtn.textContent = `🎓 ให้ ML ทาย แล้วสอนทั้งหมด (${n} รูป)`;
-  document.getElementById('btnTrainClear').disabled = false;
-  document.getElementById('trainEmpty').style.display = 'none';
-}
-async function onTrainFileSelect(input) {
-  const files = Array.from(input.files || []);
-  if (!files.length) return;
-  try {
-    const urls = [];
-    for (const f of files) urls.push(await fileToCompressedDataUrl(f));
-    addTrainImages(urls);
-  } catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
-  input.value = '';
-}
-function clearTrainImages() {
-  trainImages = []; trainSelectedId = null; _trainStore = {};
-  document.getElementById('trainMatchSection').style.display = 'none';
-  document.getElementById('trainDone').style.display = 'none';
-  document.getElementById('trainProgress').style.display = 'none';
-  document.getElementById('trainFileInput').value = '';
-  renderTrainImages();
-}
-async function doTrainMatch() {
-  if (!trainImages.length) return;
-  const probe = trainImages[0];   // identify the item from the first photo; all photos are the same item
-  const btn = document.getElementById('btnTrainMatch');
-  const savedLabel = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ กำลังให้ ML ทาย...';
-  document.getElementById('trainMatchSection').style.display = 'none';
-  document.getElementById('trainDone').style.display = 'none';
-  document.getElementById('trainEmpty').style.display = 'none';
-  try {
-    let data;
-    if (activeEngine() === 'jina') {
-      const q = await preprocessImage(probe, 512);
-      data = await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' });
-    } else {
-      const phashes = await augmentHashes(probe);
-      data = await api('POST', '/api/match', { image_b64: probe, top_k: 5, phashes });
-    }
-    renderTrainMatches(data.matches || []);
-    document.getElementById('trainMatchSection').style.display = 'block';
-  } catch { document.getElementById('trainEmpty').style.display = ''; }
-  finally { btn.disabled = false; btn.textContent = savedLabel; }
-}
-function renderTrainMatches(matches) {
-  _trainStore = {}; trainSelectedId = null;
-  document.getElementById('btnTrainConfirm').disabled = true;
-  const list = document.getElementById('trainMatchList');
-  if (!matches.length) {
-    list.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-icon">🔍</div>ML ยังไม่รู้จักชิ้นนี้<br><small>กด “ไม่มีตัวถูก — ค้นหาเอง” เพื่อสอนตั้งแต่ต้น</small></div>';
-    return;
-  }
-  list.innerHTML = matches.map(m => {
-    _trainStore[m.id] = m;
-    const confColor = m.confidence >= 70 ? 'var(--success)' : m.confidence >= 40 ? 'var(--warning)' : 'var(--danger)';
-    return `
-      <div class="match-item" id="trainmatch-${m.id}" onclick="selectTrainMatch(${m.id})">
-        ${thumbSrc(m) ? `<img class="match-thumb" src="${thumbSrc(m)}" alt="${escHtml(m.name)}" loading="lazy">` : '<div class="match-thumb" style="font-size:24px;text-align:center;line-height:60px">🔧</div>'}
-        <div class="match-info">
-          <div class="match-name">${escHtml(m.name)}${m.learned ? ' <span class="learned-badge" title="แม่นขึ้นจากการเรียนรู้ของผู้ใช้">🧠 เรียนรู้แล้ว</span>' : ''}</div>
-          <div class="match-code">${escHtml(m.part_code)}</div>
-          <div class="match-conf" style="color:${confColor}">ML มั่นใจ: ${m.confidence}%</div>
-          <div class="conf-bar"><div class="conf-fill" style="width:${m.confidence}%"></div></div>
-          <button class="match-detail-btn" onclick="event.stopPropagation();showItemDetail(${m.id})">🔍 ดูรายละเอียด</button>
-        </div>
-      </div>`;
-  }).join('');
-}
-function selectTrainMatch(id) {
-  if (!_trainStore[id]) return;
-  document.querySelectorAll('#trainMatchList .match-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById('trainmatch-' + id)?.classList.add('selected');
-  trainSelectedId = id;
-  document.getElementById('btnTrainConfirm').disabled = false;
-}
-async function confirmTrain() {
-  if (!trainSelectedId || !trainImages.length) return;
-  const m = _trainStore[trainSelectedId];
-  await trainAllImages(trainSelectedId, 'train_confirm', m);
-}
-function openTrainPick() {
-  if (!trainImages.length) { showToast('❌ กรุณาถ่าย/เลือกรูปก่อน', 'error'); return; }
-  _pickMode = 'train';
-  document.getElementById('pickSearch').value = '';
-  document.getElementById('pickItemList').innerHTML = '<div class="text-sub" style="padding:8px">พิมพ์เพื่อค้นหา...</div>';
-  openModal('pickItemModal');
-  loadPickItems();
-}
-async function trainChoosePick(id, m) {
-  // User said none of ML's guesses were right → teach the correct one, the rest become negatives.
-  await trainAllImages(id, 'train_pick', m);
-}
-// Teach ONE photo ↔ item on the active engine. Only the first photo of a batch
-// carries the negatives/candidates (so we don't multiply penalties by N).
-async function trainOnePhoto(itemId, image, source, withNegatives) {
-  const jina = activeEngine() === 'jina';
-  const shown = Object.keys(_trainStore).map(Number).filter(Boolean);
-  const candidates = withNegatives ? shown.map(id => ({ id, confidence: _trainStore[id]?.confidence ?? null })) : [];
-  const negatives  = withNegatives ? shown.filter(id => id !== Number(itemId)) : [];
-  const reporter = currentUser ? `${currentUser.name} (${currentUser.code})`
-    : (document.getElementById('reqEmpCode')?.value.trim() || '');
-  const body = { item_id: itemId, engine: jina ? 'jina' : 'legacy', source, negatives, candidates, reporter };
-  body.image_b64 = jina ? await preprocessImage(image, 512) : image;
-  return api('POST', '/api/match/feedback', body);
-}
-// Teach EVERY queued photo against the chosen item, with a progress bar.
-async function trainAllImages(itemId, source, m) {
-  const imgs = trainImages.slice();
-  const total = imgs.length;
-  if (!total) return;
-  const prog = document.getElementById('trainProgress');
-  const fill = document.getElementById('trainProgressFill');
-  const txt  = document.getElementById('trainProgressText');
-  document.getElementById('trainMatchSection').style.display = 'none';
-  document.getElementById('trainDone').style.display = 'none';
-  document.getElementById('btnTrainConfirm').disabled = true;
-  prog.style.display = 'block';
-  let done = 0, ok = 0, neg = 0;
-  const update = () => {
-    fill.style.width = Math.round(done / total * 100) + '%';
-    txt.textContent = `กำลังสอน ${done}/${total} รูป...`;
+
+  const mc = machines.find(m => (m.machine_no || '').toLowerCase() === machine.toLowerCase());
+  const meta = {
+    requester_name: `${currentUser.name} (${currentUser.code})`,
+    emp_code: currentUser.code,
+    machine_no: mc ? mc.machine_no : machine,
+    zone: mc ? (mc.zone || '') : '',
+    purpose,
+    req_qty: parseInt(document.getElementById('reqQty').value),
+    req_unit: document.getElementById('reqUnit').value,
   };
-  update();
-  prog.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  // Limited concurrency keeps the worker happy while still being quick.
-  let next = 0;
-  async function worker() {
-    while (next < total) {
-      const i = next++;
-      try {
-        const r = await trainOnePhoto(itemId, imgs[i], source, i === 0);
-        if (r && r.ok) { ok++; if (r.negatives) neg = Math.max(neg, r.negatives); }
-      } catch {}
-      done++; update();
+  const btn = document.getElementById('btnSubmitReq');
+  btn.disabled = true; btn.textContent = '⏳ กำลังส่งรูป...';
+  try {
+    // Photos travel as binary parts (not base64 JSON) — smaller upload, no decode cost on the Worker.
+    const fd = new FormData();
+    fd.append('meta', JSON.stringify(meta));
+    for (const [i, src] of reqPhotos.entries()) {
+      fd.append('photo', await dataUrlToBlob(src), `photo${i + 1}.jpg`);
+      fd.append('thumb', await dataUrlToBlob(await compressImageDataUrl(src, 360, 0.75)), `thumb${i + 1}.jpg`);
     }
-  }
-  await Promise.all(Array.from({ length: Math.min(3, total) }, worker));
-  prog.style.display = 'none';
-  document.getElementById('btnTrainConfirm').disabled = false;
-  if (ok === 0) { showToast('❌ สอน ML ไม่สำเร็จ — ลองใหม่อีกครั้ง', 'error'); return; }
-  finishTrain(m, { ok: true, negatives: neg, taught: ok, total });
+    const res = await fetch(API_URL + '/api/requisitions', { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'ส่งไม่สำเร็จ — ลองใหม่');
+    localStorage.setItem('req_last_machine', meta.machine_no);
+    document.getElementById('reqDoneNo').textContent = data.req_no;
+    document.getElementById('reqFormWrap').style.display = 'none';
+    document.getElementById('reqDone').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast(`✅ ส่งคำขอเบิกแล้ว เลขที่ ${data.req_no}`);
+    checkLowStockNotif();
+  } catch (e) {
+    showToast('❌ ' + ((e && e.message) || 'ส่งไม่สำเร็จ — ลองใหม่'), 'error');
+  } finally { btn.disabled = false; btn.textContent = '📨 ส่งคำขอเบิกให้ Admin'; }
 }
-function finishTrain(m, r) {
-  const taught = (r && r.taught) ? r.taught : 1;
-  trainCount += taught;
-  document.getElementById('trainCount').textContent = trainCount;
-  const negTxt = r && r.negatives ? ` · ตัดตัวเลือกที่ผิด ${r.negatives} รายการ` : '';
-  const partial = (r && r.total && r.taught < r.total)
-    ? ` <span style="color:var(--danger)">(สำเร็จ ${r.taught}/${r.total} รูป)</span>` : '';
-  document.getElementById('trainDoneSub').innerHTML =
-    `ML จดจำแล้วว่า <b>${taught} รูป</b> = <b>${escHtml(m.name)}</b> (${escHtml(m.part_code)})${negTxt}${partial}<br>ครั้งหน้าถ่ายแบบเดียวกันจะแม่นขึ้น`;
-  document.getElementById('trainMatchSection').style.display = 'none';
-  document.getElementById('trainDone').style.display = 'block';
-  showToast(`🧠 สอนสำเร็จ ${taught} รูป: = ${m.part_code}`);
-  document.getElementById('trainDone').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-function trainNext() {
-  clearTrainImages();
+// Reset the form for the next requisition (the machine is kept — usually the same).
+function newRequisition() {
+  reqPhotos = [];
+  renderReqPhotos();
+  document.getElementById('reqQty').value = 1;
+  document.getElementById('reqUnit').value = 'ชิ้น';
+  document.getElementById('reqPurpose').value = '';
+  syncPurposeChips();
+  ['reqQty', 'reqMachine', 'reqPurpose'].forEach(id => document.getElementById(id).classList.remove('error'));
+  ['errPhotos', 'errQty', 'errMachine', 'errPurpose'].forEach(id => document.getElementById(id).classList.remove('show'));
+  document.getElementById('reqDone').style.display = 'none';
+  document.getElementById('reqFormWrap').style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-async function reportDismiss(id) {
-  const ok = await showConfirm('🗑️', 'ปิดรายการแจ้งนี้?', 'จะไม่แสดงในคิวอีก', 'ปิดรายการ', 'gray');
-  if (!ok) return;
-  resolveReport(id, 'dismissed', null);
-}
-async function resolveReport(id, status, item_id) {
-  try {
-    await api('POST', `/api/scan-reports/${id}/resolve`, { status, item_id }, true);
-    loadStats();
-    loadScanReports();
-    loadPendingRequests();
-    const msg = status === 'dismissed' ? '🗑️ ปิดรายการแล้ว'
-      : status === 'pending_new' ? '⏳ พักเป็นงานค้างแล้ว — ระบบจะปิดให้เองเมื่อเพิ่ม Item ที่ตรงกัน'
-      : '✅ ดำเนินการแล้ว — Machine Learning เรียนรู้เพิ่ม';
-    showToast(msg);
-  } catch {}
-}
-// งานค้าง (Pending Requests): items Admin confirmed are not yet in the system.
-async function loadPendingRequests() {
-  const el = document.getElementById('pendingReqList');
-  if (!el) return;
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  try {
-    const d = await api('GET', '/api/scan-reports?status=pending_new', null, true);
-    const reports = d.data || [];
-    reports.forEach(r => { _reportStore[r.id] = r; });
-    el.innerHTML = reports.length
-      ? reports.map(r => renderReportCard(r, 'pending_new')).join('')
-      : '<div class="text-sub" style="padding:8px">ไม่มีงานค้าง 🎉</div>';
-  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
 }
 
 // ============================================================
@@ -2824,45 +2060,82 @@ async function loadPendingRequests() {
 // ============================================================
 async function loadHistory() {
   const status = document.getElementById('histStatus').value;
+  const mine = document.getElementById('histScope').value === 'mine' && currentUser;
   const el = document.getElementById('historyList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const data = await api('GET', `/api/requisitions?status=${status}&limit=30`);
+    const who = mine ? `&emp_code=${encodeURIComponent(currentUser.code)}` : '';
+    const data = await api('GET', `/api/requisitions?status=${status}&limit=30${who}`);
     const reqs = data.data || [];
     if (!reqs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>ไม่มีใบเบิก</div>'; return; }
     el.innerHTML = reqs.map(r => renderReqCard(r)).join('');
   } catch { el.innerHTML = '<div class="empty">โหลดข้อมูลไม่สำเร็จ</div>'; }
 }
 
+const REQ_STATUS = {
+  pending:   { badge: 'badge-pending',   label: '⏳ รอ Admin ตรวจสอบ' },
+  approved:  { badge: 'badge-approved',  label: '✅ อนุมัติ — รอจ่ายของ' },
+  completed: { badge: 'badge-completed', label: '📦 จ่ายของแล้ว' },
+  rejected:  { badge: 'badge-rejected',  label: '❌ ไม่อนุมัติ' },
+};
+let _reqStore = {};           // id -> requisition (for the review modal + photo viewer)
+function reqMachineText(r) {
+  return r.machine_no ? (r.zone ? `${r.machine_no} · ${r.zone}` : r.machine_no) : (r.dept || '');
+}
 function renderReqCard(r) {
-  const badgeMap = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected', completed: 'badge-completed' };
-  const labelMap = { pending: '⏳ รอดำเนินการ', approved: '✅ อนุมัติ', rejected: '❌ ปฏิเสธ', completed: '📦 เบิกแล้ว' };
-  const itemsHtml = (r.items || []).map(item => `
-    <div class="req-item-row">
-      <div class="req-item-thumb">${thumbSrc(item) ? `<img src="${thumbSrc(item)}" alt="" loading="lazy">` : '🔧'}</div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:13px">${escHtml(item.item_name)}</div>
-        <div style="font-size:12px;color:var(--sub)">${escHtml(item.part_code)} | จำนวน: ${item.qty_requested} ${escHtml(item.unit)}</div>
-      </div>
-    </div>`).join('');
-  const adminBtns = isAdmin && r.status === 'pending'
-    ? `<button class="btn btn-success btn-sm" onclick="openApprove(${r.id},'${escHtml(r.req_no)}')">✅ ดำเนินการ</button>` : '';
+  _reqStore[r.id] = r;
+  const st = REQ_STATUS[r.status] || { badge: '', label: r.status };
+  const machine = reqMachineText(r);
+  const facts = [
+    machine ? `<div><span>🏭 เครื่อง:</span> <b>${escHtml(machine)}</b></div>` : '',
+    r.req_qty ? `<div><span>🔢 ขอเบิก:</span> <b>${r.req_qty} ${escHtml(r.req_unit || '')}</b></div>` : '',
+    r.purpose ? `<div style="grid-column:1/-1"><span>🎯 จุดประสงค์:</span> <b>${escHtml(r.purpose)}</b></div>` : '',
+  ].join('');
+  const photos = r.photos || [];
+  const photosHtml = photos.length
+    ? `<div class="req-photos">${photos.map((p, i) =>
+        `<img src="${API_URL + p.thumb_url}" alt="รูปที่ ${i + 1}" loading="lazy" title="แตะเพื่อดูรูปใหญ่" onclick="openReqPhotos(${r.id}, ${i})">`).join('')}</div>`
+    : '';
+  const items = r.items || [];
+  const itemsHtml = items.length
+    ? `<div class="req-items-list">
+        <div class="text-sub" style="margin-bottom:4px">🧩 Item Part ${r.status === 'completed' ? 'ที่จ่าย' : 'ที่ Admin ระบุ'}</div>
+        ${items.map(item => `
+        <div class="req-item-row">
+          <div class="req-item-thumb">${thumbSrc(item) ? `<img src="${thumbSrc(item)}" alt="" loading="lazy">` : '🔧'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px">${escHtml(item.item_name)}</div>
+            <div style="font-size:12px;color:var(--sub)">${escHtml(item.part_code)} · จำนวน ${item.qty_requested} ${escHtml(item.unit)}</div>
+          </div>
+        </div>`).join('')}
+      </div>`
+    : (r.status === 'pending' ? '<div class="req-wait">⏳ รอ Admin ดูรูปและระบุ Item Part</div>' : '');
+  const adminBtn = !isAdmin ? ''
+    : r.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="openReview(${r.id})">🔍 ตรวจสอบ & ใส่ Item</button>`
+    : r.status === 'approved' ? `<button class="btn btn-success btn-sm" onclick="openReview(${r.id})">📦 จ่ายของ / แก้ไข</button>`
+    : '';
   return `
-    <div class="req-card">
+    <div class="req-card is-${escHtml(r.status)}">
       <div class="req-header">
-        <div>
+        <div style="min-width:0">
           <div class="req-no">${escHtml(r.req_no)}</div>
-          <div class="req-meta">👤 ${escHtml(r.requester_name)} ${r.dept ? '· ' + escHtml(r.dept) : ''} · 🕒 ${fmtDate(r.created_at)}</div>
-          ${r.purpose ? `<div class="req-meta">📝 ${escHtml(r.purpose)}</div>` : ''}
+          <div class="req-meta">👤 ${escHtml(r.requester_name)} · 🕒 ${fmtDate(r.created_at)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span class="badge ${badgeMap[r.status] || ''}">${labelMap[r.status] || r.status}</span>
-          ${adminBtns}
+          <span class="badge ${st.badge}">${st.label}</span>
+          ${adminBtn}
         </div>
       </div>
-      <div class="req-items-list">${itemsHtml}</div>
-      ${r.note ? `<div style="font-size:12px;color:var(--sub);margin-top:6px">💬 ${escHtml(r.note)}</div>` : ''}
+      ${facts ? `<div class="req-facts">${facts}</div>` : ''}
+      ${photosHtml}
+      ${itemsHtml}
+      ${r.approved_by && r.status !== 'pending' ? `<div class="text-sub" style="margin-top:6px">✍️ ${r.status === 'rejected' ? 'ผู้พิจารณา' : 'ผู้อนุมัติ'}: ${escHtml(r.approved_by)}</div>` : ''}
+      ${r.note ? `<div style="font-size:12px;color:var(--sub);margin-top:4px">💬 ${escHtml(r.note)}</div>` : ''}
     </div>`;
+}
+function openReqPhotos(reqId, i) {
+  const r = _reqStore[reqId]; if (!r) return;
+  openLightbox((r.photos || []).map(p => API_URL + p.image_url), i, `${r.req_no} · ${r.requester_name}`);
 }
 
 // ============================================================
@@ -2927,7 +2200,6 @@ async function showItemDetail(id) {
         </td></tr>
         <tr><td style="padding:7px 0;color:var(--sub)">Stock ขั้นต่ำ</td><td>${item.min_stock} ${escHtml(item.unit)}</td></tr>
         ${item.description ? `<tr><td style="padding:7px 0;color:var(--sub)">รายละเอียด</td><td>${escHtml(item.description)}</td></tr>` : ''}
-        <tr><td style="padding:7px 0;color:var(--sub)">Machine Learning</td><td>${item.has_embedding ? '✅ พร้อมใช้งาน' : '⚠️ ยังไม่มี'}</td></tr>
       </table>`;
     document.getElementById('itemModalFooter').innerHTML = isAdmin
       ? `<button class="btn btn-gray" onclick="closeModal('itemModal')">ปิด</button>
@@ -2965,8 +2237,7 @@ async function adminLogin() {
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
     showToast('✅ เข้าสู่ระบบ Admin สำเร็จ');
-    loadStats(); loadAdminItems(); loadPending(); loadScanReports(); loadFeedbackLog(); loadPendingRequests(); renderEngineCard(); prefillNextCode(); loadCategories();
-    loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+    loadAdminPanel(); loadCategories();
   } catch {
     showFieldError('adminPwd', 'errAdminPwd', 'รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่');
     document.getElementById('adminPwd').value = '';
@@ -2984,15 +2255,20 @@ function adminLogout() {
   showToast('👋 ออกจาก Admin แล้ว');
 }
 
+// Everything the Admin tab shows, refreshed together.
+function loadAdminPanel() {
+  loadStats(); loadPending(); loadUsage(); loadAdminItems(); prefillNextCode();
+  loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+}
 async function loadStats() {
   try {
     const d = await api('GET', '/api/stats');
     document.getElementById('statItems').textContent = d.items;
     document.getElementById('statReqs').textContent = d.requisitions;
     document.getElementById('statPending').textContent = d.pending;
+    document.getElementById('statToIssue').textContent = d.to_issue ?? 0;
     document.getElementById('statLow').textContent = d.low_stock;
-    const sl = document.getElementById('statLearned');
-    if (sl) sl.textContent = d.learned_examples ?? 0;
+    setQueueCount(d.pending);
 
     const alertEl = document.getElementById('lowStockAlert');
     if (alertEl) {
@@ -3007,14 +2283,10 @@ async function loadStats() {
         alertEl.innerHTML = '<div class="text-sub" style="padding:8px">🎉 ไม่มีรายการต้องสั่งซื้อ</div>';
       }
     }
-    if (d.low_stock > 0) {
-      document.getElementById('notifDot').classList.add('show');
-      document.getElementById('adminBadge').textContent = d.low_stock;
-      document.getElementById('adminBadge').classList.add('show');
-    } else {
-      document.getElementById('notifDot').classList.remove('show');
-      document.getElementById('adminBadge').classList.remove('show');
-    }
+    const alerts = (d.low_stock || 0) + (d.pending || 0);
+    document.getElementById('notifDot').classList.toggle('show', alerts > 0);
+    document.getElementById('adminBadge').textContent = alerts;
+    document.getElementById('adminBadge').classList.toggle('show', alerts > 0);
   } catch {}
 }
 
@@ -3048,10 +2320,8 @@ async function addItem() {
   const btn = document.getElementById('btnAddItem');
   btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
   try {
-    // Thumbnail + augmented visual hashes (many angles/lighting from 1 photo).
     const thumb_b64 = hasImg ? await makeThumb(image_b64) : null;
-    const phashes = hasImg ? await augmentHashes(image_b64) : null;
-    const resp = await api('POST', '/api/items', {
+    await api('POST', '/api/items', {
       part_code, name,
       description: document.getElementById('newDesc').value.trim(),
       category_id: document.getElementById('newCategory').value || null,
@@ -3059,15 +2329,8 @@ async function addItem() {
       stock_qty: parseFloat(document.getElementById('newStock').value) || 0,
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
       image_b64: hasImg ? image_b64 : null,
-      thumb_b64, phashes,
+      thumb_b64,
     }, true);
-    // Enroll the new item into Jina (image embedding) so it's matchable there.
-    if (resp && resp.id && hasImg) enrollJina(resp.id, image_b64, 'enroll', 'original');
-    // If this item was created from a user report, mark the report resolved.
-    if (_reportContext && resp && resp.id) {
-      resolveReport(_reportContext.id, 'added', resp.id);
-      _reportContext = null;
-    }
     showToast(`✅ เพิ่ม "${name}" สำเร็จ`);
     ['newPartCode','newName','newDesc'].forEach(id => document.getElementById(id).value = '');
     prefillNextCode();
@@ -3096,7 +2359,7 @@ async function loadAdminItems() {
       <thead><tr>
         <th>รหัส</th><th>ชื่ออุปกรณ์</th>
         <th style="text-align:center">Stock</th><th style="text-align:center">ขั้นต่ำ</th>
-        <th style="text-align:center">ML</th><th style="text-align:center">จัดการ</th>
+        <th style="text-align:center">จัดการ</th>
       </tr></thead>
       <tbody>${items.map(item => {
         const isLow = item.stock_qty <= item.min_stock;
@@ -3105,7 +2368,6 @@ async function loadAdminItems() {
           <td>${escHtml(item.name)}${isLow ? ' <span style="color:var(--danger);font-size:11px;font-weight:700">⚠️</span>' : ''}</td>
           <td style="text-align:center;font-weight:700;color:${isLow ? 'var(--danger)' : 'var(--success)'}">${item.stock_qty} ${escHtml(item.unit)}</td>
           <td style="text-align:center;color:var(--sub)">${item.min_stock}</td>
-          <td style="text-align:center">${item.has_embedding ? '✅' : '⚠️'}</td>
           <td style="text-align:center">
             <div class="actions" style="justify-content:center">
               <button class="btn btn-warning btn-sm" title="แก้ไข" onclick="openEditItem(${item.id})">✏️</button>
@@ -3130,15 +2392,33 @@ async function deleteItem(id, name) {
   } catch {}
 }
 
+// Admin queue: requisitions waiting for review (pending) or for issuing (approved).
 async function loadPending() {
   const el = document.getElementById('pendingList');
-  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  if (!el) return;
+  const status = document.getElementById('queueStatus').value || 'pending';
+  if (!el.querySelector('.req-card')) el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const data = await api('GET', '/api/requisitions?status=pending&limit=20');
+    const data = await api('GET', `/api/requisitions?status=${status}&limit=50`);
     const reqs = data.data || [];
-    if (!reqs.length) { el.innerHTML = '<div class="empty">ไม่มีใบเบิกรอดำเนินการ ✅</div>'; return; }
-    el.innerHTML = reqs.map(r => renderReqCard(r)).join('');
+    if (status === 'pending') setQueueCount(data.total);
+    el.innerHTML = reqs.length ? reqs.map(r => renderReqCard(r)).join('')
+      : `<div class="empty" style="padding:24px"><div class="empty-icon">🎉</div>${status === 'pending' ? 'ไม่มีคำขอเบิกรอตรวจสอบ' : 'ไม่มีรายการรอจ่ายของ'}</div>`;
   } catch { el.innerHTML = '<div class="empty">โหลดไม่สำเร็จ</div>'; }
+}
+function setQueueCount(n) {
+  const p = document.getElementById('queueCount');
+  if (!p) return;
+  p.textContent = n || 0;
+  p.classList.toggle('zero', !n);
+}
+function focusQueue(status = 'pending') {
+  const card = document.getElementById('reqQueueCard');
+  if (!card) return;
+  card.classList.remove('collapsed');
+  document.getElementById('queueStatus').value = status;
+  loadPending();
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================================
@@ -3186,17 +2466,14 @@ async function confirmEditItem() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
     const editThumb = editImageB64 ? await makeThumb(editImageB64) : null;
-    const editPhashes = editImageB64 ? await augmentHashes(editImageB64) : null;
     await api('PUT', `/api/items/${id}`, {
       part_code, name,
       category_id: document.getElementById('editCategory').value || null,
       unit: document.getElementById('editUnit').value.trim() || 'ชิ้น',
       min_stock: parseFloat(document.getElementById('editMinStock').value) || 0,
       description: document.getElementById('editDesc').value.trim(),
-      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb, phashes: editPhashes } : {}),
+      ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb } : {}),
     }, true);
-    // New main image → enroll into Jina as well.
-    if (editImageB64) enrollJina(id, editImageB64, 'enroll', 'updated');
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');
     loadAdminItems(); loadStats();
@@ -3204,27 +2481,453 @@ async function confirmEditItem() {
 }
 
 // ============================================================
-// APPROVE
+// REVIEW — Admin looks at the photo, picks the Item Part(s), approves
+// (a photo may show a whole set → several Item lines)
 // ============================================================
-function openApprove(id, reqNo) {
-  pendingApproveId = id;
-  document.getElementById('approveModalInfo').innerHTML = `ใบเบิกเลขที่: <b style="color:var(--primary)">${escHtml(reqNo)}</b>`;
-  document.getElementById('approveBy').value = '';
-  document.getElementById('approveNote').value = '';
-  clearFieldError('approveBy', 'errApproveBy');
-  openModal('approveModal');
+let _rv = null;               // { req, photo: index, lines: [{ item, qty }] }
+let _rvSearchTimer = null;
+let _rvResults = {};          // id -> item from the last search
+let _rvLastItems = [];
+let _usageMap = {};           // item id -> 30-day usage row (hint while picking)
+let _usageAt = 0;
+
+function openReview(id) {
+  const r = _reqStore[id]; if (!r) return;
+  _rv = {
+    req: r, photo: 0,
+    lines: (r.items || []).map(it => ({
+      item: {
+        id: it.item_id, name: it.item_name, part_code: it.part_code, unit: it.unit,
+        stock_qty: it.stock_qty, min_stock: it.min_stock, thumb_url: it.thumb_url, image_url: it.image_url,
+      },
+      qty: it.qty_requested,
+    })),
+  };
+  document.getElementById('rvTitle').textContent = `🔍 ตรวจสอบคำขอเบิก ${r.req_no}`;
+  document.getElementById('rvInfo').innerHTML = `
+    <div><span class="ri-label">👤 ผู้เบิก</span> <b>${escHtml(r.requester_name)}</b></div>
+    <div><span class="ri-label">🏭 นำไปใช้เครื่อง</span> <b>${escHtml(reqMachineText(r) || '—')}</b></div>
+    <div><span class="ri-label">🔢 จำนวนที่ขอ</span> <b>${r.req_qty ? `${r.req_qty} ${escHtml(r.req_unit || '')}` : '—'}</b></div>
+    <div><span class="ri-label">🎯 จุดประสงค์</span> <b>${escHtml(r.purpose || '—')}</b></div>
+    <div><span class="ri-label">🕒 ส่งเมื่อ</span> ${fmtDate(r.created_at)}</div>`;
+  rvRenderPhotos();
+  document.getElementById('rvSearch').value = '';
+  document.getElementById('rvResults').innerHTML = '';
+  _rvResults = {}; _rvLastItems = [];
+  document.getElementById('rvQuickAdd').style.display = 'none';
+  document.querySelector('input[name="rvAction"][value="completed"]').checked = true;
+  document.getElementById('rvBy').value = localStorage.getItem('req_approver') || '';
+  document.getElementById('rvNote').value = r.note || '';
+  clearFieldError('rvBy', 'errRvBy'); clearFieldError('rvNote', 'errRvNote');
+  rvSyncAction();
+  rvRenderLines();
+  openModal('reviewModal');
+  document.querySelector('#reviewModal .modal').scrollTop = 0;
+  loadUsageMap().then(rvRenderLines);
+  // Desktop: jump straight to the search box. Touch: don't pop the keyboard over the photo.
+  if (!_rv.lines.length && matchMedia('(pointer: fine)').matches) setTimeout(() => document.getElementById('rvSearch').focus(), 150);
 }
-async function confirmApprove() {
-  if (!validateField('approveBy', 'errApproveBy', 'ชื่อผู้ดำเนินการ')) return;
-  const status = document.getElementById('approveStatus').value;
-  const approved_by = document.getElementById('approveBy').value.trim();
-  const note = document.getElementById('approveNote').value.trim();
+function rvPhotoUrls() { return (_rv?.req.photos || []).map(p => API_URL + p.image_url); }
+function rvRenderPhotos() {
+  const urls = rvPhotoUrls();
+  const main = document.getElementById('rvMain');
+  const thumbs = document.getElementById('rvThumbs');
+  if (!urls.length) {
+    main.style.display = 'none';
+    thumbs.innerHTML = '<div class="text-sub">ไม่มีรูปแนบ (ใบเบิกแบบเดิม)</div>';
+    return;
+  }
+  main.style.display = '';
+  const i = Math.min(_rv.photo, urls.length - 1);
+  document.getElementById('rvMainImg').src = urls[i];
+  const cnt = document.getElementById('rvCount');
+  cnt.textContent = `รูป ${i + 1}/${urls.length}`;
+  cnt.style.display = urls.length > 1 ? '' : 'none';
+  thumbs.innerHTML = urls.length > 1
+    ? _rv.req.photos.map((p, k) => `<img src="${API_URL + p.thumb_url}" class="${k === i ? 'active' : ''}" onclick="rvPickPhoto(${k})" alt="รูปที่ ${k + 1}">`).join('')
+    : '';
+}
+function rvPickPhoto(k) { _rv.photo = k; rvRenderPhotos(); }
+function rvOpenPhoto() { if (_rv) openLightbox(rvPhotoUrls(), _rv.photo, `${_rv.req.req_no} · รูปที่พนักงานถ่าย`); }
+
+// --- item search ---
+function rvSearchDebounced() { clearTimeout(_rvSearchTimer); _rvSearchTimer = setTimeout(rvSearch, 250); }
+async function rvSearch() {
+  const q = document.getElementById('rvSearch').value.trim();
+  const el = document.getElementById('rvResults');
+  if (!q) { el.innerHTML = ''; _rvLastItems = []; return; }
+  el.innerHTML = '<div class="loading" style="padding:12px"><div class="spinner"></div></div>';
   try {
-    await api('PUT', `/api/requisitions/${pendingApproveId}/status`, { status, approved_by, note }, true);
-    showToast('✅ ดำเนินการเรียบร้อย');
-    closeModal('approveModal');
-    loadPending(); loadHistory(); loadStats(); checkLowStockNotif();
+    const d = await api('GET', `/api/items?q=${encodeURIComponent(q)}&limit=20`);
+    if (document.getElementById('rvSearch').value.trim() !== q) return;   // a newer search is running
+    _rvLastItems = d.data || [];
+    _rvLastItems.forEach(it => { _rvResults[it.id] = it; });
+    rvRenderResults();
+  } catch { el.innerHTML = '<div class="text-sub" style="padding:8px">ค้นหาไม่สำเร็จ</div>'; }
+}
+function rvRenderResults() {
+  const el = document.getElementById('rvResults');
+  if (!document.getElementById('rvSearch').value.trim()) { el.innerHTML = ''; return; }
+  if (!_rvLastItems.length) {
+    el.innerHTML = '<div class="rv-empty" style="margin-top:6px">ไม่พบ Item — ลองคำอื่น หรือกด “เพิ่ม Item ใหม่จากรูปนี้”</div>';
+    return;
+  }
+  el.innerHTML = `<div class="rv-results">${_rvLastItems.map(it => {
+    const added = _rv.lines.some(l => l.item.id === it.id);
+    return `
+    <div class="rv-result${added ? ' added' : ''}" onclick="rvAdd(${it.id})">
+      <div class="rv-thumb" title="ดูรูป Item" onclick="event.stopPropagation();rvViewItem(${it.id})">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="rv-name">${escHtml(it.name)}</div>
+        <div class="rv-sub">${escHtml(it.part_code)} · คงเหลือ ${it.stock_qty} ${escHtml(it.unit || '')}${usageHint(it.id)}</div>
+      </div>
+      <span class="rv-add-btn">${added ? '✓ เพิ่มแล้ว' : '＋ เพิ่ม'}</span>
+    </div>`; }).join('')}</div>`;
+}
+function rvFindItem(id) { return _rvResults[id] || _rv?.lines.find(l => l.item.id === id)?.item; }
+// Compare: open the catalogue image of an Item next to the employee's photo.
+function rvViewItem(id) {
+  const it = rvFindItem(id);
+  if (!it || !imgSrc(it)) { showToast('ℹ️ Item นี้ยังไม่มีรูป'); return; }
+  openLightbox([imgSrc(it)], 0, `${it.part_code} · ${it.name}`);
+}
+function rvAdd(id) {
+  const it = _rvResults[id]; if (!it || !_rv) return;
+  if (_rv.lines.some(l => l.item.id === id)) { showToast(`ℹ️ ${it.part_code} อยู่ในรายการแล้ว — ปรับจำนวนได้`); return; }
+  // First line defaults to the qty the employee asked for; extra lines (sets) start at 1.
+  _rv.lines.push({ item: it, qty: _rv.lines.length ? 1 : (Number(_rv.req.req_qty) || 1) });
+  rvRenderLines();
+  rvRenderResults();
+}
+function rvRenderLines() {
+  if (!_rv) return;
+  const el = document.getElementById('rvLines');
+  if (!_rv.lines.length) {
+    el.innerHTML = '<div class="rv-empty">ยังไม่ได้เลือก Item — ค้นหาด้านล่างแล้วกด “＋ เพิ่ม”<br><small>ถ้าในรูปมีหลายชิ้น (เบิกเป็นชุด) เพิ่มได้หลาย Item</small></div>';
+    return;
+  }
+  el.innerHTML = _rv.lines.map((l, i) => {
+    const it = l.item, min = it.min_stock || 0, after = it.stock_qty - l.qty;
+    const cls = it.stock_qty < l.qty ? 'out' : after <= min ? 'low' : 'ok';
+    const msg = cls === 'out' ? `⛔ Stock ไม่พอ (มี ${it.stock_qty})`
+      : cls === 'low' ? `⚠️ หลังเบิกเหลือ ${after} — ถึงจุดสั่งซื้อ (ขั้นต่ำ ${min})`
+      : `✅ หลังเบิกเหลือ ${after} ${escHtml(it.unit || '')}`;
+    return `
+    <div class="rv-line">
+      <div class="rv-line-top">
+        <div class="rv-thumb" title="ดูรูป Item" onclick="rvViewItem(${it.id})">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="">` : '🔧'}</div>
+        <div style="min-width:0;flex:1">
+          <div class="rv-name">${escHtml(it.name)}</div>
+          <div class="rv-sub">${escHtml(it.part_code)} · คงเหลือ ${it.stock_qty} ${escHtml(it.unit || '')}${usageHint(it.id)}</div>
+        </div>
+        <button type="button" class="btn btn-gray btn-sm rv-del" title="เอาออก" onclick="rvRemove(${i})">✕</button>
+      </div>
+      <div class="rv-line-bottom">
+        <div class="qty-stepper">
+          <button type="button" onclick="rvSetQty(${i}, ${l.qty - 1})">−</button>
+          <input type="number" min="1" value="${l.qty}" inputmode="numeric" onchange="rvSetQty(${i}, this.value)" aria-label="จำนวน">
+          <button type="button" onclick="rvSetQty(${i}, ${l.qty + 1})">+</button>
+        </div>
+        <span class="text-sub">${escHtml(it.unit || '')}</span>
+        <span class="rv-stock ${cls}">${msg}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function rvSetQty(i, v) {
+  const l = _rv?.lines[i]; if (!l) return;
+  l.qty = Math.max(1, parseInt(v) || 1);
+  rvRenderLines();
+}
+function rvRemove(i) {
+  _rv.lines.splice(i, 1);
+  rvRenderLines();
+  rvRenderResults();
+}
+function rvAction() {
+  return document.querySelector('input[name="rvAction"]:checked')?.value || 'completed';
+}
+function rvSyncAction() {
+  const a = rvAction();
+  const btn = document.getElementById('btnRvConfirm');
+  btn.className = 'btn ' + (a === 'rejected' ? 'btn-danger' : a === 'approved' ? 'btn-success' : 'btn-primary');
+  btn.textContent = a === 'rejected' ? '❌ ยืนยัน ไม่อนุมัติ' : a === 'approved' ? '✅ ยืนยัน อนุมัติ' : '📦 ยืนยัน อนุมัติ + จ่ายของ';
+  document.getElementById('rvNoteLabel').innerHTML = a === 'rejected' ? 'เหตุผลที่ไม่อนุมัติ <span class="req">*</span>' : 'หมายเหตุ';
+}
+
+// --- quick-add a brand new Item from the employee's photo ---
+async function rvToggleQuickAdd() {
+  const box = document.getElementById('rvQuickAdd');
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  if (!show) return;
+  const hasPhoto = rvPhotoUrls().length > 0;
+  document.getElementById('qaName').value = document.getElementById('rvSearch').value.trim();
+  document.getElementById('qaUsePhoto').checked = hasPhoto;
+  document.getElementById('qaUsePhoto').disabled = !hasPhoto;
+  document.getElementById('qaName').focus();
+  try { const d = await api('GET', '/api/items/next-code', null, true); if (d.next) document.getElementById('qaCode').value = d.next; } catch {}
+}
+async function rvCreateItem() {
+  if (!_rv) return;
+  const part_code = document.getElementById('qaCode').value.trim();
+  const name = document.getElementById('qaName').value.trim();
+  if (!part_code || !name) { showToast('❌ กรอกรหัสและชื่อ Item', 'error'); return; }
+  const unit = document.getElementById('qaUnit').value.trim() || 'ชิ้น';
+  const stock_qty = parseFloat(document.getElementById('qaStock').value) || 0;
+  const min_stock = parseFloat(document.getElementById('qaMin').value) || 0;
+  const btn = document.getElementById('btnQaSave');
+  btn.disabled = true; btn.textContent = '⏳ กำลังเพิ่ม...';
+  try {
+    let image_b64 = null, thumb_b64 = null;
+    if (document.getElementById('qaUsePhoto').checked) {
+      const blob = await (await fetch(rvPhotoUrls()[_rv.photo])).blob();
+      image_b64 = await fileToCompressedDataUrl(blob, 1024, 0.85);
+      thumb_b64 = await makeThumb(image_b64);
+    }
+    const resp = await api('POST', '/api/items', { part_code, name, unit, stock_qty, min_stock, image_b64, thumb_b64 }, true);
+    const item = { id: resp.id, part_code, name, unit, stock_qty, min_stock, image_b64 };
+    _rvResults[item.id] = item;
+    _rv.lines.push({ item, qty: _rv.lines.length ? 1 : (Number(_rv.req.req_qty) || 1) });
+    rvRenderLines();
+    document.getElementById('rvQuickAdd').style.display = 'none';
+    showToast(`✅ เพิ่ม Item ${part_code} แล้ว`);
+    loadAdminItems(); prefillNextCode();
+  } catch {} finally { btn.disabled = false; btn.textContent = '💾 เพิ่ม Item แล้วใส่ในใบเบิก'; }
+}
+
+async function confirmReview() {
+  if (!_rv) return;
+  const action = rvAction();
+  const by = document.getElementById('rvBy').value.trim();
+  const note = document.getElementById('rvNote').value.trim();
+  if (action !== 'rejected' && !_rv.lines.length) {
+    showToast('⚠️ กรุณาเลือก Item Part อย่างน้อย 1 รายการ', 'error');
+    document.getElementById('rvSearch').focus();
+    return;
+  }
+  if (!by) return showFieldError('rvBy', 'errRvBy', 'กรุณากรอกชื่อผู้อนุมัติ');
+  if (action === 'rejected' && !note) return showFieldError('rvNote', 'errRvNote', 'กรุณาระบุเหตุผลที่ไม่อนุมัติ');
+  if (action === 'completed') {
+    const short = _rv.lines.filter(l => l.item.stock_qty < l.qty);
+    if (short.length) {
+      const ok = await showConfirm('⛔', 'Stock ไม่พอ',
+        `${short.map(l => `${l.item.part_code} (มี ${l.item.stock_qty}, จะจ่าย ${l.qty})`).join(', ')} — ยืนยันจ่ายของ? Stock จะถูกตัดเหลือ 0`,
+        'ยืนยันจ่าย', 'warning');
+      if (!ok) return;
+    }
+  }
+  const req = _rv.req;
+  const btn = document.getElementById('btnRvConfirm');
+  btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+  try {
+    const d = await api('POST', `/api/requisitions/${req.id}/review`, {
+      action, approved_by: by, note,
+      items: action === 'rejected' ? [] : _rv.lines.map(l => ({ item_id: l.item.id, qty: l.qty })),
+    }, true);
+    localStorage.setItem('req_approver', by);
+    closeModal('reviewModal');
+    _rv = null; _usageAt = 0;
+    showToast(action === 'rejected' ? `❌ ไม่อนุมัติ ${req.req_no} แล้ว`
+      : action === 'approved' ? `✅ อนุมัติ ${req.req_no} แล้ว — รอจ่ายของ`
+      : `📦 จ่ายของ ${req.req_no} แล้ว — ตัด Stock เรียบร้อย`);
+    const low = (d.balances || []).filter(b => b.low);
+    if (low.length) setTimeout(() => showToast(`⚠️ ถึงจุดสั่งซื้อ: ${low.map(b => `${b.part_code} เหลือ ${b.stock_qty}`).join(', ')}`, 'warning'), 500);
+    loadPending(); loadStats(); loadUsage(); checkLowStockNotif();
+    if (document.getElementById('page-history').classList.contains('active')) loadHistory();
+  } catch {} finally { btn.disabled = false; rvSyncAction(); }
+}
+
+// ============================================================
+// LIGHTBOX — tap a photo to see it big: zoom (wheel / pinch / double-tap /
+// buttons), drag to pan, rotate, prev/next (arrows, swipe, thumbnails)
+// ============================================================
+const _lb = { urls: [], i: 0, title: '', s: 1, x: 0, y: 0, r: 0, ptrs: new Map(), pinch: null, drag: null, lastTap: 0 };
+function openLightbox(urls, index = 0, title = '') {
+  if (!urls || !urls.length) return;
+  _lb.urls = urls.slice();
+  _lb.i = Math.max(0, Math.min(index, urls.length - 1));
+  _lb.title = title;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  lbShow();
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function lbShow() {
+  _lb.s = 1; _lb.x = 0; _lb.y = 0; _lb.r = 0;
+  const n = _lb.urls.length;
+  document.getElementById('lbImg').src = _lb.urls[_lb.i];
+  document.getElementById('lbTitle').textContent = [_lb.title, n > 1 ? `รูป ${_lb.i + 1}/${n}` : ''].filter(Boolean).join(' · ');
+  document.getElementById('lbPrev').style.display = n > 1 ? '' : 'none';
+  document.getElementById('lbNext').style.display = n > 1 ? '' : 'none';
+  document.getElementById('lbDots').innerHTML = n > 1
+    ? _lb.urls.map((u, k) => `<img src="${u}" class="${k === _lb.i ? 'active' : ''}" onclick="lbGo(${k - _lb.i})" alt="">`).join('')
+    : '';
+  lbApply();
+}
+function lbGo(d) {
+  const n = _lb.urls.length;
+  if (n < 2 || !d) return;
+  _lb.i = (_lb.i + d + n) % n;
+  lbShow();
+}
+function lbApply() {
+  const img = document.getElementById('lbImg');
+  const st = document.getElementById('lbStage');
+  const side = _lb.r % 180 !== 0;   // rotated 90°/270°: fit the swapped box
+  img.style.maxWidth = side ? st.clientHeight + 'px' : '100%';
+  img.style.maxHeight = side ? st.clientWidth + 'px' : '100%';
+  img.style.transform = `translate(-50%, -50%) translate(${_lb.x}px, ${_lb.y}px) scale(${_lb.s}) rotate(${_lb.r}deg)`;
+}
+// Zoom by factor f, keeping the stage point (cx, cy) — relative to the stage centre — fixed.
+function lbZoomBy(f, cx = 0, cy = 0) {
+  const s = Math.max(1, Math.min(8, _lb.s * f));
+  const k = s / _lb.s;
+  _lb.x = cx - (cx - _lb.x) * k;
+  _lb.y = cy - (cy - _lb.y) * k;
+  _lb.s = s;
+  if (s === 1) { _lb.x = 0; _lb.y = 0; }
+  lbApply();
+}
+function lbRotate() { _lb.r = (_lb.r + 90) % 360; _lb.x = 0; _lb.y = 0; lbApply(); }
+function initLightbox() {
+  const st = document.getElementById('lbStage');
+  const rel = (cx, cy) => { const b = st.getBoundingClientRect(); return [cx - b.left - b.width / 2, cy - b.top - b.height / 2]; };
+  st.addEventListener('wheel', e => {
+    e.preventDefault();
+    lbZoomBy(e.deltaY < 0 ? 1.2 : 1 / 1.2, ...rel(e.clientX, e.clientY));
+  }, { passive: false });
+  st.addEventListener('pointerdown', e => {
+    if (e.target.closest('.lb-nav')) return;
+    st.setPointerCapture(e.pointerId);
+    _lb.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (_lb.ptrs.size === 2) {
+      const [a, b] = [..._lb.ptrs.values()];
+      _lb.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: _lb.s };
+      _lb.drag = null;
+    } else if (_lb.ptrs.size === 1) {
+      _lb.drag = { x: e.clientX, y: e.clientY, ox: _lb.x, oy: _lb.y, moved: false };
+    }
+  });
+  st.addEventListener('pointermove', e => {
+    if (!_lb.ptrs.has(e.pointerId)) return;
+    _lb.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (_lb.pinch && _lb.ptrs.size >= 2) {
+      const [a, b] = [..._lb.ptrs.values()];
+      const target = _lb.pinch.s * Math.hypot(a.x - b.x, a.y - b.y) / _lb.pinch.d;
+      lbZoomBy(target / _lb.s, ...rel((a.x + b.x) / 2, (a.y + b.y) / 2));
+    } else if (_lb.drag) {
+      const dx = e.clientX - _lb.drag.x, dy = e.clientY - _lb.drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) _lb.drag.moved = true;
+      if (_lb.s > 1) { _lb.x = _lb.drag.ox + dx; _lb.y = _lb.drag.oy + dy; st.classList.add('dragging'); lbApply(); }
+    }
+  });
+  const end = e => {
+    if (!_lb.ptrs.has(e.pointerId)) return;
+    _lb.ptrs.delete(e.pointerId);
+    st.classList.remove('dragging');
+    if (_lb.ptrs.size < 2) _lb.pinch = null;
+    const dr = _lb.drag; _lb.drag = null;
+    if (!dr || _lb.ptrs.size || e.type !== 'pointerup') return;
+    const dx = e.clientX - dr.x;
+    if (_lb.s === 1 && dr.moved && Math.abs(dx) > 60) { lbGo(dx < 0 ? 1 : -1); return; }   // swipe
+    if (dr.moved) return;
+    const now = Date.now();
+    if (now - _lb.lastTap < 320) {           // double-tap / double-click toggles zoom
+      _lb.lastTap = 0;
+      if (_lb.s > 1) lbZoomBy(1 / _lb.s); else lbZoomBy(2.5, ...rel(e.clientX, e.clientY));
+    } else _lb.lastTap = now;
+  };
+  st.addEventListener('pointerup', end);
+  st.addEventListener('pointercancel', end);
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') lbGo(-1);
+    else if (e.key === 'ArrowRight') lbGo(1);
+    else if (e.key === '+' || e.key === '=') lbZoomBy(1.5);
+    else if (e.key === '-') lbZoomBy(1 / 1.5);
+  });
+  window.addEventListener('resize', () => { if (document.getElementById('lightbox').classList.contains('open')) lbApply(); });
+}
+
+// ============================================================
+// USAGE SUMMARY — how much of each part was issued + when it runs out
+// ============================================================
+let _usage = null;
+async function loadUsage() {
+  const el = document.getElementById('usageBox');
+  if (!el) return;
+  const days = document.getElementById('usageDays').value || 30;
+  if (!_usage) el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try { _usage = await api('GET', `/api/usage?days=${days}`); renderUsage(); }
+  catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
+}
+function renderUsage() {
+  const el = document.getElementById('usageBox');
+  if (!el || !_usage) return;
+  const rows = [...(_usage.data || [])];
+  if (!rows.length) {
+    el.innerHTML = `<div class="text-sub" style="padding:8px">ยังไม่มีการจ่ายของใน ${_usage.days} วันที่ผ่านมา</div>`;
+    return;
+  }
+  if (document.getElementById('usageSort').value === 'days_left') {
+    rows.sort((a, b) => (a.stock_qty <= 0 ? -1 : a.days_left ?? 1e9) - (b.stock_qty <= 0 ? -1 : b.days_left ?? 1e9));
+  }
+  const max = Math.max(...rows.map(r => r.issued)) || 1;
+  const totalQty = rows.reduce((s, r) => s + r.issued, 0);
+  const soon = rows.filter(r => r.stock_qty <= 0 || (r.days_left !== null && r.days_left <= 7)).length;
+  el.innerHTML = `
+    <div class="usage-kpis">
+      <div class="usage-kpi"><b>${_usage.requisitions}</b>ใบเบิก (${_usage.days} วัน)</div>
+      <div class="usage-kpi"><b>${rows.length}</b>Item ที่ถูกเบิก</div>
+      <div class="usage-kpi"><b>${fmtNum(totalQty)}</b>จำนวนที่จ่ายรวม</div>
+      <div class="usage-kpi${soon ? ' crit' : ''}"><b>${soon}</b>หมด / จะหมดใน 7 วัน</div>
+    </div>
+    <div class="usage-list">${rows.map(r => {
+      const dl = r.days_left;
+      const cls = (r.stock_qty <= 0 || (dl !== null && dl <= 7)) ? 'crit'
+        : (r.stock_qty <= r.min_stock || (dl !== null && dl <= 30)) ? 'warn' : '';
+      const badge = r.stock_qty <= 0 ? '<span class="dl-badge crit">หมดแล้ว</span>'
+        : dl === null ? '' : `<span class="dl-badge ${dl <= 7 ? 'crit' : dl <= 30 ? 'warn' : 'ok'}">≈ หมดใน ${dl} วัน</span>`;
+      return `
+      <div class="usage-row ${cls}">
+        <div class="rv-thumb" onclick="usageViewItem(${r.id})">${thumbSrc(r) ? `<img src="${thumbSrc(r)}" alt="" loading="lazy">` : '🔧'}</div>
+        <div style="flex:1;min-width:0">
+          <div class="rv-name">${escHtml(r.name)}</div>
+          <div class="rv-sub">${escHtml(r.part_code)} · ${r.req_count} ใบเบิก · ล่าสุด ${fmtDate(r.last_out)}</div>
+          <div class="usage-bar"><span style="width:${Math.max(4, Math.round(r.issued / max * 100))}%"></span></div>
+        </div>
+        <div class="usage-right">
+          <div class="ur-qty">${fmtNum(r.issued)} <small>${escHtml(r.unit || '')}</small></div>
+          <div>คงเหลือ ${r.stock_qty} / ขั้นต่ำ ${r.min_stock}</div>
+          ${badge}
+        </div>
+      </div>`; }).join('')}</div>`;
+}
+function usageViewItem(id) {
+  const r = (_usage?.data || []).find(x => x.id === id);
+  if (r && imgSrc(r)) openLightbox([imgSrc(r)], 0, `${r.part_code} · ${r.name}`);
+}
+// 30-day usage per item, cached a few minutes — shown as a hint while picking Items.
+async function loadUsageMap() {
+  if (Date.now() - _usageAt < 5 * 60 * 1000) return;
+  try {
+    const d = await api('GET', '/api/usage?days=30');
+    _usageMap = {};
+    (d.data || []).forEach(r => { _usageMap[r.id] = r; });
+    _usageAt = Date.now();
   } catch {}
+}
+function usageHint(id) {
+  const u = _usageMap[id];
+  return u ? ` · เบิก 30 วัน: ${fmtNum(u.issued)}` : '';
+}
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 }
 
 // ============================================================
@@ -3259,7 +2962,7 @@ async function confirmStockAdjust() {
 }
 
 // ============================================================
-// รับของเข้า (RESTOCK): pick item by search OR photo → openStockAdjust (defaults to รับเข้า)
+// รับของเข้า (RESTOCK): pick item by search → openStockAdjust (defaults to รับเข้า)
 // ============================================================
 let _recvTimer = null;
 function recvSearch() { clearTimeout(_recvTimer); _recvTimer = setTimeout(_recvDoSearch, 300); }
@@ -3270,14 +2973,6 @@ async function _recvDoSearch() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try { const d = await api('GET', `/api/items?q=${encodeURIComponent(s)}&limit=20`); recvRender(d.data || [], false); }
   catch { el.innerHTML = '<div class="text-sub" style="padding:8px">โหลดไม่สำเร็จ</div>'; }
-}
-function recvScan() {
-  openCamera(async dataUrl => {
-    const el = document.getElementById('recvList');
-    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-    try { recvRender(await matchImage(dataUrl), true); }
-    catch { el.innerHTML = '<div class="text-sub" style="padding:8px">ค้นหาไม่สำเร็จ</div>'; }
-  });
 }
 function recvRender(items, isMatch) {
   const el = document.getElementById('recvList');
@@ -3291,15 +2986,6 @@ function recvRender(items, isMatch) {
       </div>
       <span style="color:var(--success);font-weight:800;font-size:18px">📥</span>
     </div>`).join('');
-}
-// Engine-aware image match (shared by scan + restock-by-photo).
-async function matchImage(dataUrl) {
-  if (activeEngine() === 'jina') {
-    const q = await preprocessImage(dataUrl, 512);
-    return (await api('POST', '/api/match', { image_b64: q, top_k: 5, engine: 'jina' })).matches || [];
-  }
-  const phashes = await augmentHashes(dataUrl);
-  return (await api('POST', '/api/match', { image_b64: dataUrl, top_k: 5, phashes })).matches || [];
 }
 // Auto running item code (I-0001, I-0002, …) so admin doesn't type it.
 async function prefillNextCode() {

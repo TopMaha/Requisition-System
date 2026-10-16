@@ -29,18 +29,36 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 -- ตารางใบเบิก (requisition headers)
+-- ระบบใหม่: พนักงานส่งรูป + จำนวน + เครื่องที่ใช้ + จุดประสงค์ → Admin ดูรูปแล้วระบุ Item Part เอง
 CREATE TABLE IF NOT EXISTS requisitions (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   req_no         TEXT NOT NULL UNIQUE,
   requester_name TEXT NOT NULL,
-  dept           TEXT,
-  purpose        TEXT,
-  status         TEXT DEFAULT 'pending',  -- pending | approved | rejected | completed
+  emp_code       TEXT,              -- รหัสพนักงานผู้เบิก
+  dept           TEXT,              -- ข้อความแสดงผล "เครื่อง · Zone" (คงไว้เพื่อใบเบิกเก่า)
+  machine_no     TEXT,              -- นำไปใช้เครื่องไหน
+  zone           TEXT,
+  purpose        TEXT,              -- จุดประสงค์
+  req_qty        REAL,              -- จำนวนที่พนักงานขอ (ก่อน Admin แยกเป็น Item Part)
+  req_unit       TEXT,              -- หน่วยที่พนักงานระบุ (ชิ้น / ชุด / ...)
+  status         TEXT DEFAULT 'pending',  -- pending (รอตรวจสอบ) | approved (อนุมัติ รอจ่าย) | rejected | completed (จ่ายของแล้ว)
   approved_by    TEXT,
   note           TEXT,
   created_at     TEXT DEFAULT (datetime('now','localtime')),
   updated_at     TEXT DEFAULT (datetime('now','localtime'))
 );
+
+-- รูปที่พนักงานถ่ายแนบกับใบเบิก (1 ใบเบิก มีได้หลายรูป; 1 รูป อาจมีหลาย Item Part)
+CREATE TABLE IF NOT EXISTS requisition_photos (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  req_id     INTEGER NOT NULL REFERENCES requisitions(id) ON DELETE CASCADE,
+  image_key  TEXT,                 -- R2 key (รูปเต็ม)
+  thumb_key  TEXT,                 -- R2 key (รูปย่อ)
+  image_b64  TEXT,                 -- fallback เมื่อไม่มี R2
+  thumb_b64  TEXT,
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_req_photos_req ON requisition_photos(req_id);
 
 -- ตารางรายการในใบเบิก
 CREATE TABLE IF NOT EXISTS requisition_items (
