@@ -10,6 +10,13 @@ binding = "DB"
 database_name = "requisition-db"
 database_id   = "YOUR_D1_DATABASE_ID"
 
+# Employee roster (code → name → VSM) from the PSIF project's D1 (read-only use).
+# Without it, only the people added in Admin → ฐานข้อมูลพนักงาน can sign in.
+[[d1_databases]]
+binding = "PSIF_DB"
+database_name = "psif-db"
+database_id   = "YOUR_PSIF_D1_DATABASE_ID"
+
 # R2 bucket for item images (create: `wrangler r2 bucket create requisition-images`)
 [[r2_buckets]]
 binding      = "BUCKET"
@@ -19,3 +26,6 @@ bucket_name  = "requisition-images"
 # Set your own admin password here. Do NOT commit a real one.
 # For production prefer a Cloudflare secret: `wrangler secret put ADMIN_PASSWORD`
 ADMIN_PASSWORD = "change-me"
+# Optional per-VSM Admin passwords (unlock only that VSM). ADMIN_PASSWORD still unlocks all.
+#   wrangler secret put ADMIN_PASSWORD_VSM3
+#   wrangler secret put ADMIN_PASSWORD_VSM4

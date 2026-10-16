@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS items (
   phash        TEXT,              -- 64-bit dHash (hex) — deterministic visual fingerprint for matching
   embedding    TEXT,              -- JSON array of CLIP float32 vector
   is_active    INTEGER DEFAULT 1,
+  vsm          TEXT NOT NULL DEFAULT 'VSM4',  -- VSM3 | VSM4 — ข้อมูลแยกตาม VSM (part_code ห้ามซ้ำทุก VSM)
   created_at   TEXT DEFAULT (datetime('now','localtime')),
   updated_at   TEXT DEFAULT (datetime('now','localtime'))
 );
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS requisitions (
   req_qty        REAL,              -- จำนวนที่พนักงานขอ (ก่อน Admin แยกเป็น Item Part)
   req_unit       TEXT,              -- หน่วยที่พนักงานระบุ (ชิ้น / ชุด / ...)
   status         TEXT DEFAULT 'pending',  -- pending (รอตรวจสอบ) | approved (อนุมัติ รอจ่าย) | rejected | completed (จ่ายของแล้ว)
+  vsm            TEXT NOT NULL DEFAULT 'VSM4',  -- VSM ของผู้เบิก (จากรายชื่อ PSIF)
   approved_by    TEXT,
   note           TEXT,
   created_at     TEXT DEFAULT (datetime('now','localtime')),
@@ -85,11 +87,13 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
--- ตารางพนักงาน (master data — รหัสพนักงาน ↔ ชื่อพนักงาน, ใช้ autofill ผู้เบิก)
+-- ตารางพนักงาน "เพิ่มเติม" — รายชื่อหลักมาจาก PSIF (binding PSIF_DB → psif-db.employees)
+-- ที่นี่เก็บเฉพาะคนที่ PSIF ไม่ได้จัดอยู่ VSM3/VSM4 แต่ต้องเบิกของ (เช่น ช่างซ่อมบำรุง)
 CREATE TABLE IF NOT EXISTS employees (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   emp_code   TEXT NOT NULL UNIQUE,
   emp_name   TEXT NOT NULL,
+  vsm        TEXT NOT NULL DEFAULT 'VSM4',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
@@ -98,6 +102,7 @@ CREATE TABLE IF NOT EXISTS machines (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   machine_no TEXT NOT NULL UNIQUE,
   zone       TEXT,
+  vsm        TEXT NOT NULL DEFAULT 'VSM4',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
@@ -128,6 +133,7 @@ CREATE TABLE IF NOT EXISTS scan_reports (
   note             TEXT,           -- รายละเอียดที่ผู้ใช้พิมพ์
   top_guess        TEXT,           -- AI เดาว่าอาจเป็นอะไร (context ให้ Admin)
   status           TEXT DEFAULT 'pending',  -- pending | added | linked | dismissed
+  vsm              TEXT NOT NULL DEFAULT 'VSM4',
   resolved_item_id INTEGER REFERENCES items(id),
   created_at       TEXT DEFAULT (datetime('now','localtime')),
   resolved_at      TEXT
@@ -156,9 +162,13 @@ CREATE TABLE IF NOT EXISTS match_feedback (
   candidates        TEXT,           -- JSON [{id, confidence}] ภาพรวมที่ AI เสนอตอนนั้น
   source            TEXT,           -- scan (เลือกจากผล AI) | manual_pick (AI เดาผิดทั้งหมด ผู้ใช้ค้นเอง)
   reporter          TEXT,           -- ผู้สอน (รหัส/ชื่อพนักงาน)
+  vsm               TEXT NOT NULL DEFAULT 'VSM4',
   created_at        TEXT DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_match_feedback_created ON match_feedback(id);
+
+CREATE INDEX IF NOT EXISTS idx_items_vsm ON items(vsm, is_active);
+CREATE INDEX IF NOT EXISTS idx_requisitions_vsm ON requisitions(vsm, status, created_at);
 
 -- ตารางตั้งค่าระบบ (key-value) — เก็บ flag เช่น match_engine = legacy | jina
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);

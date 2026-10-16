@@ -2,8 +2,13 @@
  * Requisition System - Cloudflare Worker
  * ระบบเบิกอุปกรณ์/อะไหล่โรงงาน ด้วย AI Image Matching
  *
+ * VSM separation: every item / requisition / stock row belongs to one VSM
+ * (VSM3 | VSM4). The client sends the session's VSM in the X-VSM header and every
+ * query is scoped to it; no header = VSM4 (all pre-VSM data is VSM4's).
+ *
  * Endpoints:
  *  GET    /api/health
+ *  POST   /api/login          { emp_code } → { user: { code, name, vsm } } via the PSIF roster
  *  GET    /api/categories
  *  GET    /api/items
  *  POST   /api/items          (admin)
@@ -19,7 +24,8 @@
  *  GET    /api/usage?days=30  - issued qty per item + days-until-empty forecast
  *  GET    /api/stats
  *  POST   /api/admin/verify   (admin)  - server-side login check
- *  GET    /api/employees
+ *  GET    /api/employees      - this DB's extra staff list (people PSIF doesn't put in VSM3/VSM4)
+ *  GET    /api/employees/psif (admin) - PSIF roster of the session's VSM (read-only)
  *  POST   /api/employees      (admin)
  *  PUT    /api/employees/:id  (admin)
  *  DELETE /api/employees/:id  (admin)
@@ -32,8 +38,56 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-VSM',
 };
+
+// ===== VSM (value stream) =====
+// A session is locked to one VSM at login: an employee gets theirs from the PSIF
+// roster, an Admin picks one. Rows created before VSM support default to VSM4.
+const VSMS = ['VSM3', 'VSM4'];
+const DEFAULT_VSM = 'VSM4';
+// Running item-code prefix per VSM — part_code is unique across the whole DB,
+// so each VSM needs its own series (VSM4 keeps the existing I-0001…).
+const CODE_PREFIX = { VSM4: 'I-', VSM3: 'V3-' };
+
+function normVsm(v) {
+  return String(v || '').replace(/\s+/g, '').toUpperCase();
+}
+function reqVsm(request) {
+  const v = normVsm(request.headers.get('X-VSM') || new URL(request.url).searchParams.get('vsm'));
+  return VSMS.includes(v) ? v : DEFAULT_VSM;
+}
+
+// Employee code → { code, name, vsm }. The roster is the PSIF project's
+// `employees` table (PSIF_DB binding, same Cloudflare account): PSIF decides who
+// is VSM3/VSM4. This DB's own `employees` table only adds people PSIF doesn't
+// place in VSM3/VSM4 (e.g. a maintenance tech that Admin assigns to VSM3).
+async function resolveEmployee(env, rawCode) {
+  const code = String(rawCode || '').trim();
+  if (!code) return { error: 'กรุณากรอกรหัสพนักงาน', status: 400 };
+  let psif = null, psifDown = false;
+  if (env.PSIF_DB && !/^RESIGNED-/i.test(code)) {
+    try {
+      psif = await env.PSIF_DB.prepare('SELECT id, name, vsm, active FROM employees WHERE id=? COLLATE NOCASE')
+        .bind(code).first();
+    } catch (e) { console.error('PSIF roster lookup failed:', e); psifDown = true; }
+  }
+  if (psif && psif.active !== 0 && VSMS.includes(normVsm(psif.vsm))) {
+    return { emp: { code: psif.id, name: psif.name, vsm: normVsm(psif.vsm), source: 'psif' } };
+  }
+  const local = await env.DB.prepare('SELECT emp_code, emp_name, vsm FROM employees WHERE emp_code=? COLLATE NOCASE')
+    .bind(code).first();
+  if (local) {
+    const v = normVsm(local.vsm);
+    return { emp: { code: local.emp_code, name: local.emp_name, vsm: VSMS.includes(v) ? v : DEFAULT_VSM, source: 'local' } };
+  }
+  if (psif && psif.active === 0) return { error: 'รหัสนี้ถูกปิดใช้งานในระบบ PSIF (ลาออก/ย้าย) — ติดต่อ Admin', status: 403 };
+  if (psif) {
+    return { error: `รหัสนี้สังกัด "${psif.vsm || 'ไม่ระบุหน่วยงาน'}" — ระบบเบิกรองรับ ${VSMS.join(' / ')} · ให้ Admin เพิ่มชื่อเข้า VSM ที่ต้องการ`, status: 403 };
+  }
+  if (psifDown) return { error: 'เชื่อมต่อรายชื่อพนักงาน (PSIF) ไม่ได้ — ลองใหม่อีกครั้ง', status: 503 };
+  return { error: 'ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin', status: 404 };
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -337,7 +391,7 @@ const NEG_PENALTY = 0.5;
 // The applied schema version is stored in `settings`, so after the first run a
 // cold start costs a single SELECT instead of re-running every migration.
 let _migrated = false;
-const SCHEMA_VERSION = '2';
+const SCHEMA_VERSION = '3';
 async function ensureSchema(env) {
   if (_migrated || !env.DB) return;
   try {
@@ -369,6 +423,12 @@ async function ensureSchema(env) {
        )`
     ).run();
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_req_photos_req ON requisition_photos(req_id)').run();
+    // v3: VSM separation. The column default puts every existing row in VSM4.
+    for (const t of ['items', 'requisitions', 'employees', 'machines', 'scan_reports', 'match_feedback']) {
+      try { await env.DB.prepare(`ALTER TABLE ${t} ADD COLUMN vsm TEXT NOT NULL DEFAULT '${DEFAULT_VSM}'`).run(); } catch {}
+    }
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_items_vsm ON items(vsm, is_active)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_requisitions_vsm ON requisitions(vsm, status, created_at)').run();
     await env.DB.prepare(
       "INSERT INTO settings (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
     ).bind(SCHEMA_VERSION).run();
@@ -424,9 +484,14 @@ function genReqNo() {
 }
 
 // ===== Check admin =====
+// ADMIN_PASSWORD unlocks every VSM. An optional ADMIN_PASSWORD_VSM3 /
+// ADMIN_PASSWORD_VSM4 secret unlocks only that VSM, so each VSM's Admin can
+// be kept out of the other VSM's data.
 function isAdmin(request, env) {
   const key = request.headers.get('X-Admin-Key') || '';
-  return key === (env.ADMIN_PASSWORD || 'admin1234');
+  if (!key) return false;
+  const vsmKey = env['ADMIN_PASSWORD_' + reqVsm(request)];
+  return key === (env.ADMIN_PASSWORD || 'admin1234') || (!!vsmKey && key === vsmKey);
 }
 
 // ===== Router =====
@@ -441,10 +506,19 @@ export default {
     }
 
     await ensureSchema(env);
+    const vsm = reqVsm(request);   // the session's VSM — scopes every query below
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
-      return json({ ok: true, version: '2.0.0', ts: new Date().toISOString() });
+      return json({ ok: true, version: '3.0.0', vsms: VSMS, psif_roster: !!env.PSIF_DB, ts: new Date().toISOString() });
+    }
+
+    // ── Employee login: code → name + VSM (the session is locked to that VSM) ──
+    if (path === '/api/login' && method === 'POST') {
+      const { emp_code } = await request.json().catch(() => ({}));
+      const r = await resolveEmployee(env, emp_code);
+      if (r.error) return err(r.error, r.status);
+      return json({ ok: true, user: r.emp });
     }
 
     // ── Admin: verify password (server-side login check) ─────
@@ -453,7 +527,7 @@ export default {
     // API call 401. This endpoint lets the login verify against the server.
     if (path === '/api/admin/verify' && method === 'POST') {
       if (!isAdmin(request, env)) return err('รหัสผ่านไม่ถูกต้อง', 401);
-      return json({ ok: true });
+      return json({ ok: true, vsm });
     }
 
     // ── Categories ──────────────────────────────────────────
@@ -494,8 +568,8 @@ export default {
       const row = await env.DB.prepare(`
         SELECT i.*, c.name as category_name
         FROM items i LEFT JOIN categories c ON i.category_id = c.id
-        WHERE i.id = ? AND i.is_active = 1
-      `).bind(id).first();
+        WHERE i.id = ? AND i.is_active = 1 AND i.vsm = ?
+      `).bind(id, vsm).first();
       if (!row) return err('ไม่พบอุปกรณ์', 404);
       const has_embedding = !!row.embedding; // AI-indexed (resnet label vector stored)
       const has_image = !!(row.image_key || row.image_b64);
@@ -509,15 +583,16 @@ export default {
     }
 
     // ── Items: list ─────────────────────────────────────────
-    // ── Items: suggest the next running code (I-0001, I-0002, …) ──
+    // ── Items: suggest the next running code (VSM4: I-0001…, VSM3: V3-0001…) ──
     if (path === '/api/items/next-code' && method === 'GET') {
-      const rows = await env.DB.prepare("SELECT part_code FROM items WHERE part_code LIKE 'I-%'").all();
+      const prefix = CODE_PREFIX[vsm];
+      const rows = await env.DB.prepare('SELECT part_code FROM items WHERE part_code LIKE ?').bind(prefix + '%').all();
       let max = 0;
       for (const r of rows.results || []) {
-        const m = /^I-(\d+)$/.exec(r.part_code);
-        if (m) { const n = parseInt(m[1], 10); if (n > max) max = n; }
+        const n = r.part_code.slice(prefix.length);
+        if (/^\d+$/.test(n)) max = Math.max(max, parseInt(n, 10));
       }
-      return json({ ok: true, next: 'I-' + String(max + 1).padStart(4, '0') });
+      return json({ ok: true, next: prefix + String(max + 1).padStart(4, '0') });
     }
 
     if (path === '/api/items' && method === 'GET') {
@@ -530,9 +605,9 @@ export default {
       let sql = `
         SELECT i.*, c.name as category_name
         FROM items i LEFT JOIN categories c ON i.category_id = c.id
-        WHERE i.is_active = 1
+        WHERE i.is_active = 1 AND i.vsm = ?
       `;
-      const params = [];
+      const params = [vsm];
       if (search) { sql += ` AND (i.name LIKE ? OR i.part_code LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
       if (cat)    { sql += ` AND i.category_id = ?`; params.push(cat); }
       sql += ` ORDER BY i.name LIMIT ? OFFSET ?`;
@@ -540,8 +615,8 @@ export default {
 
       const rows = await env.DB.prepare(sql).bind(...params).all();
       const total = await env.DB.prepare(
-        `SELECT COUNT(*) as n FROM items WHERE is_active=1 ${search ? 'AND (name LIKE ? OR part_code LIKE ?)' : ''}`
-      ).bind(...(search ? [`%${search}%`, `%${search}%`] : [])).first();
+        `SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=? ${search ? 'AND (name LIKE ? OR part_code LIKE ?)' : ''}`
+      ).bind(vsm, ...(search ? [`%${search}%`, `%${search}%`] : [])).first();
 
       // Strip the heavy fields from the list: send a small image URL instead of
       // base64, so big inventories load fast. has_embedding = AI-indexed.
@@ -585,10 +660,10 @@ export default {
 
       try {
         const res = await env.DB.prepare(`
-          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding, phash)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO items (part_code, name, description, category_id, unit, stock_qty, min_stock, image_b64, image_key, thumb_key, embedding, phash, vsm)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(part_code, name, description || null, category_id || null, unit || 'ชิ้น',
-                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, null, phashStore).run();
+                stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, null, phashStore, vsm).run();
 
         const newId = res.meta.last_row_id;
         if (stock_qty > 0) {
@@ -600,7 +675,13 @@ export default {
 
         return json({ ok: true, id: newId });
       } catch (e) {
-        if (e.message?.includes('UNIQUE')) return err('รหัสอุปกรณ์นี้มีในระบบแล้ว');
+        if (e.message?.includes('UNIQUE')) {
+          // part_code is unique plant-wide, so the clash may be another VSM's item.
+          const other = await env.DB.prepare('SELECT vsm FROM items WHERE part_code=?').bind(part_code).first();
+          return err(other && other.vsm !== vsm
+            ? `รหัสอุปกรณ์นี้ถูกใช้แล้วใน ${other.vsm} — ใช้รหัสอื่น (รหัสห้ามซ้ำทุก VSM)`
+            : 'รหัสอุปกรณ์นี้มีในระบบแล้ว');
+        }
         throw e;
       }
     }
@@ -612,6 +693,8 @@ export default {
       const id = itemEditMatch[1];
       const body = await request.json();
       const { name, description, category_id, unit, min_stock, image_b64, thumb_b64, phash, phashes } = body;
+      const own = await env.DB.prepare('SELECT id FROM items WHERE id=? AND vsm=?').bind(id, vsm).first();
+      if (!own) return err('ไม่พบอุปกรณ์', 404);
 
       const sets = ['name=?', 'description=?', 'category_id=?', 'unit=?', 'min_stock=?', "updated_at=datetime('now','localtime')"];
       const vals = [name, description, category_id, unit, min_stock];
@@ -646,7 +729,8 @@ export default {
     if (itemEditMatch && method === 'DELETE') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const id = itemEditMatch[1];
-      await env.DB.prepare(`UPDATE items SET is_active=0 WHERE id=?`).bind(id).run();
+      const res = await env.DB.prepare(`UPDATE items SET is_active=0 WHERE id=? AND vsm=?`).bind(id, vsm).run();
+      if (!res.meta.changes) return err('ไม่พบอุปกรณ์', 404);
       return json({ ok: true });
     }
 
@@ -755,7 +839,9 @@ export default {
         // feedback), then SUBTRACT a penalty for its closest NEGATIVE vector
         // (a photo a user explicitly said is NOT this item). Items with only
         // negative vectors never surface (no positive to rank).
-        const vrows = await env.DB.prepare('SELECT item_id, vec, source FROM item_vectors').all();
+        const vrows = await env.DB.prepare(
+          'SELECT v.item_id, v.vec, v.source FROM item_vectors v JOIN items i ON i.id = v.item_id WHERE i.vsm = ?'
+        ).bind(vsm).all();
         const posByItem = {}, negByItem = {};
         for (const r of vrows.results || []) {
           let v = null; try { v = JSON.parse(r.vec); } catch {}
@@ -795,8 +881,8 @@ export default {
       // Scan only id + embedding + phash (small) for scoring — NOT the heavy
       // base64 images; we fetch images only for the final winners below.
       const rows = await env.DB.prepare(
-        `SELECT id, embedding, phash FROM items WHERE is_active=1 AND embedding IS NOT NULL`
-      ).all();
+        `SELECT id, embedding, phash FROM items WHERE is_active=1 AND embedding IS NOT NULL AND vsm=?`
+      ).bind(vsm).all();
       const items = rows.results || [];
       if (!items.length) {
         return json({ ok: true, matches: [], message: 'ยังไม่มีอุปกรณ์ที่ทำดัชนี AI แล้ว — กดปุ่มทำดัชนีในหน้าแอดมิน' });
@@ -881,7 +967,7 @@ export default {
       const body = await request.json().catch(() => ({}));
       const { image_b64, item_id, engine } = body;
       if (!image_b64 || !item_id) return err('image_b64 และ item_id จำเป็น');
-      const item = await env.DB.prepare('SELECT id, part_code, name FROM items WHERE id=? AND is_active=1').bind(item_id).first();
+      const item = await env.DB.prepare('SELECT id, part_code, name FROM items WHERE id=? AND is_active=1 AND vsm=?').bind(item_id, vsm).first();
       if (!item) return err('ไม่พบอุปกรณ์', 404);
 
       // Negative-bearing sources — the user explicitly told us the other shown
@@ -943,11 +1029,11 @@ export default {
       // Audit log — every feedback event, regardless of engine/source.
       try {
         await env.DB.prepare(
-          `INSERT INTO match_feedback (engine, chosen_item_id, chosen_label, rejected_item_ids, candidates, source, reporter)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO match_feedback (engine, chosen_item_id, chosen_label, rejected_item_ids, candidates, source, reporter, vsm)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           useJina ? 'jina' : 'legacy', item_id, `${item.name} (${item.part_code})`,
-          JSON.stringify(negatives), JSON.stringify(candidates), source, reporter
+          JSON.stringify(negatives), JSON.stringify(candidates), source, reporter, vsm
         ).run();
       } catch (e) { console.error('feedback log error:', e); }
 
@@ -959,8 +1045,8 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const rows = await env.DB.prepare(
         `SELECT id, engine, chosen_item_id, chosen_label, rejected_item_ids, candidates, source, reporter, created_at
-         FROM match_feedback ORDER BY id DESC LIMIT 100`
-      ).all().catch(() => ({ results: [] }));
+         FROM match_feedback WHERE vsm=? ORDER BY id DESC LIMIT 100`
+      ).bind(vsm).all().catch(() => ({ results: [] }));
       const data = rows.results || [];
       // Resolve rejected item ids → "name (code)" for display.
       const ids = new Set();
@@ -987,14 +1073,14 @@ export default {
       if (!image_b64) return err('image_b64 จำเป็น');
       const fp = await buildFingerprint(env, image_b64); // best-effort; may be null
       const res = await env.DB.prepare(
-        `INSERT INTO scan_reports (image_b64, labels, vec, caption, reporter, note, top_guess)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO scan_reports (image_b64, labels, vec, caption, reporter, note, top_guess, vsm)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         image_b64,
         fp ? JSON.stringify(fp.labels || {}) : null,
         fp && fp.vec ? JSON.stringify(fp.vec) : null,
         fp ? (fp.caption || '') : null,
-        reporter || null, note || null, top_guess || null
+        reporter || null, note || null, top_guess || null, vsm
       ).run();
       return json({ ok: true, id: res.meta.last_row_id });
     }
@@ -1005,8 +1091,8 @@ export default {
       const status = url.searchParams.get('status') || 'pending';
       const rows = await env.DB.prepare(
         `SELECT id, image_b64, caption, reporter, note, top_guess, status, resolved_item_id, created_at
-         FROM scan_reports WHERE status=? ORDER BY id DESC LIMIT 50`
-      ).bind(status).all();
+         FROM scan_reports WHERE status=? AND vsm=? ORDER BY id DESC LIMIT 50`
+      ).bind(status, vsm).all();
       return json({ ok: true, data: rows.results || [] });
     }
 
@@ -1021,11 +1107,11 @@ export default {
       const { status, item_id } = await request.json().catch(() => ({}));
       if (!['added', 'linked', 'dismissed', 'pending_new'].includes(status)) return err('status ไม่ถูกต้อง');
 
-      const rep = await env.DB.prepare('SELECT labels, vec, caption FROM scan_reports WHERE id=?').bind(id).first();
+      const rep = await env.DB.prepare('SELECT labels, vec, caption FROM scan_reports WHERE id=? AND vsm=?').bind(id, vsm).first();
       if (!rep) return err('ไม่พบรายการแจ้ง', 404);
 
       if (item_id && (status === 'added' || status === 'linked')) {
-        const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1').bind(item_id).first();
+        const item = await env.DB.prepare('SELECT id FROM items WHERE id=? AND is_active=1 AND vsm=?').bind(item_id, vsm).first();
         if (item) {
           await env.DB.prepare(
             `INSERT INTO match_examples (item_id, labels, vec, caption) VALUES (?, ?, ?, ?)`
@@ -1042,8 +1128,8 @@ export default {
     if (path === '/api/reindex' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const rows = await env.DB.prepare(
-        `SELECT id, image_b64, image_key, name, description FROM items WHERE is_active=1 AND (image_b64 IS NOT NULL OR image_key IS NOT NULL)`
-      ).all();
+        `SELECT id, image_b64, image_key, name, description FROM items WHERE is_active=1 AND vsm=? AND (image_b64 IS NOT NULL OR image_key IS NOT NULL)`
+      ).bind(vsm).all();
       let indexed = 0, failed = 0, semantic = 0;
       for (const it of rows.results || []) {
         // Source the image bytes from D1 (legacy) or R2 (current).
@@ -1092,7 +1178,7 @@ export default {
       const { item_id, movement, qty, note } = await request.json();
       if (!item_id || !movement || !qty) return err('ข้อมูลไม่ครบ');
 
-      const item = await env.DB.prepare('SELECT stock_qty FROM items WHERE id=?').bind(item_id).first();
+      const item = await env.DB.prepare('SELECT stock_qty FROM items WHERE id=? AND vsm=?').bind(item_id, vsm).first();
       if (!item) return err('ไม่พบอุปกรณ์');
 
       const newBalance = movement === 'in'
@@ -1121,8 +1207,8 @@ export default {
       const statuses = (url.searchParams.get('status') || '').split(',').map(s => s.trim()).filter(Boolean);
       const empCode = (url.searchParams.get('emp_code') || '').trim();
 
-      let where = ' WHERE 1=1';
-      const params = [];
+      let where = ' WHERE vsm = ?';
+      const params = [vsm];
       if (statuses.length) { where += ` AND status IN (${statuses.map(() => '?').join(',')})`; params.push(...statuses); }
       // Older rows carry the code only inside requester_name ("ชื่อ (E001)").
       if (empCode) { where += ' AND (emp_code = ? OR requester_name LIKE ?)'; params.push(empCode, `%(${empCode})`); }
@@ -1187,6 +1273,14 @@ export default {
       const qty = Number(req_qty);
       if (photos.length && !(qty > 0)) return err('กรุณาระบุจำนวนที่ต้องการเบิก');
 
+      // File it under the requester's VSM from the roster (not just the header), so a
+      // stale client can't put it in the wrong VSM; fall back to the session's VSM.
+      let reqVsmValue = vsm;
+      if (emp_code) {
+        const who = await resolveEmployee(env, emp_code).catch(() => ({}));
+        if (who.emp) reqVsmValue = who.emp.vsm;
+      }
+
       // Store photos first: a storage failure must not leave a photo-less requisition.
       const stored = [];
       for (let i = 0; i < photos.length; i++) {
@@ -1200,10 +1294,10 @@ export default {
         req_no = genReqNo();
         try {
           res = await env.DB.prepare(`
-            INSERT INTO requisitions (req_no, requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO requisitions (req_no, requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit, vsm)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(req_no, requester_name, emp_code || null, deptText, machine_no || null, zone || null,
-                  purpose || null, qty > 0 ? qty : null, req_unit || null).run();
+                  purpose || null, qty > 0 ? qty : null, req_unit || null, reqVsmValue).run();
           break;
         } catch (e) {
           if (attempt < 3 && e.message?.includes('UNIQUE')) continue;
@@ -1223,7 +1317,7 @@ export default {
       }
       if (stmts.length) await env.DB.batch(stmts);
 
-      return json({ ok: true, req_no, id: req_id, photos: stored.length });
+      return json({ ok: true, req_no, id: req_id, photos: stored.length, vsm: reqVsmValue });
     }
 
     // ── Requisition photo (binary, cached) ───────────────────
@@ -1252,7 +1346,7 @@ export default {
       const by = String(approved_by || '').trim();
       if (!by) return err('กรุณาระบุชื่อผู้อนุมัติ');
 
-      const req = await env.DB.prepare('SELECT id, req_no, status FROM requisitions WHERE id=?').bind(id).first();
+      const req = await env.DB.prepare('SELECT id, req_no, status FROM requisitions WHERE id=? AND vsm=?').bind(id, vsm).first();
       if (!req) return err('ไม่พบใบเบิก', 404);
       if (req.status === 'completed' || req.status === 'rejected') return err('ใบเบิกนี้ดำเนินการเสร็จแล้ว');
 
@@ -1268,7 +1362,7 @@ export default {
       const ids = lines.map(l => l.item_id);
       const ph = ids.map(() => '?').join(',');
       if (ids.length) {
-        const found = await env.DB.prepare(`SELECT COUNT(*) as n FROM items WHERE is_active=1 AND id IN (${ph})`).bind(...ids).first();
+        const found = await env.DB.prepare(`SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=? AND id IN (${ph})`).bind(vsm, ...ids).first();
         if ((found?.n ?? 0) !== ids.length) return err('มี Item ที่ไม่พบในระบบ — รีเฟรชแล้วลองใหม่');
       }
 
@@ -1304,6 +1398,8 @@ export default {
       const { status, approved_by, note } = await request.json();
       const validStatuses = ['pending', 'approved', 'rejected', 'completed'];
       if (!validStatuses.includes(status)) return err('status ไม่ถูกต้อง');
+      const req = await env.DB.prepare('SELECT req_no FROM requisitions WHERE id=? AND vsm=?').bind(id, vsm).first();
+      if (!req) return err('ไม่พบใบเบิก', 404);
 
       const stmts = [env.DB.prepare(`
         UPDATE requisitions SET status=?, approved_by=?, note=?, updated_at=datetime('now','localtime') WHERE id=?
@@ -1311,13 +1407,12 @@ export default {
 
       // completed → deduct stock (idempotent, see issueStockStmts)
       if (status === 'completed') {
-        const req = await env.DB.prepare('SELECT req_no FROM requisitions WHERE id=?').bind(id).first();
         const items = await env.DB.prepare('SELECT item_id, SUM(qty_requested) as qty FROM requisition_items WHERE req_id=? GROUP BY item_id')
           .bind(id).all();
         const lines = (items.results || []).map(r => ({ item_id: r.item_id, qty: r.qty }));
         if (!lines.length) return err('ยังไม่ได้ระบุ Item Part ของใบเบิกนี้');
         stmts.push(env.DB.prepare('UPDATE requisition_items SET qty_issued=qty_requested WHERE req_id=?').bind(id));
-        stmts.push(...issueStockStmts(env, Number(id), req?.req_no, lines, approved_by));
+        stmts.push(...issueStockStmts(env, Number(id), req.req_no, lines, approved_by));
       }
       await env.DB.batch(stmts);
 
@@ -1334,12 +1429,12 @@ export default {
                (i.image_key IS NOT NULL OR i.image_b64 IS NOT NULL) AS has_image,
                SUM(m.qty) AS issued, COUNT(DISTINCT m.req_id) AS req_count, MAX(m.created_at) AS last_out
         FROM stock_movements m JOIN items i ON i.id = m.item_id
-        WHERE m.movement = 'out' AND i.is_active = 1 AND m.created_at >= datetime('now','localtime', ?)
+        WHERE m.movement = 'out' AND i.is_active = 1 AND i.vsm = ? AND m.created_at >= datetime('now','localtime', ?)
         GROUP BY i.id ORDER BY issued DESC LIMIT 300
-      `).bind(since).all();
+      `).bind(vsm, since).all();
       const reqCount = await env.DB.prepare(
-        "SELECT COUNT(*) as n FROM requisitions WHERE created_at >= datetime('now','localtime', ?)"
-      ).bind(since).first();
+        "SELECT COUNT(*) as n FROM requisitions WHERE vsm = ? AND created_at >= datetime('now','localtime', ?)"
+      ).bind(vsm, since).first();
       const data = (rows.results || []).map(r => {
         const perDay = r.issued / days;
         const v = encodeURIComponent(r.updated_at || '');
@@ -1357,16 +1452,19 @@ export default {
     // ── Stats ────────────────────────────────────────────────
     if (path === '/api/stats' && method === 'GET') {
       const [items, reqs, pending, lowStock, movements, learned] = await Promise.all([
-        env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1').first(),
-        env.DB.prepare('SELECT COUNT(*) as n FROM requisitions').first(),
-        env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='pending'").first(),
-        env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1 AND stock_qty <= min_stock').first(),
-        env.DB.prepare('SELECT * FROM stock_movements ORDER BY created_at DESC LIMIT 10').all(),
-        env.DB.prepare('SELECT COUNT(*) as n FROM match_examples').first().catch(() => ({ n: 0 })),
+        env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=?').bind(vsm).first(),
+        env.DB.prepare('SELECT COUNT(*) as n FROM requisitions WHERE vsm=?').bind(vsm).first(),
+        env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='pending' AND vsm=?").bind(vsm).first(),
+        env.DB.prepare('SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=? AND stock_qty <= min_stock').bind(vsm).first(),
+        env.DB.prepare(
+          'SELECT m.* FROM stock_movements m JOIN items i ON i.id = m.item_id WHERE i.vsm=? ORDER BY m.created_at DESC LIMIT 10'
+        ).bind(vsm).all(),
+        env.DB.prepare('SELECT COUNT(*) as n FROM match_examples x JOIN items i ON i.id = x.item_id WHERE i.vsm=?')
+          .bind(vsm).first().catch(() => ({ n: 0 })),
       ]);
-      const reports = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending'").first().catch(() => ({ n: 0 }));
-      const pendingReq = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending_new'").first().catch(() => ({ n: 0 }));
-      const toIssue = await env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='approved'").first();
+      const reports = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending' AND vsm=?").bind(vsm).first().catch(() => ({ n: 0 }));
+      const pendingReq = await env.DB.prepare("SELECT COUNT(*) as n FROM scan_reports WHERE status='pending_new' AND vsm=?").bind(vsm).first().catch(() => ({ n: 0 }));
+      const toIssue = await env.DB.prepare("SELECT COUNT(*) as n FROM requisitions WHERE status='approved' AND vsm=?").bind(vsm).first();
       return json({
         ok: true,
         items: items?.n ?? 0,
@@ -1381,9 +1479,21 @@ export default {
       });
     }
 
-    // ── Employees (master data, shared in D1) ────────────────
+    // ── Employees ─────────────────────────────────────────────
+    // The roster is PSIF's (see resolveEmployee). This table is the per-VSM
+    // extra list: people PSIF doesn't place in VSM3/VSM4 but who may withdraw here.
+    if (path === '/api/employees/psif' && method === 'GET') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      if (!env.PSIF_DB) return json({ ok: true, linked: false, data: [] });
+      const rows = await env.PSIF_DB.prepare(
+        `SELECT id AS emp_code, name AS emp_name FROM employees
+         WHERE active=1 AND UPPER(REPLACE(TRIM(vsm),' ',''))=? AND id NOT LIKE 'RESIGNED-%' ORDER BY id`
+      ).bind(vsm).all();
+      return json({ ok: true, linked: true, data: rows.results || [] });
+    }
     if (path === '/api/employees' && method === 'GET') {
-      const rows = await env.DB.prepare('SELECT id, emp_code, emp_name FROM employees ORDER BY emp_code').all();
+      const rows = await env.DB.prepare('SELECT id, emp_code, emp_name, vsm FROM employees WHERE vsm=? ORDER BY emp_code')
+        .bind(vsm).all();
       return json({ ok: true, data: rows.results || [] });
     }
     if (path === '/api/employees' && method === 'POST') {
@@ -1391,11 +1501,14 @@ export default {
       const { emp_code, emp_name } = await request.json();
       if (!emp_code || !emp_name) return err('กรุณากรอกรหัสและชื่อพนักงาน');
       try {
-        const res = await env.DB.prepare('INSERT INTO employees (emp_code, emp_name) VALUES (?, ?)')
-          .bind(emp_code, emp_name).run();
+        const res = await env.DB.prepare('INSERT INTO employees (emp_code, emp_name, vsm) VALUES (?, ?, ?)')
+          .bind(emp_code, emp_name, vsm).run();
         return json({ ok: true, id: res.meta.last_row_id });
       } catch (e) {
-        if (e.message?.includes('UNIQUE')) return err('รหัสพนักงานนี้มีในระบบแล้ว');
+        if (e.message?.includes('UNIQUE')) {
+          const other = await env.DB.prepare('SELECT vsm FROM employees WHERE emp_code=?').bind(emp_code).first();
+          return err(other && other.vsm !== vsm ? `รหัสพนักงานนี้อยู่ใน ${other.vsm} แล้ว — ลบออกจาก ${other.vsm} ก่อน` : 'รหัสพนักงานนี้มีในระบบแล้ว');
+        }
         throw e;
       }
     }
@@ -1404,19 +1517,20 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const { emp_code, emp_name } = await request.json();
       if (!emp_code || !emp_name) return err('ข้อมูลไม่ครบ');
-      await env.DB.prepare('UPDATE employees SET emp_code=?, emp_name=? WHERE id=?')
-        .bind(emp_code, emp_name, empMatch[1]).run();
+      await env.DB.prepare('UPDATE employees SET emp_code=?, emp_name=? WHERE id=? AND vsm=?')
+        .bind(emp_code, emp_name, empMatch[1], vsm).run();
       return json({ ok: true });
     }
     if (empMatch && method === 'DELETE') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      await env.DB.prepare('DELETE FROM employees WHERE id=?').bind(empMatch[1]).run();
+      await env.DB.prepare('DELETE FROM employees WHERE id=? AND vsm=?').bind(empMatch[1], vsm).run();
       return json({ ok: true });
     }
 
-    // ── Machines (master data, shared in D1) ─────────────────
+    // ── Machines (master data, per VSM) ──────────────────────
     if (path === '/api/machines' && method === 'GET') {
-      const rows = await env.DB.prepare('SELECT id, machine_no, zone FROM machines ORDER BY machine_no').all();
+      const rows = await env.DB.prepare('SELECT id, machine_no, zone FROM machines WHERE vsm=? ORDER BY machine_no')
+        .bind(vsm).all();
       return json({ ok: true, data: rows.results || [] });
     }
     if (path === '/api/machines' && method === 'POST') {
@@ -1424,11 +1538,14 @@ export default {
       const { machine_no, zone } = await request.json();
       if (!machine_no) return err('กรุณากรอกหมายเลขเครื่องจักร');
       try {
-        const res = await env.DB.prepare('INSERT INTO machines (machine_no, zone) VALUES (?, ?)')
-          .bind(machine_no, zone || null).run();
+        const res = await env.DB.prepare('INSERT INTO machines (machine_no, zone, vsm) VALUES (?, ?, ?)')
+          .bind(machine_no, zone || null, vsm).run();
         return json({ ok: true, id: res.meta.last_row_id });
       } catch (e) {
-        if (e.message?.includes('UNIQUE')) return err('หมายเลขเครื่องนี้มีในระบบแล้ว');
+        if (e.message?.includes('UNIQUE')) {
+          const other = await env.DB.prepare('SELECT vsm FROM machines WHERE machine_no=?').bind(machine_no).first();
+          return err(other && other.vsm !== vsm ? `หมายเลขเครื่องนี้มีใน ${other.vsm} แล้ว` : 'หมายเลขเครื่องนี้มีในระบบแล้ว');
+        }
         throw e;
       }
     }
@@ -1437,13 +1554,13 @@ export default {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
       const { machine_no, zone } = await request.json();
       if (!machine_no) return err('ข้อมูลไม่ครบ');
-      await env.DB.prepare('UPDATE machines SET machine_no=?, zone=? WHERE id=?')
-        .bind(machine_no, zone || null, machineMatch[1]).run();
+      await env.DB.prepare('UPDATE machines SET machine_no=?, zone=? WHERE id=? AND vsm=?')
+        .bind(machine_no, zone || null, machineMatch[1], vsm).run();
       return json({ ok: true });
     }
     if (machineMatch && method === 'DELETE') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      await env.DB.prepare('DELETE FROM machines WHERE id=?').bind(machineMatch[1]).run();
+      await env.DB.prepare('DELETE FROM machines WHERE id=? AND vsm=?').bind(machineMatch[1], vsm).run();
       return json({ ok: true });
     }
 

@@ -290,6 +290,21 @@ textarea { resize: vertical; min-height: 70px; }
 .user-chip { font-size: 12px; background: rgba(255,255,255,.18); color: #fff;
   padding: 4px 10px; border-radius: 20px; white-space: nowrap; max-width: 130px;
   overflow: hidden; text-overflow: ellipsis; }
+.login-note { font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+/* ======= VSM — the session is locked to one VSM at login ======= */
+/* VSM3 gets its own colour so a shared tablet never leaves anyone guessing. */
+body[data-vsm="VSM3"] { --primary: #0f766e; --primary-dk: #134e4a; }
+.vsm-pill { display: none; font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: .6px; background: #fff; color: var(--primary-dk); padding: 1px 8px;
+  border-radius: 999px; margin-right: 6px; vertical-align: 1px; }
+body[data-vsm] .vsm-pill { display: inline-block; }
+.vsm-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vsm-pick button { border: 2px solid var(--border); background: #fff; color: var(--text);
+  border-radius: 12px; padding: 11px 8px; font-family: var(--font-display); font-size: 17px;
+  font-weight: 700; cursor: pointer; transition: all .15s; }
+.vsm-pick button[data-vsm="VSM3"].active { background: #0f766e; border-color: #0f766e; color: #fff; }
+.vsm-pick button[data-vsm="VSM4"].active { background: #1a56db; border-color: #1a56db; color: #fff; }
 
 /* ======= ITEM GRID ======= */
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
@@ -668,6 +683,7 @@ textarea { resize: vertical; min-height: 70px; }
                oninput="clearFieldError('loginEmpCode','errLogin')"
                onkeydown="if(event.key==='Enter')doLogin()">
         <div class="field-error" id="errLogin">ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin</div>
+        <div class="login-note">ระบบแยก VSM ให้อัตโนมัติตามรายชื่อในระบบ PSIF</div>
       </div>
       <button class="btn btn-primary btn-block" id="btnLogin" onclick="doLogin()">เข้าสู่ระบบ</button>
       <button class="btn-link" onclick="toggleAdminGate(true)">🔧 เข้าระบบในฐานะผู้ดูแล (Admin)</button>
@@ -675,6 +691,14 @@ textarea { resize: vertical; min-height: 70px; }
 
     <div id="loginAdminBox" style="display:none">
       <div class="form-group" style="margin-top:18px;text-align:left">
+        <label>ดูแล VSM</label>
+        <div class="vsm-pick" id="adminVsmPick">
+          <button type="button" data-vsm="VSM3" onclick="pickAdminVsm('VSM3')">VSM3</button>
+          <button type="button" data-vsm="VSM4" onclick="pickAdminVsm('VSM4')">VSM4</button>
+        </div>
+        <div class="field-error" id="errAdminVsm">กรุณาเลือก VSM</div>
+      </div>
+      <div class="form-group" style="text-align:left">
         <label>รหัสผ่านผู้ดูแล (Admin)</label>
         <input type="password" id="loginAdminPwd" placeholder="กรอกรหัสผ่าน"
                oninput="clearFieldError('loginAdminPwd','errLoginAdmin')"
@@ -692,7 +716,7 @@ textarea { resize: vertical; min-height: 70px; }
   <div class="logo"><svg viewBox="0 0 100 100" role="img" aria-label="โลโก้ระบบเบิกอุปกรณ์"><use href="#logoMark"/></svg></div>
   <div>
     <h1>ระบบเบิกอุปกรณ์</h1>
-    <div class="sub">Factory Requisition System</div>
+    <div class="sub"><span class="vsm-pill" id="vsmPill"></span>Factory Requisition System</div>
   </div>
   <div class="header-right">
     <span class="user-chip" id="userChip" style="display:none"></span>
@@ -969,6 +993,11 @@ textarea { resize: vertical; min-height: 70px; }
 
     <div class="card">
       <div class="card-title">👥 ฐานข้อมูลพนักงาน <span style="font-weight:400;font-size:12px;color:var(--sub)">(รหัส ↔ ชื่อ — ใช้เข้าสู่ระบบและระบุผู้เบิก)</span></div>
+      <div class="text-sub" style="margin-bottom:10px">
+        รายชื่อหลักดึงจากระบบ <b>PSIF</b> อัตโนมัติ — พนักงานที่สังกัด <b class="vsmName"></b> ใน PSIF เข้าระบบได้ทันที.
+        เพิ่มด้านล่างเฉพาะคนที่ไม่ได้สังกัด <b class="vsmName"></b> ใน PSIF แต่ต้องเบิกของที่นี่ (เช่น ช่างซ่อมบำรุง)
+      </div>
+      <div id="psifRoster" style="margin-bottom:12px"></div>
       <div class="row">
         <div class="col form-group">
           <label>รหัสพนักงาน</label>
@@ -979,7 +1008,7 @@ textarea { resize: vertical; min-height: 70px; }
           <input type="text" id="empName" placeholder="ชื่อ-นามสกุล" onkeydown="if(event.key==='Enter')addEmployee()">
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="addEmployee()" id="btnAddEmp">➕ เพิ่มพนักงาน</button>
+      <button class="btn btn-primary btn-sm" onclick="addEmployee()" id="btnAddEmp">➕ เพิ่มพนักงานเข้า <span class="vsmName"></span></button>
       <div id="employeeList" style="margin-top:12px"></div>
     </div>
 
@@ -1290,7 +1319,9 @@ let categories = [];
 let employees = [];
 let machines = [];
 let _confirmResolve = null;
-let currentUser = null;       // { code, name, isAdmin }
+let currentUser = null;       // { code, name, isAdmin, vsm } — vsm is locked at login
+const VSMS = ['VSM3', 'VSM4'];
+let adminGateVsm = localStorage.getItem('req_admin_vsm') || '';
 let reqPhotos = [];           // employee's photos for the current requisition (data URLs)
 const REQ_MAX_PHOTOS = 4;
 const REQ_PHOTO_DIM = 1600;   // keep detail so Admin can zoom in on part numbers
@@ -1329,20 +1360,21 @@ function makeAdminCollapsible() {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore the session first: every data call below is scoped to its VSM.
+  restoreSession();
   if (!API_URL) {
     setTimeout(() => { showToast('⚙️ กรุณาตั้งค่า Worker URL ก่อนใช้งาน', 'error'); showSettings(); }, 800);
   } else {
     checkHealth();
-    checkLowStockNotif();
+    if (currentUser) checkLowStockNotif();
   }
   loadCategories();
-  loadMasterData().then(lookupMachine);
+  if (currentUser) loadMasterData().then(lookupMachine);
   makeAdminCollapsible();
   initLightbox();
   renderReqPhotos();
   const lastMachine = localStorage.getItem('req_last_machine');
   if (lastMachine) document.getElementById('reqMachine').value = lastMachine;
-  restoreSession();
   // Keep the Admin badge / queue fresh so new requisitions don't sit unnoticed.
   setInterval(() => {
     if (document.hidden || !API_URL || !currentUser) return;
@@ -1357,17 +1389,36 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 function restoreSession() {
   const saved = localStorage.getItem('req_user');
-  if (saved) { try { currentUser = JSON.parse(saved); } catch {} }
-  if (currentUser) applyLogin(currentUser, true);
+  let u = null;
+  if (saved) { try { u = JSON.parse(saved); } catch {} }
+  // A session saved before VSM support has no VSM — sign in again so it gets locked to one.
+  if (u && !VSMS.includes(u.vsm)) { localStorage.removeItem('req_user'); u = null; }
+  if (u) applyLogin(u, true);
   else showLoginGate();
-  if (currentUser?.isAdmin) restoreAdmin();
+  if (u?.isAdmin) restoreAdmin();
+  else if (u) recheckEmployeeVsm();
+}
+// The employee may have moved VSM in PSIF since they last signed in: follow it.
+async function recheckEmployeeVsm() {
+  if (!API_URL || !currentUser || currentUser.isAdmin) return;
+  try {
+    const res = await fetch(API_URL + '/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emp_code: currentUser.code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok && data.user && data.user.vsm !== currentUser.vsm) {
+      applyLogin({ code: data.user.code, name: data.user.name, isAdmin: false, vsm: data.user.vsm }, false);
+      showToast(`ℹ️ รายชื่อใน PSIF ย้ายคุณไป ${data.user.vsm} แล้ว`);
+    }
+  } catch {}
 }
 // Admin reloading the page: re-check the saved password with the server and
 // unlock the panel, so the review queue is one tap away (no re-typing).
 async function restoreAdmin() {
   if (!API_URL || !ADMIN_PWD) return;
   try {
-    const res = await fetch(API_URL + '/api/admin/verify', { method: 'POST', headers: { 'X-Admin-Key': ADMIN_PWD } });
+    const res = await fetch(API_URL + '/api/admin/verify', { method: 'POST', headers: { 'X-Admin-Key': ADMIN_PWD, 'X-VSM': currentUser.vsm } });
     if (!res.ok) return;
     isAdmin = true;
     document.getElementById('adminLoginSection').style.display = 'none';
@@ -1383,8 +1434,15 @@ function showLoginGate() {
 function toggleAdminGate(showAdmin) {
   document.getElementById('loginUserBox').style.display = showAdmin ? 'none' : 'block';
   document.getElementById('loginAdminBox').style.display = showAdmin ? 'block' : 'none';
-  if (showAdmin) setTimeout(() => document.getElementById('loginAdminPwd')?.focus(), 50);
+  if (showAdmin) { pickAdminVsm(adminGateVsm); setTimeout(() => document.getElementById('loginAdminPwd')?.focus(), 50); }
 }
+function pickAdminVsm(v) {
+  adminGateVsm = VSMS.includes(v) ? v : '';
+  document.querySelectorAll('#adminVsmPick button').forEach(b => b.classList.toggle('active', b.dataset.vsm === adminGateVsm));
+  if (adminGateVsm) document.getElementById('errAdminVsm').classList.remove('show');
+}
+// Employee sign-in: the server looks the code up in the PSIF roster and returns
+// the employee's VSM — the session is locked to it from here on.
 async function doLogin() {
   const code = document.getElementById('loginEmpCode').value.trim();
   if (!code) return showFieldError('loginEmpCode', 'errLogin', 'กรุณากรอกรหัสพนักงาน');
@@ -1396,18 +1454,24 @@ async function doLogin() {
   const btn = document.getElementById('btnLogin');
   btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...';
   try {
-    if (!employees.length) await loadMasterData();
-    // loadMasterData() swallows network errors → empty list almost always means the
-    // server was unreachable, NOT a genuinely-missing employee. Say so explicitly,
-    // otherwise a failed login looks like "กดแล้วเงียบ".
-    if (!employees.length) {
+    let res;
+    try {
+      res = await fetch(API_URL + '/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emp_code: code }),
+      });
+    } catch {
+      // A network failure must not look like "กดแล้วเงียบ" — say so explicitly.
       showFieldError('loginEmpCode', 'errLogin', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบอินเทอร์เน็ต/Worker URL แล้วลองใหม่');
       showToast('❌ เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบการเชื่อมต่อ', 'error');
       return;
     }
-    const emp = employees.find(e => String(e.emp_code).toLowerCase() === code.toLowerCase());
-    if (!emp) { showFieldError('loginEmpCode', 'errLogin', 'ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin'); return; }
-    applyLogin({ code: emp.emp_code, name: emp.emp_name, isAdmin: false }, false);
+    const data = await res.json().catch(() => ({}));
+    if (!data.ok || !data.user) {
+      showFieldError('loginEmpCode', 'errLogin', data.error || 'ไม่พบรหัสพนักงานนี้ — ติดต่อ Admin');
+      return;
+    }
+    applyLogin({ code: data.user.code, name: data.user.name, isAdmin: false, vsm: data.user.vsm }, false);
   } catch (e) {
     showFieldError('loginEmpCode', 'errLogin', 'เกิดข้อผิดพลาด — ลองใหม่อีกครั้ง');
     showToast('❌ เข้าสู่ระบบไม่สำเร็จ — ' + ((e && e.message) || 'ลองใหม่'), 'error');
@@ -1415,28 +1479,32 @@ async function doLogin() {
 }
 async function doAdminGateLogin() {
   const pwd = document.getElementById('loginAdminPwd').value;
+  if (!adminGateVsm) { document.getElementById('errAdminVsm').classList.add('show'); return; }
   if (!pwd) return showFieldError('loginAdminPwd', 'errLoginAdmin', 'กรุณากรอกรหัสผ่าน');
   try {
     const res = await fetch(API_URL + '/api/admin/verify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd, 'X-VSM': adminGateVsm },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error('invalid');
     isAdmin = true; ADMIN_PWD = pwd; localStorage.setItem('req_admin_pwd', pwd);
+    localStorage.setItem('req_admin_vsm', adminGateVsm);
     document.getElementById('loginAdminPwd').value = '';
     // unlock the in-panel admin UI too
     document.getElementById('adminLoginSection').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
-    applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true }, false);
+    applyLogin({ code: 'ADMIN', name: 'ผู้ดูแลระบบ', isAdmin: true, vsm: adminGateVsm }, false);
     loadCategories();
     switchTab('admin');
   } catch {
-    showFieldError('loginAdminPwd', 'errLoginAdmin', 'รหัสผ่านไม่ถูกต้อง');
+    showFieldError('loginAdminPwd', 'errLoginAdmin', `รหัสผ่านไม่ถูกต้อง (หรือไม่มีสิทธิ์ดูแล ${adminGateVsm})`);
   }
 }
 function applyLogin(u, restored) {
+  const vsmChanged = !currentUser || currentUser.vsm !== u.vsm;
   currentUser = u;
   localStorage.setItem('req_user', JSON.stringify(u));
+  applyVsmTheme(u.vsm);
   document.getElementById('loginOverlay').classList.add('hidden');
   const chip = document.getElementById('userChip');
   chip.style.display = ''; chip.textContent = (u.isAdmin ? '🔧 ' : '👤 ') + u.name;
@@ -1444,11 +1512,31 @@ function applyLogin(u, restored) {
   document.getElementById('loginEmpCode').value = '';
   renderWho();
   document.getElementById('histScope').value = u.isAdmin ? 'all' : 'mine';
-  if (!restored) showToast('✅ ยินดีต้อนรับ ' + u.name);
+  if (!restored) {
+    showToast(`✅ ยินดีต้อนรับ ${u.name} · ${u.vsm}`);
+    // Whatever was on screen belonged to the previous session's VSM — reload it.
+    if (vsmChanged) refreshVsmData();
+  }
+}
+// Show which VSM this session is locked to: header pill, colour theme, labels.
+function applyVsmTheme(vsm) {
+  if (vsm) document.body.dataset.vsm = vsm; else delete document.body.dataset.vsm;
+  document.getElementById('vsmPill').textContent = vsm || '';
+  document.querySelectorAll('.vsmName').forEach(el => { el.textContent = vsm || ''; });
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#1a56db';
+}
+function refreshVsmData() {
+  employees = []; machines = [];
+  loadMasterData().then(lookupMachine);
+  checkLowStockNotif();
+  const active = document.querySelector('.page.active');
+  if (active) switchTab(active.id.replace('page-', ''));
 }
 function logout() {
   localStorage.removeItem('req_user');
   currentUser = null; isAdmin = false;
+  applyVsmTheme('');
   document.getElementById('userChip').style.display = 'none';
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('adminLoginSection').style.display = 'block';
@@ -1464,6 +1552,7 @@ function logout() {
 async function api(method, path, body, adminKey) {
   if (!API_URL) { showToast('❌ ยังไม่ได้ตั้งค่า Worker URL', 'error'); throw new Error('No API URL'); }
   const headers = { 'Content-Type': 'application/json' };
+  if (currentUser?.vsm) headers['X-VSM'] = currentUser.vsm;
   if (adminKey || isAdmin) headers['X-Admin-Key'] = ADMIN_PWD;
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
@@ -1582,10 +1671,28 @@ async function addEmployee() {
     await loadMasterData(); renderEmployeeList();
   } catch {} finally { btn.disabled = false; }
 }
+// Read-only view of the PSIF roster for this VSM (who can sign in without being added here).
+async function loadPsifRoster() {
+  const el = document.getElementById('psifRoster');
+  if (!el) return;
+  try {
+    const d = await api('GET', '/api/employees/psif', null, true);
+    if (!d.linked) {
+      el.innerHTML = '<div class="text-sub" style="color:var(--danger)">⚠️ ยังไม่ได้เชื่อมรายชื่อ PSIF (PSIF_DB) — เข้าระบบได้เฉพาะรายชื่อด้านล่าง</div>';
+      return;
+    }
+    const rows = d.data || [];
+    el.innerHTML = `<details><summary style="cursor:pointer;font-weight:600">📋 รายชื่อจาก PSIF — ${escHtml(currentUser.vsm)} (${rows.length} คน)</summary>
+      <div style="overflow-x:auto;max-height:320px;overflow-y:auto;margin-top:8px"><table class="admin-table">
+      <thead><tr><th>รหัส</th><th>ชื่อพนักงาน</th></tr></thead>
+      <tbody>${rows.map(e => `<tr><td style="font-weight:700;color:var(--primary)">${escHtml(e.emp_code)}</td><td>${escHtml(e.emp_name)}</td></tr>`).join('')}</tbody>
+      </table></div></details>`;
+  } catch { el.innerHTML = ''; }
+}
 function renderEmployeeList() {
   const el = document.getElementById('employeeList');
   if (!el) return;
-  if (!employees.length) { el.innerHTML = '<div class="text-sub">ยังไม่มีข้อมูลพนักงาน</div>'; return; }
+  if (!employees.length) { el.innerHTML = '<div class="text-sub">ยังไม่มีรายชื่อเพิ่มเติม</div>'; return; }
   el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
     <thead><tr><th>รหัส</th><th>ชื่อพนักงาน</th><th style="text-align:center">ลบ</th></tr></thead>
     <tbody>${employees.map(e => `<tr>
@@ -1955,7 +2062,7 @@ function renderWho() {
   el.innerHTML = u
     ? `<div class="who-avatar">${u.isAdmin ? '🔧' : '👤'}</div>
        <div style="min-width:0"><div style="font-weight:700">${escHtml(u.name)}</div>
-       <div class="text-sub">ผู้เบิก · รหัส ${escHtml(u.code)}</div></div>`
+       <div class="text-sub">ผู้เบิก · รหัส ${escHtml(u.code)} · ${escHtml(u.vsm || '')}</div></div>`
     : '<div class="text-sub">กรุณาเข้าสู่ระบบก่อนเบิก</div>';
 }
 // Purpose quick-picks: a chip sets the leading phrase; free text after " — " is kept.
@@ -2026,7 +2133,7 @@ async function submitRequisition() {
       fd.append('photo', await dataUrlToBlob(src), `photo${i + 1}.jpg`);
       fd.append('thumb', await dataUrlToBlob(await compressImageDataUrl(src, 360, 0.75)), `thumb${i + 1}.jpg`);
     }
-    const res = await fetch(API_URL + '/api/requisitions', { method: 'POST', body: fd });
+    const res = await fetch(API_URL + '/api/requisitions', { method: 'POST', body: fd, headers: { 'X-VSM': currentUser.vsm } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || 'ส่งไม่สำเร็จ — ลองใหม่');
     localStorage.setItem('req_last_machine', meta.machine_no);
@@ -2224,7 +2331,7 @@ async function adminLogin() {
   try {
     const res = await fetch(API_URL + '/api/admin/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pwd, 'X-VSM': currentUser?.vsm || '' },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error('invalid');
@@ -2259,6 +2366,7 @@ function adminLogout() {
 function loadAdminPanel() {
   loadStats(); loadPending(); loadUsage(); loadAdminItems(); prefillNextCode();
   loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
+  loadPsifRoster();
 }
 async function loadStats() {
   try {
@@ -2987,11 +3095,11 @@ function recvRender(items, isMatch) {
       <span style="color:var(--success);font-weight:800;font-size:18px">📥</span>
     </div>`).join('');
 }
-// Auto running item code (I-0001, I-0002, …) so admin doesn't type it.
+// Auto running item code per VSM (VSM4: I-0001…, VSM3: V3-0001…) so admin doesn't type it.
 async function prefillNextCode() {
   const el = document.getElementById('newPartCode');
   if (!el) return;
-  if (el.value && !/^I-\d{4}$/.test(el.value)) return; // don't overwrite a custom code
+  if (el.value && !/^(I|V3)-\d{4,}$/.test(el.value)) return; // don't overwrite a custom code
   try { const d = await api('GET', '/api/items/next-code', null, true); if (d.next) el.value = d.next; } catch {}
 }
 
