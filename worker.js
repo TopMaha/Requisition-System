@@ -1,6 +1,6 @@
 /**
  * Requisition System - Cloudflare Worker
- * ระบบเบิกอุปกรณ์/อะไหล่โรงงาน ด้วย AI Image Matching
+ * ระบบเบิกอุปกรณ์/อะไหล่โรงงาน — พนักงานสแกน QR Code ของ Part แล้ว Admin อนุมัติ
  *
  * VSM separation: every item / requisition / stock row belongs to one VSM
  * (VSM3 | VSM4). The client sends the session's VSM in the X-VSM header and every
@@ -11,16 +11,18 @@
  *  POST   /api/login          { emp_code } → { user: { code, name, vsm } } via the PSIF roster
  *  GET    /api/categories
  *  GET    /api/items
+ *  GET    /api/items/lookup?code=  - one item by its exact code (QR label / typed code)
  *  POST   /api/items          (admin)
  *  PUT    /api/items/:id      (admin)
  *  DELETE /api/items/:id      (admin)
  *  POST   /api/match          - AI image matching (legacy; no longer used by the app)
  *  POST   /api/stock/adjust   (admin)
  *  GET    /api/requisitions   ?status=pending[,approved] &emp_code= &limit= &page=
- *  POST   /api/requisitions   multipart: meta (JSON) + photo[] + thumb[]  — or legacy JSON with items
+ *  POST   /api/requisitions   JSON { requester_name, emp_code, machine_no, zone, purpose, req_qty, req_unit,
+ *                             items: [{ item_id, qty }] } — Item Part from the scanned QR; no photo is stored
  *  POST   /api/requisitions/:id/review  (admin) - pick Item Part(s) + approve/issue/reject
  *  PUT    /api/requisitions/:id/status  (admin)
- *  GET    /api/req-photos/:id/image | /thumb   - requisition photo bytes
+ *  GET    /api/req-photos/:id/image | /thumb   - photos of older (photo-era) requisitions
  *  GET    /api/usage?days=30  - issued qty per item + days-until-empty forecast
  *  GET    /api/stats
  *  POST   /api/admin/verify   (admin)  - server-side login check
@@ -135,32 +137,18 @@ async function putItemImage(env, dataUrl) {
   return putR2(env, 'items', bytes, contentType);
 }
 
-// ===== Requisition photos (employee snapshots for Admin to identify) =====
-// Uploaded as binary multipart parts — no base64 decoding loop in the Worker,
-// so even several large photos stay cheap on CPU.
-const MAX_REQ_PHOTOS = 4;
-const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
-function safeImageType(t) {
-  return /^image\/(jpeg|png|webp)$/.test(t || '') ? t : 'image/jpeg';
-}
-// Store one photo (+ optional thumbnail File/Blob) → R2 keys, or inline
-// data-URLs in D1 when no R2 bucket is bound.
-async function storeReqPhoto(env, file, thumb) {
-  const type = safeImageType(file.type);
-  const buf = await file.arrayBuffer();
-  const tType = thumb ? safeImageType(thumb.type) : null;
-  const tBuf = thumb ? await thumb.arrayBuffer() : null;
-  if (env.BUCKET) {
-    return {
-      image_key: await putR2(env, 'requisitions', buf, type),
-      thumb_key: tBuf ? await putR2(env, 'requisitions', tBuf, tType) : null,
-      image_b64: null, thumb_b64: null,
-    };
-  }
+// Public shape of an item row: heavy columns stripped, small image URLs added
+// (the ?v= token is updated_at, so images cache hard yet refresh on edit).
+function itemOut(r) {
+  const { embedding, image_b64, image_key, thumb_key, ...rest } = r;
+  const has_image = !!(image_key || image_b64);
+  const v = encodeURIComponent(r.updated_at || '');
   return {
-    image_key: null, thumb_key: null,
-    image_b64: bufToDataUrl(buf, type),
-    thumb_b64: tBuf ? bufToDataUrl(tBuf, tType) : null,
+    ...rest,
+    has_embedding: !!embedding,   // AI-indexed (legacy matching)
+    has_image,
+    image_url: has_image ? `/api/items/${r.id}/image?v=${v}` : null,
+    thumb_url: has_image ? `/api/items/${r.id}/thumb?v=${v}` : null,
   };
 }
 
@@ -510,7 +498,7 @@ export default {
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
-      return json({ ok: true, version: '3.0.0', vsms: VSMS, psif_roster: !!env.PSIF_DB, ts: new Date().toISOString() });
+      return json({ ok: true, version: '3.1.0', vsms: VSMS, psif_roster: !!env.PSIF_DB, ts: new Date().toISOString() });
     }
 
     // ── Employee login: code → name + VSM (the session is locked to that VSM) ──
@@ -595,6 +583,24 @@ export default {
       return json({ ok: true, next: prefix + String(max + 1).padStart(4, '0') });
     }
 
+    // ── Items: look up ONE item by its exact code (scanned QR label / typed code) ──
+    // Ignores case and stray spaces around a stored code. part_code is unique plant-wide,
+    // so a label from the other VSM or of a deleted item gets a clear message instead of
+    // a bare "not found".
+    if (path === '/api/items/lookup' && method === 'GET') {
+      const code = (url.searchParams.get('code') || '').trim();
+      if (!code) return err('กรุณาระบุรหัส Item Part');
+      const row = await env.DB.prepare(`
+        SELECT i.*, c.name as category_name
+        FROM items i LEFT JOIN categories c ON i.category_id = c.id
+        WHERE TRIM(i.part_code) = ? COLLATE NOCASE ORDER BY i.is_active DESC LIMIT 1
+      `).bind(code).first();
+      if (!row) return err(`ไม่พบรหัส "${code}" ในระบบ`, 404);
+      if (!row.is_active) return err(`รหัส ${row.part_code} ถูกลบออกจากระบบแล้ว — แจ้ง Admin`, 410);
+      if (row.vsm !== vsm) return err(`รหัส ${row.part_code} เป็น Item ของ ${row.vsm} — ตอนนี้คุณอยู่ ${vsm}`, 403);
+      return json({ ok: true, data: itemOut(row) });
+    }
+
     if (path === '/api/items' && method === 'GET') {
       const search = url.searchParams.get('q') || '';
       const cat = url.searchParams.get('category') || '';
@@ -619,19 +625,8 @@ export default {
       ).bind(vsm, ...(search ? [`%${search}%`, `%${search}%`] : [])).first();
 
       // Strip the heavy fields from the list: send a small image URL instead of
-      // base64, so big inventories load fast. has_embedding = AI-indexed.
-      const data = (rows.results || []).map(r => {
-        const has_embedding = !!r.embedding;
-        const has_image = !!(r.image_key || r.image_b64);
-        const v = encodeURIComponent(r.updated_at || '');
-        const image_url = has_image ? `/api/items/${r.id}/image?v=${v}` : null;
-        const thumb_url = has_image ? `/api/items/${r.id}/thumb?v=${v}` : null;
-        delete r.embedding;
-        delete r.image_b64;
-        delete r.image_key;
-        delete r.thumb_key;
-        return { ...r, has_embedding, has_image, image_url, thumb_url };
-      });
+      // base64, so big inventories load fast.
+      const data = (rows.results || []).map(itemOut);
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
     }
 
@@ -1251,27 +1246,26 @@ export default {
     }
 
     // ── Requisitions: create ─────────────────────────────────
-    // New flow (multipart): employee sends photo(s) + qty + machine + purpose;
-    // no Item Part yet — Admin identifies it at review. Legacy JSON with
-    // items[] is still accepted.
+    // QR flow: the employee scans the part's QR label (or types its code), so the
+    // Item Part is known up front. No photo is uploaded or stored (saves storage);
+    // Admin still reviews, and may change the Item lines, before anything is issued.
     if (path === '/api/requisitions' && method === 'POST') {
-      let body = {}, photos = [], thumbs = [];
+      // A page left open from the photo era still posts multipart photos — make it reload.
       if ((request.headers.get('Content-Type') || '').includes('multipart/form-data')) {
-        const fd = await request.formData();
-        try { body = JSON.parse(fd.get('meta') || '{}'); } catch { return err('ข้อมูลไม่ถูกต้อง'); }
-        photos = fd.getAll('photo').filter(f => f && typeof f !== 'string');
-        thumbs = fd.getAll('thumb');
-      } else {
-        body = await request.json().catch(() => ({}));
+        return err('ระบบเบิกเปลี่ยนเป็นสแกน QR Code แล้ว — กรุณาปิดแล้วเปิดหน้าเว็บใหม่', 410);
       }
+      const body = await request.json().catch(() => ({}));
       const { requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit } = body;
-      const reqItems = Array.isArray(body.items) ? body.items : [];
       if (!requester_name) return err('กรุณาระบุผู้เบิก');
-      if (!reqItems.length && !photos.length) return err('กรุณาถ่ายรูปของที่ต้องการเบิกอย่างน้อย 1 รูป');
-      if (photos.length > MAX_REQ_PHOTOS) return err(`แนบรูปได้สูงสุด ${MAX_REQ_PHOTOS} รูป`);
-      if (photos.some(f => f.size > MAX_PHOTO_BYTES)) return err('ไฟล์รูปใหญ่เกินไป (สูงสุด 4MB ต่อรูป)');
+      // Merge duplicate lines of the same item.
+      const merged = new Map();
+      for (const it of Array.isArray(body.items) ? body.items : []) {
+        const iid = Number(it?.item_id), q = Number(it?.qty);
+        if (!iid || !(q > 0)) return err('จำนวนที่ต้องการเบิกต้องมากกว่า 0');
+        merged.set(iid, (merged.get(iid) || 0) + q);
+      }
+      if (!merged.size) return err('กรุณาสแกน QR Code หรือพิมพ์รหัส Item Part ที่ต้องการเบิก');
       const qty = Number(req_qty);
-      if (photos.length && !(qty > 0)) return err('กรุณาระบุจำนวนที่ต้องการเบิก');
 
       // File it under the requester's VSM from the roster (not just the header), so a
       // stale client can't put it in the wrong VSM; fall back to the session's VSM.
@@ -1280,24 +1274,29 @@ export default {
         const who = await resolveEmployee(env, emp_code).catch(() => ({}));
         if (who.emp) reqVsmValue = who.emp.vsm;
       }
-
-      // Store photos first: a storage failure must not leave a photo-less requisition.
-      const stored = [];
-      for (let i = 0; i < photos.length; i++) {
-        const t = thumbs[i] && typeof thumbs[i] !== 'string' ? thumbs[i] : null;
-        stored.push(await storeReqPhoto(env, photos[i], t));
-      }
+      const ids = [...merged.keys()];
+      const found = await env.DB.prepare(
+        `SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=? AND id IN (${ids.map(() => '?').join(',')})`
+      ).bind(reqVsmValue, ...ids).first();
+      if ((found?.n ?? 0) !== ids.length) return err(`ไม่พบ Item Part นี้ใน ${reqVsmValue} — สแกนใหม่อีกครั้ง`);
 
       const deptText = dept || (machine_no ? (zone ? `${machine_no} · ${zone}` : machine_no) : null);
       let req_no, res;
       for (let attempt = 0; ; attempt++) {   // req_no is random per day — retry on the rare clash
         req_no = genReqNo();
+        // Header + Item lines in one batch (atomic): never a requisition without its Item.
+        const stmts = [env.DB.prepare(`
+          INSERT INTO requisitions (req_no, requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit, vsm)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(req_no, requester_name, emp_code || null, deptText, machine_no || null, zone || null,
+                purpose || null, qty > 0 ? qty : null, req_unit || null, reqVsmValue)];
+        for (const [item_id, q] of merged) {
+          stmts.push(env.DB.prepare(
+            'INSERT INTO requisition_items (req_id, item_id, qty_requested) SELECT id, ?, ? FROM requisitions WHERE req_no=?'
+          ).bind(item_id, q, req_no));
+        }
         try {
-          res = await env.DB.prepare(`
-            INSERT INTO requisitions (req_no, requester_name, emp_code, dept, machine_no, zone, purpose, req_qty, req_unit, vsm)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(req_no, requester_name, emp_code || null, deptText, machine_no || null, zone || null,
-                  purpose || null, qty > 0 ? qty : null, req_unit || null, reqVsmValue).run();
+          res = await env.DB.batch(stmts);
           break;
         } catch (e) {
           if (attempt < 3 && e.message?.includes('UNIQUE')) continue;
@@ -1305,22 +1304,10 @@ export default {
         }
       }
 
-      const req_id = res.meta.last_row_id;
-      const stmts = stored.map(p => env.DB.prepare(
-        'INSERT INTO requisition_photos (req_id, image_key, thumb_key, image_b64, thumb_b64) VALUES (?, ?, ?, ?, ?)'
-      ).bind(req_id, p.image_key, p.thumb_key, p.image_b64, p.thumb_b64));
-      for (const item of reqItems) {
-        stmts.push(env.DB.prepare(`
-          INSERT INTO requisition_items (req_id, item_id, qty_requested, note, match_score)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(req_id, item.item_id, item.qty, item.note || null, item.match_score || null));
-      }
-      if (stmts.length) await env.DB.batch(stmts);
-
-      return json({ ok: true, req_no, id: req_id, photos: stored.length, vsm: reqVsmValue });
+      return json({ ok: true, req_no, id: res[0].meta.last_row_id, vsm: reqVsmValue });
     }
 
-    // ── Requisition photo (binary, cached) ───────────────────
+    // ── Requisition photo (binary, cached) — older photo-era requisitions ──
     const reqPhotoMatch = path.match(/^\/api\/req-photos\/(\d+)\/(image|thumb)$/);
     if (reqPhotoMatch && method === 'GET') {
       const row = await env.DB.prepare('SELECT image_key, thumb_key, image_b64, thumb_b64 FROM requisition_photos WHERE id=?')
@@ -1332,8 +1319,8 @@ export default {
     }
 
     // ── Requisition: Admin review ────────────────────────────
-    // Admin looks at the photo, picks the Item Part(s) (a photo may show a whole
-    // set → several lines) and approves. action:
+    // Admin checks the scanned Item Part (or, for an older photo-era requisition,
+    // identifies it from the photo), may add/change lines, and approves. action:
     //   completed = approve + issue (deduct stock now)
     //   approved  = approve only (issue later)
     //   rejected  = not approved

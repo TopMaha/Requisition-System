@@ -495,24 +495,39 @@ body[data-vsm] .vsm-pill { display: inline-block; }
 .notif-dot.show { display: block; }
 @keyframes notifPulse { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.6); } 70% { box-shadow: 0 0 0 6px rgba(244,63,94,0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); } }
 
-/* ======= REQUISITION — photo-based (employee) ======= */
+/* ======= REQUISITION — scan the part's QR label (employee) ======= */
 .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
   background: var(--primary); color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-.photo-tile { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border);
-  background: #0f172a; cursor: zoom-in; }
-.photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.photo-tile .pt-del { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: none;
-  background: rgba(220,38,38,.92); color: #fff; font-size: 14px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-.photo-tile .pt-zoom { position: absolute; left: 6px; bottom: 6px; font-size: 11px; color: #fff; background: rgba(0,0,0,.55);
-  padding: 2px 8px; border-radius: 20px; pointer-events: none; }
-.photo-add { aspect-ratio: 1; border: 2.5px dashed var(--border); border-radius: 12px; background: #f8fafc; color: var(--sub);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px;
-  text-align: center; padding: 8px; cursor: pointer; transition: all .2s; }
-.photo-add:hover { border-color: var(--primary); background: #eef2ff; color: var(--primary); }
-.photo-add .pa-icon { font-size: 32px; line-height: 1; }
-.photo-add.photo-empty { grid-column: 1 / -1; aspect-ratio: auto; min-height: 180px; }
+.qr-start { width: 100%; border: 2.5px dashed rgba(26,86,219,.35); border-radius: 14px; background: linear-gradient(180deg, #f8faff, #eef2ff);
+  color: var(--primary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 24px 16px; cursor: pointer; font-family: inherit; transition: all .2s; -webkit-tap-highlight-color: transparent; }
+.qr-start:hover { border-color: var(--primary); background: #eef2ff; }
+.qr-start:active { transform: scale(.99); }
+.qr-start svg { width: 66px; height: 66px; }
+.qr-start .qs-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+.qr-start .qs-sub { font-size: 12.5px; color: var(--sub); text-align: center; line-height: 1.45; }
+.or-sep { display: flex; align-items: center; gap: 10px; color: var(--sub); font-size: 12px; margin: 14px 0 10px; }
+.or-sep::before, .or-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.code-row { display: flex; gap: 8px; }
+.code-row input { flex: 1; min-width: 0; font-family: var(--font-display); font-size: 16px; letter-spacing: .5px; }
+.ric { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 560px) { .ric { grid-template-columns: 240px minmax(0, 1fr); align-items: start; } }
+.ric-img { position: relative; background: #0f172a; border-radius: 12px; overflow: hidden; aspect-ratio: 4 / 3;
+  display: flex; align-items: center; justify-content: center; }
+.ric-img.has-img { cursor: zoom-in; }
+.ric-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ric-img .ric-zoom { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px;
+  padding: 4px 10px; border-radius: 20px; pointer-events: none; }
+.ric-noimg { color: #cbd5e1; font-size: 13px; text-align: center; padding: 12px; line-height: 1.5; }
+.ric-found { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #166534;
+  background: #f0fdf4; border: 1px solid #86efac; border-radius: 20px; padding: 3px 10px; }
+.ric-name { font-family: var(--font-display); font-size: 19px; font-weight: 700; line-height: 1.25; margin-top: 8px; overflow-wrap: anywhere; }
+.ric-code { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--primary); letter-spacing: .5px; margin-top: 2px; }
+.ric-meta { font-size: 12.5px; color: var(--sub); margin-top: 4px; }
+.ric .rv-stock { display: inline-block; margin-top: 10px; }
+.ric-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.ric-actions .btn { flex: 1; min-width: 130px; }
+.qty-unit { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--text); }
 .who-box { display: flex; align-items: center; gap: 10px; background: #eef2ff; border: 1.5px solid #c7d7fe; border-radius: 10px;
   padding: 10px 12px; margin-bottom: 14px; font-size: 14px; }
 .who-box .who-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex;
@@ -529,6 +544,38 @@ body[data-vsm] .vsm-pill { display: inline-block; }
 .done-card .dc-title { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--success); margin-top: 8px; }
 .done-card .dc-no { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 6px; letter-spacing: .5px; }
 .done-card .dc-sub { font-size: 13.5px; color: var(--sub); margin-top: 6px; line-height: 1.5; }
+.done-card .dc-item { font-size: 14px; font-weight: 600; margin-top: 6px; overflow-wrap: anywhere; }
+
+/* Camera modal in QR scan mode: guide frame + moving scan line — reading is automatic (no shutter) */
+.qr-overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none;
+  container-type: size; }
+#cameraModal.scan-mode .qr-overlay { display: flex; }
+#cameraModal:not(.scan-mode) .scan-only, #cameraModal.scan-mode .photo-only { display: none; }
+/* square guide that fits a wide (landscape) or tall (portrait) video alike, leaving room for the hint */
+.qr-frame { position: relative; width: min(62%, 250px); width: min(62cqw, 64cqh, 250px); aspect-ratio: 1; border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.42); }
+.qr-frame .qc { position: absolute; width: 30px; height: 30px; border: 4px solid #fff; }
+.qr-frame .qc.tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: 14px; }
+.qr-frame .qc.tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-top-right-radius: 14px; }
+.qr-frame .qc.bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-bottom-left-radius: 14px; }
+.qr-frame .qc.br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: 14px; }
+.qr-line { position: absolute; left: 8%; right: 8%; top: 10%; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #22d3ee, transparent); box-shadow: 0 0 10px #22d3ee; animation: qrScan 2.2s ease-in-out infinite; }
+@keyframes qrScan { 0%, 100% { top: 10%; } 50% { top: 88%; } }
+.qr-hint { position: absolute; top: 10px; left: 10px; right: 10px; text-align: center; color: #fff; font-size: 13px; font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+#btnTorch.on { background: #fde68a; border-color: #f59e0b; }
+
+/* Admin: QR label export */
+.qr-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.qr-toolbar label { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--text); cursor: pointer; }
+.qr-toolbar input, .qr-row input { width: auto; accent-color: var(--primary); }
+.qr-list { border: 1px solid var(--border); border-radius: 10px; max-height: 360px; overflow-y: auto; background: #fff; }
+.qr-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); margin: 0;
+  font-weight: 400; color: var(--text); cursor: pointer; }
+.qr-row:last-child { border-bottom: none; }
+.qr-row:hover { background: #f8fafc; }
+.qr-row .link-thumb { width: 38px; height: 38px; }
 
 /* requisition card extras (history + admin queue) */
 .req-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 4px 12px; font-size: 13px; margin-top: 6px; }
@@ -552,7 +599,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   display: flex; align-items: center; justify-content: center; background: #f0f4f8; font-size: 22px; }
 .link-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ======= REVIEW MODAL — Admin identifies Item Part(s) from the photo ======= */
+/* ======= REVIEW MODAL — Admin checks the requested Item Part(s) and approves ======= */
 .modal.modal-wide { max-width: 1000px; }
 .rv-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
 @media (min-width: 820px) {
@@ -782,26 +829,36 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   </button>
 </div>
 
-<!-- PAGE 1 : เบิกของ — ถ่ายรูป + จำนวน + เครื่อง + จุดประสงค์ (ไม่ใช้ AI) → Admin ดูรูปแล้วระบุ Item Part -->
+<!-- PAGE 1 : เบิกของ — สแกน QR Code บน Part (หรือพิมพ์รหัส) → ดูรูป Item → จำนวน + เครื่อง + จุดประสงค์ → ยืนยัน → Admin อนุมัติ
+     (ไม่เก็บรูปการเบิก — Item Part รู้จากรหัสใน QR) -->
 <div class="page active" id="page-scan">
   <div id="reqFormWrap">
     <div class="card">
-      <div class="card-title"><span class="step-num">1</span> ถ่ายรูปของที่ต้องการเบิก <span style="color:var(--danger)">*</span></div>
-      <div class="alert alert-info" style="margin-bottom:12px">
-        <span class="alert-icon">💡</span>
-        <div>ถ่ายให้เห็นชิ้นงาน<b>ชัดๆ เต็มเฟรม</b> · ถ้าเบิกเป็นชุด ถ่ายรวมทั้งชุดในรูปเดียวได้ · แนบได้สูงสุด 4 รูป<br>Admin จะดูรูปแล้วระบุ Item Part ให้เอง</div>
+      <div class="card-title"><span class="step-num">1</span> สแกน QR Code ของ Part ที่ต้องการเบิก <span style="color:var(--danger)">*</span></div>
+      <div id="reqPickBox">
+        <button type="button" class="qr-start" onclick="scanReqQr()">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 13V7a3 3 0 0 1 3-3h6M35 4h6a3 3 0 0 1 3 3v6M44 35v6a3 3 0 0 1-3 3h-6M13 44H7a3 3 0 0 1-3-3v-6"/>
+            <rect x="11" y="11" width="10" height="10" rx="1.5"/><rect x="27" y="11" width="10" height="10" rx="1.5"/><rect x="11" y="27" width="10" height="10" rx="1.5"/>
+            <path d="M27 27h4v4M37 27v.01M27 37h.01M33 33h4v4"/>
+          </svg>
+          <span class="qs-title">แตะเพื่อสแกน QR Code</span>
+          <span class="qs-sub">เล็งกล้องไปที่ป้าย QR บน Part — ระบบอ่านรหัสให้อัตโนมัติ ไม่ต้องกดถ่าย</span>
+        </button>
+        <div class="or-sep">หรือพิมพ์รหัส Item Part</div>
+        <div class="code-row">
+          <input type="text" id="reqCode" placeholder="เช่น I-0012" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                 enterkeyhint="search" oninput="clearFieldError('reqCode','errCode')" onkeydown="if(event.key==='Enter')lookupReqCode()">
+          <button type="button" class="btn btn-outline" id="btnReqCode" onclick="lookupReqCode()">🔎 ค้นหา</button>
+        </div>
+        <div class="field-error" id="errCode"></div>
+        <div id="reqCodeResults"></div>
       </div>
-      <div class="photo-grid" id="reqPhotoGrid"></div>
-      <input type="file" id="reqFileInput" accept="image/*" multiple style="display:none" onchange="onReqFileSelect(this)">
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="openCamera(addReqPhoto, REQ_PHOTO_DIM)" style="flex:1;min-width:140px">📷 เปิดกล้องถ่ายรูป</button>
-        <button class="btn btn-outline" onclick="document.getElementById('reqFileInput').click()" style="flex:1;min-width:120px">🖼️ เลือกรูป</button>
-      </div>
-      <div class="field-error" id="errPhotos">กรุณาถ่ายรูปของที่ต้องการเบิกอย่างน้อย 1 รูป</div>
+      <div id="reqItemBox" style="display:none"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title"><span class="step-num">2</span> ข้อมูลการเบิก</div>
+    <div class="card" id="reqDetailCard" style="display:none">
+      <div class="card-title"><span class="step-num">2</span> รายละเอียดการเบิก</div>
       <div class="who-box" id="whoBox"></div>
 
       <div class="form-group">
@@ -812,17 +869,10 @@ body[data-vsm] .vsm-pill { display: inline-block; }
             <input type="number" id="reqQty" min="1" value="1" inputmode="numeric" oninput="validateQtyInput()">
             <button type="button" onclick="adjustQty(1)">+</button>
           </div>
-          <select id="reqUnit" aria-label="หน่วย">
-            <option value="ชิ้น">ชิ้น</option>
-            <option value="ชุด">ชุด</option>
-            <option value="อัน">อัน</option>
-            <option value="กล่อง">กล่อง</option>
-            <option value="ม้วน">ม้วน</option>
-            <option value="เส้น">เส้น</option>
-            <option value="เมตร">เมตร</option>
-          </select>
+          <span class="qty-unit" id="reqUnit"></span>
         </div>
         <div class="field-error" id="errQty">จำนวนต้องมากกว่า 0</div>
+        <div class="field-hint" id="qtyHint" style="color:var(--warning)"></div>
       </div>
 
       <div class="form-group">
@@ -845,7 +895,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         <div class="field-error" id="errPurpose">กรุณาระบุจุดประสงค์</div>
       </div>
 
-      <button class="btn btn-primary btn-block" onclick="submitRequisition()" id="btnSubmitReq" style="padding:13px 18px;font-size:15px">📨 ส่งคำขอเบิกให้ Admin</button>
+      <button class="btn btn-primary btn-block" onclick="submitRequisition()" id="btnSubmitReq" style="padding:13px 18px;font-size:15px">✅ ยืนยัน ส่งคำขอเบิกให้ Admin</button>
     </div>
   </div>
 
@@ -854,7 +904,8 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <div class="dc-icon">✅</div>
       <div class="dc-title">ส่งคำขอเบิกแล้ว</div>
       <div class="dc-no" id="reqDoneNo"></div>
-      <div class="dc-sub">Admin จะดูรูป ระบุ Item Part และอนุมัติให้<br>ติดตามสถานะได้ที่แท็บ “ประวัติ”</div>
+      <div class="dc-item" id="reqDoneItem"></div>
+      <div class="dc-sub">Admin จะตรวจสอบและอนุมัติให้<br>ติดตามสถานะได้ที่แท็บ “ประวัติ”</div>
       <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
         <button class="btn btn-outline" style="flex:1;min-width:140px" onclick="switchTab('history')">📋 ดูสถานะ</button>
         <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="newRequisition()">➕ เบิกรายการถัดไป</button>
@@ -887,6 +938,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   <div id="invLowStockBanner" style="display:none"></div>
   <div class="search-bar">
     <input type="text" id="invSearch" placeholder="ค้นหาชื่อ หรือ รหัสอุปกรณ์..." oninput="debounceSearch()">
+    <button class="btn btn-outline" onclick="scanInventory()" title="สแกน QR Code บน Part เพื่อดู Stock">📷 สแกน</button>
     <select id="invCategory" onchange="loadInventory()">
       <option value="">ทุกหมวด</option>
     </select>
@@ -954,8 +1006,9 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <div class="card-title">📥 รับของเข้า (เติมสต๊อก)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <input type="text" id="recvSearch" placeholder="พิมพ์รหัส/ชื่อ เพื่อเลือกของ..." autocomplete="off" oninput="recvSearch()" style="flex:1;min-width:170px">
+        <button class="btn btn-outline" onclick="scanRecv()" title="สแกน QR Code บน Part ที่รับเข้า">📷 สแกน</button>
       </div>
-      <div class="text-sub" id="recvHint" style="margin-bottom:6px">เลือกของแล้วใส่จำนวนที่รับเข้า — ระบบตั้งค่า "📥 รับเข้า" ให้อัตโนมัติ</div>
+      <div class="text-sub" id="recvHint" style="margin-bottom:6px">สแกน QR หรือเลือกของ แล้วใส่จำนวนที่รับเข้า — ระบบตั้งค่า "📥 รับเข้า" ให้อัตโนมัติ</div>
       <div id="recvList"></div>
     </div>
 
@@ -999,7 +1052,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         <textarea id="newDesc" placeholder="รายละเอียดอุปกรณ์ (ไม่บังคับ)"></textarea>
       </div>
       <div class="form-group">
-        <label>รูปภาพอุปกรณ์ <span style="font-weight:400;color:var(--sub)">(ช่วยให้ Admin เทียบกับรูปที่พนักงานถ่าย)</span></label>
+        <label>รูปภาพอุปกรณ์ <span style="font-weight:400;color:var(--sub)">(พนักงานจะเห็นรูปนี้หลังสแกน QR)</span></label>
         <div class="img-zone" id="adminImgZone" onclick="openCamera(setAdminImage)">
           <div class="zone-icon" id="adminZoneIcon">📸</div>
           <div class="zone-hint">แตะเพื่อเปิดกล้องถ่ายรูป<br><small>ถ่ายในที่แสงดี เห็นอุปกรณ์ชัดเจน</small></div>
@@ -1012,7 +1065,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         <input type="file" id="adminFileInput" accept="image/*" style="display:none" onchange="onAdminFileSelect(this)">
         <div id="adminImgWarning" class="alert alert-warning" style="display:none;margin-top:8px">
           <span class="alert-icon">⚠️</span>
-          <div>ไม่มีรูป — เพิ่มได้ แต่จะเทียบกับรูปที่พนักงานถ่ายได้ยากขึ้น</div>
+          <div>ไม่มีรูป — เพิ่มได้ แต่พนักงานจะไม่เห็นรูปชิ้นงานตอนสแกน QR</div>
         </div>
       </div>
       <button class="btn btn-primary btn-block" onclick="addItem()" id="btnAddItem">➕ เพิ่มอุปกรณ์</button>
@@ -1025,6 +1078,25 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         <button class="btn btn-outline" onclick="loadAdminItems()">🔄</button>
       </div>
       <div id="adminItemList"></div>
+    </div>
+
+    <div class="card" id="qrCard">
+      <div class="card-title">🏷️ ป้าย QR Code ติด Part (Export Excel)</div>
+      <div class="text-sub" style="margin-bottom:10px">
+        สร้าง QR Code จากรหัส Item Part → Export เป็น Excel แล้วสั่งพิมพ์ (A4 · 15 ป้ายต่อหน้า) ตัดตามเส้นประ ติดที่ Part / กล่อง / ชั้นวาง —
+        พนักงานสแกนป้ายนี้ตอนเบิกของ
+      </div>
+      <div class="search-bar" style="margin-bottom:8px">
+        <input type="text" id="qrSearch" placeholder="ค้นหารหัส / ชื่อ (เว้นว่าง = ทั้งหมด)..." autocomplete="off" oninput="renderQrList()">
+        <select id="qrCategory" onchange="renderQrList()" style="flex:0 1 170px;width:auto"><option value="">ทุกหมวด</option></select>
+        <button class="btn btn-outline" onclick="loadQrItems()" title="รีเฟรช">🔄</button>
+      </div>
+      <div class="qr-toolbar">
+        <label><input type="checkbox" id="qrAll" onchange="qrToggleAll(this.checked)"> เลือกทั้งหมดที่แสดง</label>
+        <span class="text-sub" id="qrCount"></span>
+      </div>
+      <div class="qr-list" id="qrList"></div>
+      <button class="btn btn-primary btn-block" id="btnQrExport" onclick="exportQrExcel()" style="margin-top:12px" disabled>📥 Export Excel</button>
     </div>
 
     <div class="card">
@@ -1168,7 +1240,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   </div>
 </div>
 
-<!-- REVIEW MODAL — Admin looks at the photo, picks Item Part(s), approves -->
+<!-- REVIEW MODAL — Admin checks the scanned Item Part (older requisitions: identifies it from the photo), approves -->
 <div class="modal-overlay" id="reviewModal">
   <div class="modal modal-wide">
     <div class="modal-header">
@@ -1179,7 +1251,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <div class="rv-grid">
         <div class="rv-left">
           <div class="rv-main" id="rvMain" onclick="rvOpenPhoto()" title="แตะเพื่อดูรูปขนาดใหญ่">
-            <img id="rvMainImg" alt="รูปที่พนักงานถ่าย">
+            <img id="rvMainImg" alt="รูป Item / รูปที่พนักงานถ่าย">
             <span class="rv-count" id="rvCount"></span>
             <span class="rv-hint">🔍 แตะเพื่อขยาย</span>
           </div>
@@ -1187,14 +1259,14 @@ body[data-vsm] .vsm-pill { display: inline-block; }
           <div class="rv-info" id="rvInfo"></div>
         </div>
         <div class="rv-right">
-          <div class="rv-section">🧩 Item Part ที่เบิก <span class="text-sub" style="font-weight:400">(1 รูปเพิ่มได้หลาย Item)</span></div>
+          <div class="rv-section">🧩 Item Part ที่เบิก <span class="text-sub" style="font-weight:400">(แก้จำนวน / เพิ่มได้หลาย Item)</span></div>
           <div id="rvLines" class="rv-lines"></div>
 
           <div style="margin-top:12px">
             <input type="text" id="rvSearch" placeholder="🔎 ค้นหารหัส / ชื่อ Item Part เพื่อเพิ่ม..." autocomplete="off" oninput="rvSearchDebounced()">
           </div>
           <div id="rvResults"></div>
-          <button type="button" class="btn-link" style="text-align:left;padding:8px 0 4px" onclick="rvToggleQuickAdd()">➕ ไม่มีในระบบ? เพิ่ม Item ใหม่จากรูปนี้</button>
+          <button type="button" class="btn-link" id="btnRvQuickAdd" style="text-align:left;padding:8px 0 4px" onclick="rvToggleQuickAdd()">➕ ไม่มีในระบบ? เพิ่ม Item ใหม่จากรูปนี้</button>
           <div class="quick-add" id="rvQuickAdd" style="display:none">
             <div class="row">
               <div class="col form-group"><label>รหัส Item <span class="req">*</span></label><input type="text" id="qaCode"></div>
@@ -1205,7 +1277,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
               <div class="col form-group"><label>Stock ปัจจุบัน</label><input type="number" id="qaStock" value="0" min="0"></div>
               <div class="col form-group"><label>Stock ขั้นต่ำ</label><input type="number" id="qaMin" value="1" min="0"></div>
             </div>
-            <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:10px">
+            <label id="qaUsePhotoRow" style="display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:10px">
               <input type="checkbox" id="qaUsePhoto" checked style="width:auto"> ใช้รูปที่กำลังดูอยู่เป็นรูปของ Item
             </label>
             <button type="button" class="btn btn-success btn-sm" id="btnQaSave" onclick="rvCreateItem()">💾 เพิ่ม Item แล้วใส่ในใบเบิก</button>
@@ -1292,15 +1364,19 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   </div>
 </div>
 
-<!-- CAMERA MODAL -->
+<!-- CAMERA MODAL — photo mode (Admin: item photo) or QR scan mode (.scan-mode: frames decoded automatically, no shutter) -->
 <div class="modal-overlay" id="cameraModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-header">
-      <span class="modal-title">📷 ถ่ายรูปอุปกรณ์</span>
+      <span class="modal-title" id="cameraTitle">📷 ถ่ายรูปอุปกรณ์</span>
       <button class="modal-close" onclick="closeCamera()">✕</button>
     </div>
     <div class="modal-body" style="padding:0;background:#000;position:relative;overflow:hidden">
       <video id="cameraVideo" playsinline autoplay muted style="width:100%;max-height:62vh;display:block;background:#000;object-fit:contain;transform-origin:center center"></video>
+      <div class="qr-overlay" aria-hidden="true">
+        <div class="qr-hint">เล็ง QR Code ให้อยู่ในกรอบ — ระบบอ่านให้อัตโนมัติ</div>
+        <div class="qr-frame"><i class="qc tl"></i><i class="qc tr"></i><i class="qc bl"></i><i class="qc br"></i><span class="qr-line"></span></div>
+      </div>
       <div id="camZoomWrap" style="position:absolute;left:0;right:0;bottom:0;display:none;align-items:center;gap:10px;padding:10px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.6))">
         <button type="button" onclick="bumpCamZoom(-1)" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:18px;cursor:pointer">−</button>
         <input type="range" id="camZoom" min="1" max="4" step="0.1" value="1" oninput="setCamZoom(this.value)" style="flex:1;accent-color:#fff">
@@ -1313,7 +1389,9 @@ body[data-vsm] .vsm-pill { display: inline-block; }
     </div>
     <div class="modal-footer" style="justify-content:space-between;gap:8px">
       <button class="btn btn-gray" onclick="flipCamera()" id="btnFlipCam">🔄 สลับ</button>
-      <button class="btn btn-primary" onclick="capturePhoto()" id="btnCapture" style="flex:1">📸 ถ่าย</button>
+      <button class="btn btn-gray" onclick="toggleTorch()" id="btnTorch" title="ไฟฉาย" style="display:none">🔦</button>
+      <button class="btn btn-primary photo-only" onclick="capturePhoto()" id="btnCapture" style="flex:1">📸 ถ่าย</button>
+      <button class="btn btn-outline scan-only" onclick="qrTypeInstead()" style="flex:1">⌨️ พิมพ์รหัสแทน</button>
     </div>
   </div>
 </div>
@@ -1358,9 +1436,15 @@ let _confirmResolve = null;
 let currentUser = null;       // { code, name, isAdmin, vsm } — vsm is locked at login
 const VSMS = ['VSM3', 'VSM4'];
 let adminGateVsm = localStorage.getItem('req_admin_vsm') || '';
-let reqPhotos = [];           // employee's photos for the current requisition (data URLs)
-const REQ_MAX_PHOTOS = 4;
-const REQ_PHOTO_DIM = 1600;   // keep detail so Admin can zoom in on part numbers
+let reqItem = null;           // the Item Part being requested — from its scanned QR label or typed code
+// Libraries loaded on demand (pinned + integrity-checked): QR decoding where the browser has
+// no BarcodeDetector (iPhone, desktop), QR drawing + Excel writing for the Admin's label export.
+const LIB_JSQR = { src: 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+  integrity: 'sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx' };
+const LIB_QRGEN = { src: 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js',
+  integrity: 'sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k' };
+const LIB_EXCELJS = { src: 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
+  integrity: 'sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz' };
 // Turn each admin section card into a collapsible accordion (tap title to
 // expand/collapse). State persists per-section. Default: collapsed, unless the
 // card is marked data-default-open (e.g. the requisition queue).
@@ -1407,8 +1491,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCategories();
   if (currentUser) loadMasterData().then(lookupMachine);
   makeAdminCollapsible();
+  // The QR-label card loads its (possibly long) Item list only when it is opened.
+  document.querySelector('#qrCard > .card-title').addEventListener('click', () => {
+    if (isAdmin && !document.getElementById('qrCard').classList.contains('collapsed')) loadQrItems();
+  });
   initLightbox();
-  renderReqPhotos();
   const lastMachine = localStorage.getItem('req_last_machine');
   if (lastMachine) document.getElementById('reqMachine').value = lastMachine;
   // Keep the Admin badge / queue fresh so new requisitions don't sit unnoticed.
@@ -1559,11 +1646,14 @@ function applyVsmTheme(vsm) {
   if (vsm) document.body.dataset.vsm = vsm; else delete document.body.dataset.vsm;
   document.getElementById('vsmPill').textContent = vsm || '';
   document.querySelectorAll('.vsmName').forEach(el => { el.textContent = vsm || ''; });
+  document.getElementById('reqCode').placeholder = vsm === 'VSM3' ? 'เช่น V3-0012' : 'เช่น I-0012';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#1a56db';
 }
 function refreshVsmData() {
   employees = []; machines = [];
+  newRequisition();             // a scanned Item belongs to the previous session's VSM / person
+  qrReset();
   loadMasterData().then(lookupMachine);
   checkLowStockNotif();
   const active = document.querySelector('.page.active');
@@ -1656,10 +1746,10 @@ async function loadCategories() {
   try {
     const data = await api('GET', '/api/categories');
     categories = data.data || [];
-    ['newCategory', 'invCategory', 'editCategory'].forEach(id => {
+    ['newCategory', 'invCategory', 'editCategory', 'qrCategory'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      const isFilter = id === 'invCategory';
+      const isFilter = id === 'invCategory' || id === 'qrCategory';
       el.innerHTML = isFilter ? '<option value="">ทุกหมวด</option>' : '<option value="">-- เลือกหมวด --</option>';
       categories.forEach(c => { el.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
     });
@@ -1868,46 +1958,6 @@ async function fileToCompressedDataUrl(file, maxDim = 1024, quality = 0.85) {
   }
 }
 
-// ============================================================
-// REQUISITION PHOTOS (employee) — no AI: the photo goes to Admin as-is
-// ============================================================
-function addReqPhoto(dataUrl) {
-  if (!dataUrl) return;
-  if (reqPhotos.length >= REQ_MAX_PHOTOS) { showToast(`⚠️ แนบได้สูงสุด ${REQ_MAX_PHOTOS} รูป`, 'error'); return; }
-  reqPhotos.push(dataUrl);
-  document.getElementById('errPhotos').classList.remove('show');
-  renderReqPhotos();
-}
-async function onReqFileSelect(input) {
-  const files = Array.from(input.files || []);
-  input.value = '';
-  for (const f of files) {
-    if (reqPhotos.length >= REQ_MAX_PHOTOS) { showToast(`⚠️ แนบได้สูงสุด ${REQ_MAX_PHOTOS} รูป`, 'error'); break; }
-    try { addReqPhoto(await fileToCompressedDataUrl(f, REQ_PHOTO_DIM, 0.85)); }
-    catch { showToast('❌ อ่านไฟล์รูปไม่สำเร็จ', 'error'); }
-  }
-}
-function removeReqPhoto(i) {
-  reqPhotos.splice(i, 1);
-  renderReqPhotos();
-}
-function renderReqPhotos() {
-  const grid = document.getElementById('reqPhotoGrid');
-  if (!grid) return;
-  const n = reqPhotos.length;
-  const tiles = reqPhotos.map((src, i) => `
-    <div class="photo-tile" onclick="openLightbox(reqPhotos, ${i}, 'รูปที่ถ่าย')">
-      <img src="${src}" alt="รูปที่ ${i + 1}">
-      <button type="button" class="pt-del" title="ลบรูป" onclick="event.stopPropagation();removeReqPhoto(${i})">✕</button>
-      <span class="pt-zoom">🔍 ${i + 1}/${n}</span>
-    </div>`).join('');
-  const add = n < REQ_MAX_PHOTOS ? `
-    <div class="photo-add${n ? '' : ' photo-empty'}" onclick="openCamera(addReqPhoto, REQ_PHOTO_DIM)">
-      <span class="pa-icon">📸</span>
-      <span>${n ? 'ถ่ายเพิ่ม' : 'แตะเพื่อถ่ายรูปของที่ต้องการเบิก'}</span>
-    </div>` : '';
-  grid.innerHTML = tiles + add;
-}
 async function onEditFileSelect(input) {
   const file = input.files[0]; if (!file) return;
   try {
@@ -1920,51 +1970,74 @@ async function onEditFileSelect(input) {
 }
 
 // ============================================================
-// IN-APP CAMERA (getUserMedia) — used by scan & admin add
+// IN-APP CAMERA (getUserMedia) — QR scan (เบิกของ / Stock / รับของเข้า) & admin item photo
 // ============================================================
 let _cameraStream = null;
 let _cameraFacing = 'environment';
 let _cameraCapture = null;
-let _cameraMaxDim = 1024;     // longest side of captured frames (requisition photos keep more detail)
+let _cameraMaxDim = 1024;     // longest side of captured frames
+let _camGen = 0;              // bumped on every stop: a camera start / QR loop of an older stream bails out
 
 function openCamera(onCapture, maxDim = 1024) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     showToast('❌ เบราว์เซอร์ไม่รองรับกล้อง — ใช้ "เลือกรูป" แทน', 'error');
     return;
   }
+  _qrOnCode = _qrOnType = null;
   _cameraCapture = onCapture;
   _cameraMaxDim = maxDim;
+  setCameraMode(false);
   openModal('cameraModal');
   startCameraStream();
 }
+function setCameraMode(scan) {
+  document.getElementById('cameraModal').classList.toggle('scan-mode', scan);
+  document.getElementById('cameraTitle').textContent = scan ? '📷 สแกน QR Code' : '📷 ถ่ายรูปอุปกรณ์';
+}
 async function startCameraStream() {
   stopCameraStream();
+  const gen = _camGen;
+  const scan = !!_qrOnCode;
   const video = document.getElementById('cameraVideo');
   const loading = document.getElementById('cameraLoading');
   loading.style.display = 'flex';
   try {
-    _cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: _cameraFacing } }, audio: false
+    // Scanning asks for HD, so a small label still has enough pixels to decode.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: scan ? { facingMode: { ideal: _cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                  : { facingMode: { ideal: _cameraFacing } },
+      audio: false
     });
+    // Closed (or flipped again) while the camera was starting: release this stream.
+    if (gen !== _camGen) { stream.getTracks().forEach(t => t.stop()); return; }
+    _cameraStream = stream;
     video.srcObject = _cameraStream;
     await video.play().catch(() => {});
     loading.style.display = 'none';
     setupZoom(video);
+    if (scan) startQrLoop();
   } catch (e) {
+    if (gen !== _camGen) return;
     loading.style.display = 'none';
+    const onType = _qrOnType;
     closeCamera();
+    const alt = scan ? 'พิมพ์รหัส Item Part แทน' : 'ใช้ "เลือกรูป" แทน';
     const msg = (e && e.name === 'NotAllowedError')
-      ? 'ไม่ได้รับอนุญาตให้ใช้กล้อง — อนุญาตในเบราว์เซอร์ หรือใช้ "เลือกรูป"'
-      : 'เปิดกล้องไม่ได้ (ต้องเปิดผ่าน https) — ใช้ "เลือกรูป" แทน';
+      ? `ไม่ได้รับอนุญาตให้ใช้กล้อง — อนุญาตในเบราว์เซอร์ หรือ${alt}`
+      : `เปิดกล้องไม่ได้ (ต้องเปิดผ่าน https) — ${alt}`;
     showToast('❌ ' + msg, 'error');
+    if (scan && onType) onType();
   }
 }
 function flipCamera() {
   _cameraFacing = _cameraFacing === 'environment' ? 'user' : 'environment';
   startCameraStream();
 }
-// ===== Camera ZOOM (native track zoom if supported, else digital crop) =====
+// ===== Camera ZOOM (native track zoom if supported, else digital crop) + torch =====
 let _zoomTrack = null, _nativeZoom = null, _digitalZoom = 1;
+let _torchCap = false, _torchOn = false;   // flashlight (Android Chrome) — for labels on dim shelves
+// One constraint set for the track, so changing zoom doesn't switch the torch off and vice versa.
+function camAdvanced(extra) { return { ...(_torchCap ? { torch: _torchOn } : {}), ...extra }; }
 function setupZoom(video) {
   const wrap = document.getElementById('camZoomWrap');
   const slider = document.getElementById('camZoom');
@@ -1972,6 +2045,10 @@ function setupZoom(video) {
   _zoomTrack = (_cameraStream && _cameraStream.getVideoTracks) ? _cameraStream.getVideoTracks()[0] : null;
   let caps = {};
   try { caps = (_zoomTrack && _zoomTrack.getCapabilities) ? _zoomTrack.getCapabilities() : {}; } catch {}
+  _torchCap = !!(caps && caps.torch); _torchOn = false;
+  const torchBtn = document.getElementById('btnTorch');
+  torchBtn.style.display = _torchCap ? '' : 'none';
+  torchBtn.classList.remove('on');
   if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
     _nativeZoom = caps.zoom;
     slider.min = caps.zoom.min; slider.max = caps.zoom.max; slider.step = caps.zoom.step || 0.1;
@@ -1989,7 +2066,7 @@ function setCamZoom(v) {
   const video = document.getElementById('cameraVideo');
   const label = document.getElementById('camZoomLabel');
   if (_nativeZoom && _zoomTrack) {
-    _zoomTrack.applyConstraints({ advanced: [{ zoom: v }] }).catch(() => {});
+    _zoomTrack.applyConstraints({ advanced: [camAdvanced({ zoom: v })] }).catch(() => {});
     _digitalZoom = 1; video.style.transform = '';
     if (label) label.textContent = (v / (_nativeZoom.min || 1)).toFixed(1) + '×';
   } else {
@@ -2005,6 +2082,13 @@ function bumpCamZoom(dir) {
   let v = (parseFloat(slider.value) || 1) + dir * step;
   v = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), v));
   slider.value = v; setCamZoom(v);
+}
+function toggleTorch() {
+  if (!_zoomTrack || !_torchCap) return;
+  _torchOn = !_torchOn;
+  document.getElementById('btnTorch').classList.toggle('on', _torchOn);
+  const zoom = _nativeZoom ? { zoom: parseFloat(document.getElementById('camZoom').value) } : {};
+  _zoomTrack.applyConstraints({ advanced: [camAdvanced(zoom)] }).catch(() => {});
 }
 // Grab the current video frame as a JPEG data URL (honours digital zoom crop).
 function _grabFrame() {
@@ -2034,11 +2118,114 @@ function capturePhoto() {
 function closeCamera() {
   stopCameraStream();
   closeModal('cameraModal');
+  _qrOnCode = _qrOnType = null;
 }
 function stopCameraStream() {
+  _camGen++;
+  clearTimeout(_qrTimer);
   if (_cameraStream) { _cameraStream.getTracks().forEach(t => t.stop()); _cameraStream = null; }
   const video = document.getElementById('cameraVideo');
   if (video) video.srcObject = null;
+}
+
+// ============================================================
+// QR SCANNER — the camera modal in scan mode: no shutter. Frames are decoded
+// continuously (the browser's BarcodeDetector where it has one, else jsQR) and
+// the first QR read closes the camera and hands its text to the caller.
+// ============================================================
+let _qrOnCode = null;         // (text) => void while scanning
+let _qrOnType = null;         // "⌨️ พิมพ์รหัสแทน" / no camera: the caller moves to its code box
+let _qrTimer = null;
+let _qrDecoder = null;        // Promise of a decode(video) → text function (built once)
+
+function openQrScanner(onCode, onType) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('❌ เบราว์เซอร์นี้เปิดกล้องไม่ได้ — พิมพ์รหัส Item Part แทน', 'error');
+    if (onType) onType();
+    return;
+  }
+  _cameraCapture = null;
+  _qrOnCode = onCode; _qrOnType = onType || null;
+  setCameraMode(true);
+  openModal('cameraModal');
+  startCameraStream();
+}
+function qrTypeInstead() {
+  const cb = _qrOnType;
+  closeCamera();
+  if (cb) cb();
+}
+function startQrLoop() {
+  const gen = _camGen, video = document.getElementById('cameraVideo');
+  if (!_qrDecoder) _qrDecoder = makeQrDecoder().catch(e => { _qrDecoder = null; throw e; });
+  const tick = async () => {
+    if (gen !== _camGen || !_qrOnCode) return;
+    let text = '';
+    try {
+      const decode = await _qrDecoder;
+      if (gen !== _camGen) return;
+      if (video.readyState >= 2) text = String((await decode(video)) || '').trim();
+    } catch (e) {
+      if (!_qrDecoder) {          // the decoder library couldn't load (offline)
+        const onType = _qrOnType;
+        closeCamera();
+        showToast('❌ ' + e.message + ' — พิมพ์รหัส Item Part แทน', 'error');
+        if (onType) onType();
+        return;
+      }                           // otherwise: a frame that couldn't be read yet — keep going
+    }
+    if (gen !== _camGen || !_qrOnCode) return;
+    if (text) {
+      const cb = _qrOnCode;
+      if (navigator.vibrate) navigator.vibrate(60);
+      closeCamera();
+      cb(text);
+      return;
+    }
+    _qrTimer = setTimeout(tick, 120);
+  };
+  tick();
+}
+// decode(video) → text. Native BarcodeDetector when it knows QR; else jsQR on a downscaled
+// frame, alternating the centre square (follows the digital zoom) and the whole frame so a
+// small far-away label and an off-centre one both read.
+async function makeQrDecoder() {
+  if ('BarcodeDetector' in window) {
+    try {
+      if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) {
+        const bd = new BarcodeDetector({ formats: ['qr_code'] });
+        return async video => ((await bd.detect(video))[0] || {}).rawValue || '';
+      }
+    } catch {}
+  }
+  await loadScript(LIB_JSQR);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let n = 0;
+  return async video => {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return '';
+    const z = _nativeZoom ? 1 : Math.max(1, _digitalZoom);
+    let sw = vw / z, sh = vh / z;
+    if (n++ % 2 === 0) sw = sh = Math.min(sw, sh);
+    const k = Math.min(1, 640 / Math.max(sw, sh));
+    const w = Math.round(sw * k), h = Math.round(sh * k);
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, w, h);
+    const r = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+    return r ? r.data : '';
+  };
+}
+// Load a pinned CDN library once (integrity-checked).
+const _libs = {};
+function loadScript(lib) {
+  return _libs[lib.src] || (_libs[lib.src] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = lib.src; s.integrity = lib.integrity; s.crossOrigin = 'anonymous';
+    s.onload = resolve;
+    s.onerror = () => { delete _libs[lib.src]; s.remove(); reject(new Error('โหลดไลบรารีไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต')); };
+    document.head.appendChild(s);
+  }));
 }
 
 // ============================================================
@@ -2056,9 +2243,14 @@ function adjustStockQty(delta) {
 }
 function validateQtyInput() {
   const inp = document.getElementById('reqQty');
-  const ok = parseInt(inp.value) >= 1;
+  const q = parseInt(inp.value);
+  const ok = q >= 1;
   inp.classList.toggle('error', !ok);
   document.getElementById('errQty').classList.toggle('show', !ok);
+  // Asking for more than is on the shelf is allowed (Admin decides) — just say so.
+  const stock = Number(reqItem?.stock_qty) || 0;
+  document.getElementById('qtyHint').textContent = ok && reqItem && q > stock
+    ? `⚠️ ขอมากกว่าที่มี (คงเหลือ ${fmtNum(Math.max(0, stock))} ${reqItem.unit || ''}) — ส่งได้ Admin จะตรวจสอบ` : '';
   return ok;
 }
 function validatePositiveInt(inp) {
@@ -2089,7 +2281,135 @@ function validateField(inputId, errId, label) {
 }
 
 // ============================================================
-// REQUISITION FORM (employee): photo + qty + machine + purpose
+// REQUISITION ITEM (employee) — scan the QR label on the part, or type its code.
+// The QR holds just the Item Part code (see the Admin's label export).
+// ============================================================
+// Exact-code lookup in this VSM → { item } or { error, status } (404 no such code,
+// 403 other VSM's label, 410 deleted). Never toasts — callers decide how to show it.
+async function fetchItemByCode(code) {
+  let res;
+  try {
+    const headers = currentUser?.vsm ? { 'X-VSM': currentUser.vsm } : {};
+    res = await fetch(`${API_URL}/api/items/lookup?code=${encodeURIComponent(code)}`, { headers });
+  } catch { return { error: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่', status: 0 }; }
+  const d = await res.json().catch(() => ({}));
+  return d.ok && d.data ? { item: d.data } : { error: d.error || 'ค้นหาไม่สำเร็จ — ลองใหม่', status: res.status };
+}
+function scanReqQr() {
+  openQrScanner(code => pickReqCode(code, true), () => {
+    if (reqItem) clearReqItem();
+    setTimeout(() => document.getElementById('reqCode').focus(), 50);
+  });
+}
+function lookupReqCode() {
+  const code = document.getElementById('reqCode').value.trim();
+  if (!code) return showFieldError('reqCode', 'errCode', 'กรุณาพิมพ์รหัส Item Part');
+  pickReqCode(code, false);
+}
+let _reqSuggest = {};         // id -> item offered when a typed code isn't exact
+// A scanned / typed code → show its Item. A typed code with no exact match offers close
+// matches (code or name contains it) to tap.
+async function pickReqCode(code, scanned) {
+  const results = document.getElementById('reqCodeResults');
+  const btn = document.getElementById('btnReqCode');
+  const hadItem = !!reqItem;
+  clearFieldError('reqCode', 'errCode');
+  if (!hadItem) results.innerHTML = '<div class="loading" style="padding:14px"><div class="spinner"></div></div>';
+  btn.disabled = true;
+  try {
+    const r = await fetchItemByCode(code);
+    if (r.item) {
+      setReqItem(r.item);
+      if (scanned) showToast(`✅ สแกนได้ ${r.item.part_code}`);
+      return;
+    }
+    const msg = scanned ? `อ่าน QR ได้ "${code}" — ${r.error}` : r.error;
+    if (hadItem) { showToast('❌ ' + msg, 'error'); return; }   // keep the Item already on screen
+    if (r.status === 404 && !scanned) {
+      const d = await api('GET', `/api/items?q=${encodeURIComponent(code)}&limit=8`).catch(() => ({}));
+      const list = d.data || [];
+      if (list.length) {
+        _reqSuggest = {};
+        list.forEach(it => { _reqSuggest[it.id] = it; });
+        results.innerHTML = `<div class="text-sub" style="margin:10px 0 6px">ไม่พบรหัส “${escHtml(code)}” ตรงตัว — หมายถึงรายการนี้หรือเปล่า? แตะเพื่อเลือก</div>` +
+          list.map(it => `
+          <div class="link-item" onclick="setReqItem(_reqSuggest[${it.id}])">
+            <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
+              <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · คงเหลือ ${fmtNum(it.stock_qty)} ${escHtml(it.unit || '')}</div>
+            </div>
+            <span style="color:var(--primary);font-weight:800;white-space:nowrap">เลือก ›</span>
+          </div>`).join('');
+        return;
+      }
+    }
+    results.innerHTML = '';
+    document.getElementById('reqCode').value = code;
+    if (scanned) {              // show it without popping the keyboard over the page
+      const e = document.getElementById('errCode');
+      e.textContent = msg; e.classList.add('show');
+    } else showFieldError('reqCode', 'errCode', msg);
+  } finally { btn.disabled = false; }
+}
+function setReqItem(item) {
+  if (!item) return;
+  reqItem = item;
+  document.getElementById('reqCodeResults').innerHTML = '';
+  clearFieldError('reqCode', 'errCode');
+  document.getElementById('reqPickBox').style.display = 'none';
+  const box = document.getElementById('reqItemBox');
+  box.style.display = '';
+  renderReqItem();
+  document.getElementById('reqUnit').textContent = item.unit || 'ชิ้น';
+  document.getElementById('reqDetailCard').style.display = '';
+  validateQtyInput();
+  // Bring the whole card into view just below the sticky header (taller on a phone).
+  const cardTop = box.closest('.card').getBoundingClientRect().top + window.scrollY;
+  window.scrollTo({ top: cardTop - document.querySelector('.app-header').offsetHeight - 10, behavior: 'smooth' });
+}
+function renderReqItem() {
+  const it = reqItem, img = imgSrc(it);
+  const stock = Number(it.stock_qty) || 0, min = Number(it.min_stock) || 0;
+  const cls = stock <= 0 ? 'out' : stock <= min ? 'low' : 'ok';
+  const stockMsg = stock <= 0 ? '⛔ ของหมด — ส่งคำขอได้ Admin จะตรวจสอบ'
+    : `${cls === 'low' ? '⚠️' : '✅'} คงเหลือ ${fmtNum(stock)} ${escHtml(it.unit || '')}`;
+  const meta = [it.category_name, it.unit ? `หน่วย: ${it.unit}` : ''].filter(Boolean).map(escHtml).join(' · ');
+  document.getElementById('reqItemBox').innerHTML = `
+    <div class="ric">
+      <div class="ric-img${img ? ' has-img' : ''}" ${img ? 'onclick="viewReqItemImage()" title="แตะเพื่อดูรูปขนาดใหญ่"' : ''}>
+        ${img ? `<img src="${img}" alt="${escHtml(it.name)}"><span class="ric-zoom">🔍 แตะเพื่อขยาย</span>`
+              : '<div class="ric-noimg"><div style="font-size:42px">🔧</div>Item นี้ยังไม่มีรูปในระบบ<br>ตรวจรหัสให้ตรงกับป้ายบน Part</div>'}
+      </div>
+      <div style="min-width:0">
+        <span class="ric-found">✅ พบ Item Part</span>
+        <div class="ric-name">${escHtml(it.name)}</div>
+        <div class="ric-code">${escHtml(it.part_code)}</div>
+        ${meta ? `<div class="ric-meta">${meta}</div>` : ''}
+        <span class="rv-stock ${cls}">${stockMsg}</span>
+        ${it.description ? `<div class="ric-meta" style="margin-top:8px">${escHtml(it.description)}</div>` : ''}
+      </div>
+    </div>
+    <div class="ric-actions">
+      <button type="button" class="btn btn-outline" onclick="scanReqQr()">📷 สแกนใหม่</button>
+      <button type="button" class="btn btn-gray" onclick="clearReqItem(true)">⌨️ พิมพ์รหัสอื่น</button>
+    </div>`;
+}
+function viewReqItemImage() {
+  if (reqItem && imgSrc(reqItem)) openLightbox([imgSrc(reqItem)], 0, `${reqItem.part_code} · ${reqItem.name}`);
+}
+// Back to "scan or type a code" (the details typed so far are kept for the next Item).
+function clearReqItem(focusCode) {
+  reqItem = null;
+  const box = document.getElementById('reqItemBox');
+  box.style.display = 'none'; box.innerHTML = '';
+  document.getElementById('reqPickBox').style.display = '';
+  document.getElementById('reqDetailCard').style.display = 'none';
+  if (focusCode) { const c = document.getElementById('reqCode'); c.value = ''; c.focus(); }
+}
+
+// ============================================================
+// REQUISITION FORM (employee): scanned Item + qty + machine + purpose
 // ============================================================
 function renderWho() {
   const el = document.getElementById('whoBox');
@@ -2120,79 +2440,72 @@ function syncPurposeChips() {
   document.querySelectorAll('#purposeChips .chip').forEach(c =>
     c.classList.toggle('active', val === c.dataset.v || val.startsWith(c.dataset.v + ' — ')));
 }
-function dataUrlToBlob(dataUrl) {
-  return fetch(dataUrl).then(r => r.blob());
-}
-
+// No photo is sent or stored — the Item Part comes from the scanned QR / typed code.
 async function submitRequisition() {
   if (!currentUser) { showLoginGate(); return; }
   if (!API_URL) { showToast('❌ ยังไม่ได้ตั้งค่า Worker URL', 'error'); return; }
+  if (!reqItem) {
+    showToast('⚠️ สแกน QR Code หรือพิมพ์รหัส Item Part ก่อน', 'error');
+    document.getElementById('reqPickBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const machine = document.getElementById('reqMachine').value.trim();
   const purpose = document.getElementById('reqPurpose').value.trim();
   const checks = [
-    [reqPhotos.length > 0, null, 'errPhotos'],
     [validateQtyInput(), 'reqQty', 'errQty'],
     [!!machine, 'reqMachine', 'errMachine'],
     [!!purpose, 'reqPurpose', 'errPurpose'],
   ];
   const failed = checks.filter(([ok]) => !ok);
   checks.forEach(([ok, inputId, errId]) => {
-    if (inputId) document.getElementById(inputId).classList.toggle('error', !ok);
+    document.getElementById(inputId).classList.toggle('error', !ok);
     document.getElementById(errId).classList.toggle('show', !ok);
   });
   if (failed.length) {
-    const [, inputId, errId] = failed[0];
-    (inputId ? document.getElementById(inputId) : document.getElementById(errId).parentElement)
-      .scrollIntoView({ behavior: 'smooth', block: 'center' });
-    if (inputId) document.getElementById(inputId).focus({ preventScroll: true });
+    const [, inputId] = failed[0];
+    document.getElementById(inputId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById(inputId).focus({ preventScroll: true });
     showToast('⚠️ กรอกข้อมูลให้ครบก่อนส่ง', 'error');
     return;
   }
 
   const mc = machines.find(m => (m.machine_no || '').toLowerCase() === machine.toLowerCase());
-  const meta = {
+  const item = reqItem, qty = parseInt(document.getElementById('reqQty').value);
+  const body = {
     requester_name: `${currentUser.name} (${currentUser.code})`,
     emp_code: currentUser.code,
     machine_no: mc ? mc.machine_no : machine,
     zone: mc ? (mc.zone || '') : '',
     purpose,
-    req_qty: parseInt(document.getElementById('reqQty').value),
-    req_unit: document.getElementById('reqUnit').value,
+    req_qty: qty,
+    req_unit: item.unit || 'ชิ้น',
+    items: [{ item_id: item.id, qty }],
   };
   const btn = document.getElementById('btnSubmitReq');
-  btn.disabled = true; btn.textContent = '⏳ กำลังส่งรูป...';
+  btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
   try {
-    // Photos travel as binary parts (not base64 JSON) — smaller upload, no decode cost on the Worker.
-    const fd = new FormData();
-    fd.append('meta', JSON.stringify(meta));
-    for (const [i, src] of reqPhotos.entries()) {
-      fd.append('photo', await dataUrlToBlob(src), `photo${i + 1}.jpg`);
-      fd.append('thumb', await dataUrlToBlob(await compressImageDataUrl(src, 360, 0.75)), `thumb${i + 1}.jpg`);
-    }
-    const res = await fetch(API_URL + '/api/requisitions', { method: 'POST', body: fd, headers: { 'X-VSM': currentUser.vsm } });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) throw new Error(data.error || 'ส่งไม่สำเร็จ — ลองใหม่');
-    localStorage.setItem('req_last_machine', meta.machine_no);
+    const data = await api('POST', '/api/requisitions', body);
+    localStorage.setItem('req_last_machine', body.machine_no);
     document.getElementById('reqDoneNo').textContent = data.req_no;
+    document.getElementById('reqDoneItem').textContent = `${item.part_code} · ${item.name} × ${fmtNum(qty)} ${body.req_unit}`;
     document.getElementById('reqFormWrap').style.display = 'none';
     document.getElementById('reqDone').style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`✅ ส่งคำขอเบิกแล้ว เลขที่ ${data.req_no}`);
     checkLowStockNotif();
-  } catch (e) {
-    showToast('❌ ' + ((e && e.message) || 'ส่งไม่สำเร็จ — ลองใหม่'), 'error');
-  } finally { btn.disabled = false; btn.textContent = '📨 ส่งคำขอเบิกให้ Admin'; }
+  } catch {} finally { btn.disabled = false; btn.textContent = '✅ ยืนยัน ส่งคำขอเบิกให้ Admin'; }
 }
 // Reset the form for the next requisition (the machine is kept — usually the same).
 function newRequisition() {
-  reqPhotos = [];
-  renderReqPhotos();
+  clearReqItem();
+  document.getElementById('reqCode').value = '';
+  clearFieldError('reqCode', 'errCode');
   document.getElementById('reqQty').value = 1;
-  document.getElementById('reqUnit').value = 'ชิ้น';
+  document.getElementById('qtyHint').textContent = '';
   document.getElementById('reqPurpose').value = '';
   syncPurposeChips();
   ['reqQty', 'reqMachine', 'reqPurpose'].forEach(id => document.getElementById(id).classList.remove('error'));
-  ['errPhotos', 'errQty', 'errMachine', 'errPurpose'].forEach(id => document.getElementById(id).classList.remove('show'));
+  ['errQty', 'errMachine', 'errPurpose'].forEach(id => document.getElementById(id).classList.remove('show'));
   document.getElementById('reqDone').style.display = 'none';
   document.getElementById('reqFormWrap').style.display = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2242,7 +2555,7 @@ function renderReqCard(r) {
   const items = r.items || [];
   const itemsHtml = items.length
     ? `<div class="req-items-list">
-        <div class="text-sub" style="margin-bottom:4px">🧩 Item Part ${r.status === 'completed' ? 'ที่จ่าย' : 'ที่ Admin ระบุ'}</div>
+        <div class="text-sub" style="margin-bottom:4px">🧩 Item Part ${{ completed: 'ที่จ่าย', approved: 'ที่อนุมัติ' }[r.status] || 'ที่ขอเบิก'}</div>
         ${items.map(item => `
         <div class="req-item-row">
           <div class="req-item-thumb">${thumbSrc(item) ? `<img src="${thumbSrc(item)}" alt="" loading="lazy">` : '🔧'}</div>
@@ -2254,7 +2567,7 @@ function renderReqCard(r) {
       </div>`
     : (r.status === 'pending' ? '<div class="req-wait">⏳ รอ Admin ดูรูปและระบุ Item Part</div>' : '');
   const adminBtn = !isAdmin ? ''
-    : r.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="openReview(${r.id})">🔍 ตรวจสอบ & ใส่ Item</button>`
+    : r.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="openReview(${r.id})">${items.length ? '🔍 ตรวจสอบ & อนุมัติ' : '🔍 ตรวจสอบ & ใส่ Item'}</button>`
     : r.status === 'approved' ? `<button class="btn btn-success btn-sm" onclick="openReview(${r.id})">📦 จ่ายของ / แก้ไข</button>`
     : '';
   return `
@@ -2321,6 +2634,16 @@ async function loadInventory() {
 }
 
 function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadInventory, 400); }
+// Stock check on the floor: scan a part's QR label → that Item's details (stock on hand).
+function scanInventory() {
+  openQrScanner(async code => {
+    const r = await fetchItemByCode(code);
+    if (!r.item) { showToast(`❌ อ่าน QR ได้ "${code}" — ${r.error}`, 'error'); return; }
+    document.getElementById('invSearch').value = r.item.part_code;
+    loadInventory();
+    showItemDetail(r.item.id);
+  }, () => document.getElementById('invSearch').focus());
+}
 
 async function showItemDetail(id) {
   try {
@@ -2403,6 +2726,7 @@ function loadAdminPanel() {
   loadStats(); loadPending(); loadUsage(); loadAdminItems(); prefillNextCode();
   loadMasterData().then(() => { renderEmployeeList(); renderMachineList(); });
   loadPsifRoster();
+  if (!document.getElementById('qrCard').classList.contains('collapsed')) loadQrItems();
 }
 async function loadStats() {
   try {
@@ -2487,7 +2811,7 @@ async function addItem() {
     document.getElementById('adminImgZone').classList.remove('has-img');
     document.getElementById('adminFileInput').value = '';
     document.getElementById('adminImgWarning').style.display = 'none';
-    loadAdminItems(); loadStats();
+    loadAdminItems(); loadStats(); qrRefresh();
   } catch {} finally { btn.disabled = false; btn.textContent = '➕ เพิ่มอุปกรณ์'; }
 }
 
@@ -2532,7 +2856,7 @@ async function deleteItem(id, name) {
   try {
     await api('DELETE', `/api/items/${id}`, null, true);
     showToast(`🗑️ ลบ "${name}" แล้ว`);
-    loadAdminItems(); loadStats();
+    loadAdminItems(); loadStats(); qrRefresh();
   } catch {}
 }
 
@@ -2620,13 +2944,13 @@ async function confirmEditItem() {
     }, true);
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');
-    loadAdminItems(); loadStats();
+    loadAdminItems(); loadStats(); qrRefresh();
   } catch {} finally { btn.disabled = false; btn.textContent = '💾 บันทึกการแก้ไข'; }
 }
 
 // ============================================================
-// REVIEW — Admin looks at the photo, picks the Item Part(s), approves
-// (a photo may show a whole set → several Item lines)
+// REVIEW — Admin checks the scanned Item Part, may change / add lines, approves
+// (older photo-era requisitions: identifies the Item Part(s) from the photo)
 // ============================================================
 let _rv = null;               // { req, photo: index, lines: [{ item, qty }] }
 let _rvSearchTimer = null;
@@ -2659,6 +2983,8 @@ function openReview(id) {
   document.getElementById('rvResults').innerHTML = '';
   _rvResults = {}; _rvLastItems = [];
   document.getElementById('rvQuickAdd').style.display = 'none';
+  document.getElementById('btnRvQuickAdd').textContent = rvPhotoUrls().length
+    ? '➕ ไม่มีในระบบ? เพิ่ม Item ใหม่จากรูปนี้' : '➕ ไม่มีในระบบ? เพิ่ม Item ใหม่';
   document.querySelector('input[name="rvAction"][value="completed"]').checked = true;
   document.getElementById('rvBy').value = localStorage.getItem('req_approver') || '';
   document.getElementById('rvNote').value = r.note || '';
@@ -2671,28 +2997,39 @@ function openReview(id) {
   // Desktop: jump straight to the search box. Touch: don't pop the keyboard over the photo.
   if (!_rv.lines.length && matchMedia('(pointer: fine)').matches) setTimeout(() => document.getElementById('rvSearch').focus(), 150);
 }
+// Photos of an older photo-era requisition (a QR requisition has none).
 function rvPhotoUrls() { return (_rv?.req.photos || []).map(p => API_URL + p.image_url); }
+// The left pane: the employee's photos, else the catalogue image(s) of the Item(s) they scanned.
+function rvViews() {
+  const photos = _rv?.req.photos || [];
+  if (photos.length) return photos.map(p => ({ full: API_URL + p.image_url, thumb: API_URL + p.thumb_url }));
+  return (_rv?.req.items || []).filter(imgSrc).map(it => ({ full: imgSrc(it), thumb: thumbSrc(it) }));
+}
 function rvRenderPhotos() {
-  const urls = rvPhotoUrls();
+  const views = rvViews(), byPhoto = rvPhotoUrls().length > 0;
   const main = document.getElementById('rvMain');
   const thumbs = document.getElementById('rvThumbs');
-  if (!urls.length) {
+  if (!views.length) {
     main.style.display = 'none';
-    thumbs.innerHTML = '<div class="text-sub">ไม่มีรูปแนบ (ใบเบิกแบบเดิม)</div>';
+    thumbs.innerHTML = `<div class="text-sub">${(_rv.req.items || []).length ? '🔳 สแกน QR / พิมพ์รหัส — Item นี้ยังไม่มีรูปในระบบ' : 'ไม่มีรูปแนบ'}</div>`;
     return;
   }
   main.style.display = '';
-  const i = Math.min(_rv.photo, urls.length - 1);
-  document.getElementById('rvMainImg').src = urls[i];
+  const i = Math.min(_rv.photo, views.length - 1);
+  document.getElementById('rvMainImg').src = views[i].full;
   const cnt = document.getElementById('rvCount');
-  cnt.textContent = `รูป ${i + 1}/${urls.length}`;
-  cnt.style.display = urls.length > 1 ? '' : 'none';
-  thumbs.innerHTML = urls.length > 1
-    ? _rv.req.photos.map((p, k) => `<img src="${API_URL + p.thumb_url}" class="${k === i ? 'active' : ''}" onclick="rvPickPhoto(${k})" alt="รูปที่ ${k + 1}">`).join('')
+  cnt.textContent = byPhoto ? `รูป ${i + 1}/${views.length}` : '🔳 สแกน QR · รูป Item ในระบบ';
+  cnt.style.display = views.length > 1 || !byPhoto ? '' : 'none';
+  thumbs.innerHTML = views.length > 1
+    ? views.map((v, k) => `<img src="${v.thumb}" class="${k === i ? 'active' : ''}" onclick="rvPickPhoto(${k})" alt="รูปที่ ${k + 1}">`).join('')
     : '';
 }
 function rvPickPhoto(k) { _rv.photo = k; rvRenderPhotos(); }
-function rvOpenPhoto() { if (_rv) openLightbox(rvPhotoUrls(), _rv.photo, `${_rv.req.req_no} · รูปที่พนักงานถ่าย`); }
+function rvOpenPhoto() {
+  if (!_rv) return;
+  const label = rvPhotoUrls().length ? 'รูปที่พนักงานถ่าย' : 'รูป Item ที่สแกน';
+  openLightbox(rvViews().map(v => v.full), _rv.photo, `${_rv.req.req_no} · ${label}`);
+}
 
 // --- item search ---
 function rvSearchDebounced() { clearTimeout(_rvSearchTimer); _rvSearchTimer = setTimeout(rvSearch, 250); }
@@ -2713,7 +3050,7 @@ function rvRenderResults() {
   const el = document.getElementById('rvResults');
   if (!document.getElementById('rvSearch').value.trim()) { el.innerHTML = ''; return; }
   if (!_rvLastItems.length) {
-    el.innerHTML = '<div class="rv-empty" style="margin-top:6px">ไม่พบ Item — ลองคำอื่น หรือกด “เพิ่ม Item ใหม่จากรูปนี้”</div>';
+    el.innerHTML = '<div class="rv-empty" style="margin-top:6px">ไม่พบ Item — ลองคำอื่น หรือกด “เพิ่ม Item ใหม่” ด้านล่าง</div>';
     return;
   }
   el.innerHTML = `<div class="rv-results">${_rvLastItems.map(it => {
@@ -2799,7 +3136,7 @@ function rvSyncAction() {
   document.getElementById('rvNoteLabel').innerHTML = a === 'rejected' ? 'เหตุผลที่ไม่อนุมัติ <span class="req">*</span>' : 'หมายเหตุ';
 }
 
-// --- quick-add a brand new Item from the employee's photo ---
+// --- quick-add a brand new Item (older requisitions: optionally from the employee's photo) ---
 async function rvToggleQuickAdd() {
   const box = document.getElementById('rvQuickAdd');
   const show = box.style.display === 'none';
@@ -2809,6 +3146,7 @@ async function rvToggleQuickAdd() {
   document.getElementById('qaName').value = document.getElementById('rvSearch').value.trim();
   document.getElementById('qaUsePhoto').checked = hasPhoto;
   document.getElementById('qaUsePhoto').disabled = !hasPhoto;
+  document.getElementById('qaUsePhotoRow').style.display = hasPhoto ? 'flex' : 'none';
   document.getElementById('qaName').focus();
   try { const d = await api('GET', '/api/items/next-code', null, true); if (d.next) document.getElementById('qaCode').value = d.next; } catch {}
 }
@@ -2836,7 +3174,7 @@ async function rvCreateItem() {
     rvRenderLines();
     document.getElementById('rvQuickAdd').style.display = 'none';
     showToast(`✅ เพิ่ม Item ${part_code} แล้ว`);
-    loadAdminItems(); prefillNextCode();
+    loadAdminItems(); prefillNextCode(); qrRefresh();
   } catch {} finally { btn.disabled = false; btn.textContent = '💾 เพิ่ม Item แล้วใส่ในใบเบิก'; }
 }
 
@@ -3131,6 +3469,210 @@ function recvRender(items, isMatch) {
       <span style="color:var(--success);font-weight:800;font-size:18px">📥</span>
     </div>`).join('');
 }
+// Receiving goods: scan the QR label on the part → straight to "📥 รับเข้า" for that Item.
+function scanRecv() {
+  openQrScanner(async code => {
+    const r = await fetchItemByCode(code);
+    if (!r.item) { showToast(`❌ อ่าน QR ได้ "${code}" — ${r.error}`, 'error'); return; }
+    document.getElementById('recvSearch').value = r.item.part_code;
+    recvRender([r.item], false);
+    openStockAdjust(r.item.id, r.item.name);
+  }, () => document.getElementById('recvSearch').focus());
+}
+
+// ============================================================
+// QR LABELS (Admin) — one QR Code per Item Part code, exported to Excel to print
+// and stick on the part / bin. The QR holds just the code; the เบิกของ scanner
+// looks it up (/api/items/lookup).
+// ============================================================
+let _qrItems = null;          // active Items of this VSM, by code (null = not loaded yet)
+const _qrOff = new Set();     // Item ids the Admin unticked
+
+function qrRefresh() { if (_qrItems) loadQrItems(); }
+// Another VSM's session: drop the old list so its labels can't be exported by mistake.
+function qrReset() {
+  _qrItems = null; _qrOff.clear();
+  document.getElementById('qrList').innerHTML = '';
+  document.getElementById('qrCount').textContent = '';
+  const btn = document.getElementById('btnQrExport');
+  btn.disabled = true; btn.textContent = '📥 Export Excel';
+}
+async function loadQrItems() {
+  const el = document.getElementById('qrList');
+  if (!_qrItems) el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', '/api/items?limit=5000');
+    _qrItems = (d.data || []).sort((a, b) => a.part_code.localeCompare(b.part_code, 'en', { numeric: true }));
+    renderQrList();
+  } catch { el.innerHTML = '<div class="empty">โหลดไม่สำเร็จ</div>'; }
+}
+function qrVisible() {
+  const q = document.getElementById('qrSearch').value.trim().toLowerCase();
+  const cat = document.getElementById('qrCategory').value;
+  return (_qrItems || []).filter(it => (!cat || String(it.category_id) === cat)
+    && (!q || it.part_code.toLowerCase().includes(q) || (it.name || '').toLowerCase().includes(q)));
+}
+function qrSelected() { return qrVisible().filter(it => !_qrOff.has(it.id)); }
+function renderQrList() {
+  if (!_qrItems) return;
+  const vis = qrVisible();
+  document.getElementById('qrList').innerHTML = vis.length ? vis.map(it => `
+    <label class="qr-row">
+      <input type="checkbox" ${_qrOff.has(it.id) ? '' : 'checked'} onchange="qrToggle(${it.id}, this.checked)">
+      <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+      <div style="min-width:0;flex:1">
+        <div class="rv-name" style="color:var(--primary)">${escHtml(it.part_code)}</div>
+        <div class="rv-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
+      </div>
+    </label>`).join('')
+    : '<div class="empty" style="padding:24px">ไม่พบ Item</div>';
+  renderQrCount();
+}
+function renderQrCount() {
+  const vis = qrVisible(), n = vis.filter(it => !_qrOff.has(it.id)).length;
+  const all = document.getElementById('qrAll');
+  all.checked = vis.length > 0 && n === vis.length;
+  all.indeterminate = n > 0 && n < vis.length;
+  // The employee sees the Item's image after scanning, so point out the ones without one.
+  const noImg = vis.filter(it => !it.has_image).length;
+  document.getElementById('qrCount').textContent = `เลือก ${n} / ${vis.length} รายการ${noImg ? ` · ยังไม่มีรูป ${noImg}` : ''}`;
+  const btn = document.getElementById('btnQrExport');
+  btn.disabled = !n;
+  btn.textContent = `📥 Export Excel — ${n} ป้าย`;
+}
+function qrToggle(id, on) { if (on) _qrOff.delete(id); else _qrOff.add(id); renderQrCount(); }
+function qrToggleAll(on) { qrVisible().forEach(it => on ? _qrOff.delete(it.id) : _qrOff.add(it.id)); renderQrList(); }
+
+async function exportQrExcel() {
+  const items = qrSelected();
+  if (!items.length) { showToast('⚠️ ยังไม่ได้เลือก Item', 'error'); return; }
+  const btn = document.getElementById('btnQrExport');
+  btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง QR + Excel...';
+  try {
+    await Promise.all([loadScript(LIB_QRGEN), loadScript(LIB_EXCELJS)]);
+    await new Promise(r => setTimeout(r, 30));   // let the "กำลังสร้าง" label paint before the heavy work
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'ระบบเบิกอุปกรณ์'; wb.created = new Date();
+    const imgs = items.map(it => wb.addImage({ base64: qrPng(it.part_code.trim()), extension: 'png' }));
+    qrLabelSheet(wb, items, imgs);
+    qrListSheet(wb, items, imgs);
+    const buf = await wb.xlsx.writeBuffer();
+    const d = new Date(), ymd = [d.getFullYear(), d.getMonth() + 1, d.getDate()].map(n => String(n).padStart(2, '0')).join('-');
+    downloadBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `QR-Labels-${currentUser?.vsm || ''}-${ymd}.xlsx`);
+    showToast(`✅ Export ป้าย QR ${items.length} รายการแล้ว — เปิดไฟล์แล้วสั่งพิมพ์ได้เลย`);
+  } catch (e) {
+    showToast('❌ Export ไม่สำเร็จ — ' + ((e && e.message) || 'ลองใหม่'), 'error');
+  } finally { renderQrCount(); }
+}
+// QR Code of `text` as a PNG data URL — black on white with a 2-module quiet zone (the
+// label's white cell adds more). Level H recovers 30%, so a scratched / dirty label still reads.
+function qrPng(text, cell = 10) {
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  const q = qrcode(0, 'H');
+  q.addData(text, /^[0-9A-Z $%*+\-./:]+$/.test(text) ? 'Alphanumeric' : 'Byte');
+  q.make();
+  const n = q.getModuleCount(), quiet = 2, size = (n + quiet * 2) * cell;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {
+    if (q.isDark(r, k)) ctx.fillRect((k + quiet) * cell, (r + quiet) * cell, cell, cell);
+  }
+  return c.toDataURL('image/png');
+}
+// Excel column width (characters) → approx. pixels. Excel derives it from Calibri's digit width
+// at the screen's / printer's resolution, so it drifts ~±5% between machines — layouts keep slack.
+const xlColPx = w => w * 7.2;
+const EMU_PX = 9525;
+// Sheet "ป้าย QR" — the sticker sheet: 3 labels across (QR, code, name), 5 rows = 15 per page.
+// Fixed 100% scale (fits A4 and Letter) so every page break falls between labels; dashed
+// borders are the cut lines.
+function qrLabelSheet(wb, items, imgs) {
+  const COLS = 3, ROWS_PER_PAGE = 5, COL_W = 28, QR_PX = 112, H = [92, 22, 26];   // row heights (pt)
+  const ws = wb.addWorksheet('ป้าย QR', {
+    views: [{ showGridLines: false }],
+    pageSetup: { paperSize: 9, orientation: 'portrait', scale: 100, horizontalCentered: true,
+      margins: { left: 0.4, right: 0.4, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 } },
+    headerFooter: { oddFooter: `&L&8ป้าย QR Code — ระบบเบิกอุปกรณ์ ${currentUser?.vsm || ''}&R&8หน้า &P / &N` },
+  });
+  ws.columns = Array.from({ length: COLS }, () => ({ width: COL_W }));
+  const cut = { style: 'dashed', color: { argb: 'FF9CA3AF' } };
+  const offX = Math.round((xlColPx(COL_W) - QR_PX) / 2 * EMU_PX);
+  const offY = Math.round((H[0] * 4 / 3 - QR_PX) / 2 * EMU_PX);
+  items.forEach((it, i) => {
+    const block = Math.floor(i / COLS), c = i % COLS, r0 = block * 3 + 1;
+    if (c === 0) H.forEach((h, k) => { ws.getRow(r0 + k).height = h; });
+    const top = ws.getCell(r0, c + 1), code = ws.getCell(r0 + 1, c + 1), name = ws.getCell(r0 + 2, c + 1);
+    code.value = it.part_code;
+    code.font = { name: 'Tahoma', size: 14, bold: true };
+    code.alignment = { horizontal: 'center', vertical: 'middle' };
+    name.value = it.name;
+    name.font = { name: 'Tahoma', size: (it.name || '').length > 32 ? 7.5 : 9, color: { argb: 'FF374151' } };
+    name.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
+    top.border = { top: cut, left: cut, right: cut };
+    code.border = { left: cut, right: cut };
+    name.border = { left: cut, right: cut, bottom: cut };
+    ws.addImage(imgs[i], {
+      tl: { nativeCol: c, nativeColOff: offX, nativeRow: r0 - 1, nativeRowOff: offY },
+      ext: { width: QR_PX, height: QR_PX },
+    });
+    if (c === COLS - 1 && (block + 1) % ROWS_PER_PAGE === 0 && i < items.length - 1) ws.getRow(r0 + 2).addPageBreak();
+  });
+}
+// Sheet "รายการ" — one row per Item (QR, code, name, unit, category): a checklist while
+// sticking labels; filterable, and prints as a list.
+function qrListSheet(wb, items, imgs) {
+  const QR_PX = 72, ROW_PT = 62;
+  const ws = wb.addWorksheet('รายการ', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '1:1',
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } },
+  });
+  ws.columns = [
+    { header: 'ลำดับ', key: 'no', width: 7 },
+    { header: 'QR Code', key: 'qr', width: 12 },
+    { header: 'รหัส Item Part', key: 'code', width: 18 },
+    { header: 'ชื่ออุปกรณ์', key: 'name', width: 42 },
+    { header: 'หน่วย', key: 'unit', width: 9 },
+    { header: 'หมวดหมู่', key: 'cat', width: 20 },
+  ];
+  const thin = { style: 'thin', color: { argb: 'FFD1D5DB' } };
+  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const head = ws.getRow(1);
+  head.height = 22;
+  head.eachCell(c => {
+    c.font = { name: 'Tahoma', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E429F' } };
+    c.alignment = { horizontal: 'center', vertical: 'middle' };
+    c.border = box;
+  });
+  const offX = Math.round((xlColPx(12) - QR_PX) / 2 * EMU_PX);
+  const offY = Math.round((ROW_PT * 4 / 3 - QR_PX) / 2 * EMU_PX);
+  items.forEach((it, i) => {
+    const row = ws.addRow({ no: i + 1, code: it.part_code, name: it.name, unit: it.unit || '', cat: it.category_name || '' });
+    row.height = ROW_PT;
+    row.eachCell({ includeEmpty: true }, (c, col) => {
+      c.border = box;
+      c.font = { name: 'Tahoma', size: 10, bold: col === 3 };
+      c.alignment = { vertical: 'middle', horizontal: col === 4 || col === 6 ? 'left' : 'center', wrapText: col === 4 };
+    });
+    ws.addImage(imgs[i], {
+      tl: { nativeCol: 1, nativeColOff: offX, nativeRow: i + 1, nativeRowOff: offY },
+      ext: { width: QR_PX, height: QR_PX },
+    });
+  });
+  ws.autoFilter = 'A1:F1';
+}
+function downloadBlob(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
 // Auto running item code per VSM (VSM4: I-0001…, VSM3: V3-0001…) so admin doesn't type it.
 async function prefillNextCode() {
   const el = document.getElementById('newPartCode');
@@ -3166,7 +3708,8 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => {
-    if (e.target === m) { m.classList.remove('open'); if (m.id === 'cameraModal') stopCameraStream(); }
+    if (e.target !== m) return;
+    if (m.id === 'cameraModal') closeCamera(); else m.classList.remove('open');
   });
 });
 
