@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 -- ตารางใบเบิก (requisition headers)
--- ระบบใหม่: พนักงานส่งรูป + จำนวน + เครื่องที่ใช้ + จุดประสงค์ → Admin ดูรูปแล้วระบุ Item Part เอง
+-- ระบบใหม่: พนักงานสแกน QR (หรือพิมพ์รหัส Item Part) + จำนวน + เครื่องที่ใช้ + จุดประสงค์ → Admin ตรวจสอบแล้วอนุมัติ
 CREATE TABLE IF NOT EXISTS requisitions (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   req_no         TEXT NOT NULL UNIQUE,
@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS requisitions (
   machine_no     TEXT,              -- นำไปใช้เครื่องไหน
   zone           TEXT,
   purpose        TEXT,              -- จุดประสงค์
-  req_qty        REAL,              -- จำนวนที่พนักงานขอ (ก่อน Admin แยกเป็น Item Part)
-  req_unit       TEXT,              -- หน่วยที่พนักงานระบุ (ชิ้น / ชุด / ...)
+  req_qty        REAL,              -- จำนวนที่พนักงานขอ
+  req_unit       TEXT,              -- หน่วยของ Item ที่สแกน (ชิ้น / ชุด / ...)
   status         TEXT DEFAULT 'pending',  -- pending (รอตรวจสอบ) | approved (อนุมัติ รอจ่าย) | rejected | completed (จ่ายของแล้ว)
   vsm            TEXT NOT NULL DEFAULT 'VSM4',  -- VSM ของผู้เบิก (จากรายชื่อ PSIF)
   approved_by    TEXT,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS requisitions (
   updated_at     TEXT DEFAULT (datetime('now','localtime'))
 );
 
--- รูปที่พนักงานถ่ายแนบกับใบเบิก (1 ใบเบิก มีได้หลายรูป; 1 รูป อาจมีหลาย Item Part)
+-- รูปที่แนบกับใบเบิกเก่าเท่านั้น (ระบบใหม่สแกน QR ไม่เก็บรูปการเบิก — ตารางนี้คงไว้ให้เปิดดูใบเบิกเก่าได้)
 CREATE TABLE IF NOT EXISTS requisition_photos (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   req_id     INTEGER NOT NULL REFERENCES requisitions(id) ON DELETE CASCADE,
