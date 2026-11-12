@@ -591,6 +591,28 @@ body[data-vsm] .vsm-pill { display: inline-block; }
   border-radius: 11px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 700; }
 .count-pill.zero { background: #e2e8f0; color: var(--sub); }
 
+/* ======= MACHINE GROUPS — which machine group / machine an Item Part fits ======= */
+.mc-filter { margin-top: -6px; }
+.mc-filter select { flex: 1 1 160px; }
+.mc-line { font-size: 11.5px; color: var(--sub); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-results { max-height: 420px; overflow-y: auto; }
+.mpick { border: 1px solid var(--border); border-radius: 10px; background: #fff; max-height: 300px; overflow-y: auto; padding: 2px 10px; }
+.mp-sum { font-size: 12.5px; color: var(--sub); margin: -1px 0 6px; overflow-wrap: anywhere; }
+.mp-sum b { color: var(--primary); font-weight: 700; }
+.mp-group { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.mp-group:last-child { border-bottom: none; }
+.mp-head { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.mp-head small { font-weight: 400; color: var(--sub); }
+.mpick .chip-row { margin-bottom: 0; }
+.mpick .chip { padding: 5px 11px; font-size: 12.5px; }
+.chip.mp-all { border-style: dashed; font-weight: 600; }
+.chip.mp-all.active { border-style: solid; }
+.chip.covered, .chip.covered:hover { background: #eef2ff; border-color: #c7d2fe; color: var(--primary-dk); cursor: default; }
+.admin-table tr.mg-head td { background: #f8fafc; font-weight: 700; color: var(--text); }
+.mg-head .btn-link { width: auto; margin: 0 0 0 6px; padding: 2px 4px; font-size: 12px; font-weight: 600; }
+.mc-edit { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.mc-edit input { flex: 1 1 110px; min-width: 0; padding: 7px 9px; font-size: 13px; }
+
 /* item thumbnails in search/picker rows */
 .link-item { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px;
   cursor: pointer; border: 1px solid var(--border); margin-bottom: 6px; }
@@ -853,6 +875,15 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         </div>
         <div class="field-error" id="errCode"></div>
         <div id="reqCodeResults"></div>
+        <!-- No label to scan? Find the Part by the machine group / machine it is used on. -->
+        <div id="reqBrowseBox" style="display:none">
+          <div class="or-sep">หรือค้นหา Part ตามกลุ่มเครื่องจักร</div>
+          <div class="search-bar" style="margin-bottom:8px">
+            <select id="reqGroup" onchange="onReqGroup()" style="flex:1 1 160px"></select>
+            <select id="reqFindMachine" onchange="reqBrowse()" style="flex:1 1 140px"></select>
+          </div>
+          <div id="reqBrowseResults"></div>
+        </div>
       </div>
       <div id="reqItemBox" style="display:none"></div>
     </div>
@@ -943,6 +974,10 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <option value="">ทุกหมวด</option>
     </select>
     <button class="btn btn-outline" onclick="loadInventory()">🔄</button>
+  </div>
+  <div class="search-bar mc-filter" id="invMcBar" style="display:none">
+    <select id="invGroup" onchange="onInvGroup()"></select>
+    <select id="invMachine" onchange="loadInventory()"></select>
   </div>
   <div id="invCount" class="text-sub" style="margin:-6px 0 10px 2px"></div>
   <div id="inventoryGrid" class="item-grid"></div>
@@ -1052,6 +1087,11 @@ body[data-vsm] .vsm-pill { display: inline-block; }
         <textarea id="newDesc" placeholder="รายละเอียดอุปกรณ์ (ไม่บังคับ)"></textarea>
       </div>
       <div class="form-group">
+        <label>🏭 ใช้กับเครื่องจักร <span style="font-weight:400;color:var(--sub)">(ไม่บังคับ — พนักงานค้นหา Part ตามกลุ่มเครื่อง/เครื่องได้)</span></label>
+        <div class="mp-sum" id="newMachinePickSum"></div>
+        <div class="mpick" id="newMachinePick"></div>
+      </div>
+      <div class="form-group">
         <label>รูปภาพอุปกรณ์ <span style="font-weight:400;color:var(--sub)">(พนักงานจะเห็นรูปนี้หลังสแกน QR)</span></label>
         <div class="img-zone" id="adminImgZone" onclick="openCamera(setAdminImage)">
           <div class="zone-icon" id="adminZoneIcon">📸</div>
@@ -1089,6 +1129,7 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <div class="search-bar" style="margin-bottom:8px">
         <input type="text" id="qrSearch" placeholder="ค้นหารหัส / ชื่อ (เว้นว่าง = ทั้งหมด)..." autocomplete="off" oninput="renderQrList()">
         <select id="qrCategory" onchange="renderQrList()" style="flex:0 1 170px;width:auto"><option value="">ทุกหมวด</option></select>
+        <select id="qrGroup" onchange="renderQrList()" style="flex:0 1 190px;width:auto"></select>
         <button class="btn btn-outline" onclick="loadQrItems()" title="รีเฟรช">🔄</button>
       </div>
       <div class="qr-toolbar">
@@ -1121,17 +1162,26 @@ body[data-vsm] .vsm-pill { display: inline-block; }
     </div>
 
     <div class="card">
-      <div class="card-title">🏭 ฐานข้อมูลเครื่องจักร <span style="font-weight:400;font-size:12px;color:var(--sub)">(หมายเลข ↔ Zone — ใช้เติม Zone อัตโนมัติ)</span></div>
+      <div class="card-title">🏭 ฐานข้อมูลเครื่องจักร <span style="font-weight:400;font-size:12px;color:var(--sub)">(หมายเลข ↔ กลุ่มเครื่องจักร ↔ Zone)</span></div>
+      <div class="text-sub" style="margin-bottom:10px">
+        จัดเครื่องเป็น <b>กลุ่มเครื่องจักร</b> (เช่น เครื่องฉีด, Press) แล้วผูก Part กับกลุ่ม/เครื่องที่ “🏭 ใช้กับเครื่องจักร” ในหน้าเพิ่ม/แก้ไขอุปกรณ์ —
+        พนักงานค้นหา Part ตามกลุ่มเครื่องได้ที่หน้าเบิกของและคลังสินค้า
+      </div>
       <div class="row">
         <div class="col form-group">
           <label>หมายเลขเครื่องจักร</label>
           <input type="text" id="machineNo" placeholder="เช่น M-01" onkeydown="if(event.key==='Enter')addMachine()">
         </div>
         <div class="col form-group">
+          <label>กลุ่มเครื่องจักร</label>
+          <input type="text" id="machineGroup" list="machineGroupList" autocomplete="off" placeholder="เช่น เครื่องฉีด" onkeydown="if(event.key==='Enter')addMachine()">
+        </div>
+        <div class="col form-group">
           <label>Zone / พื้นที่</label>
           <input type="text" id="machineZone" placeholder="เช่น Zone A" onkeydown="if(event.key==='Enter')addMachine()">
         </div>
       </div>
+      <datalist id="machineGroupList"></datalist>
       <button class="btn btn-primary btn-sm" onclick="addMachine()" id="btnAddMachine">➕ เพิ่มเครื่องจักร</button>
       <div id="machineListAdmin" style="margin-top:12px"></div>
     </div>
@@ -1222,6 +1272,11 @@ body[data-vsm] .vsm-pill { display: inline-block; }
       <div class="form-group">
         <label>รายละเอียด</label>
         <textarea id="editDesc" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>🏭 ใช้กับเครื่องจักร</label>
+        <div class="mp-sum" id="editMachinePickSum"></div>
+        <div class="mpick" id="editMachinePick"></div>
       </div>
       <div class="form-group">
         <label>รูปภาพใหม่ <span style="font-weight:400;color:var(--sub)">(ถ้าต้องการเปลี่ยน)</span></label>
@@ -1651,7 +1706,9 @@ function applyVsmTheme(vsm) {
   if (meta) meta.content = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#1a56db';
 }
 function refreshVsmData() {
-  employees = []; machines = [];
+  employees = []; machines = []; machineGroups = [];
+  ['reqGroup', 'reqFindMachine', 'invGroup', 'invMachine', 'qrGroup'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('reqBrowseResults').innerHTML = '';
   newRequisition();             // a scanned Item belongs to the previous session's VSM / person
   qrReset();
   loadMasterData().then(lookupMachine);
@@ -1761,20 +1818,160 @@ async function loadCategories() {
 // ============================================================
 async function loadMasterData() {
   try { const e = await api('GET', '/api/employees'); employees = e.data || []; } catch { employees = []; }
-  try { const m = await api('GET', '/api/machines'); machines = m.data || []; } catch { machines = []; }
+  try {
+    const m = await api('GET', '/api/machines');
+    machines = (m.data || []).sort((a, b) => byNo(a.machine_no, b.machine_no));
+    machineGroups = m.groups || [...new Set(machines.map(x => x.machine_group).filter(Boolean))].sort(byNo);
+    _machinesLoaded = true;
+  } catch { machines = []; machineGroups = []; _machinesLoaded = false; }
   // Populate the requisition-form machine autocomplete
   const mcl = document.getElementById('machineList');
-  if (mcl) mcl.innerHTML = machines.map(m => `<option value="${escHtml(m.machine_no)}">${escHtml(m.zone || '')}</option>`).join('');
+  if (mcl) mcl.innerHTML = machines.map(m => `<option value="${escHtml(m.machine_no)}">${escHtml([m.machine_group, m.zone].filter(Boolean).join(' · '))}</option>`).join('');
+  fillMachineFilters();
 }
 
-// Requisition form: หมายเลขเครื่อง → แสดง Zone อัตโนมัติ
+// ============================================================
+// MACHINE GROUPS — an Item Part fits whole machine groups (incl. machines added later)
+// and/or specific machines, so Parts can be searched by machine group / machine.
+// ============================================================
+let machineGroups = [];       // this VSM's group names (machines' groups + groups Items are linked to)
+let _machinesLoaded = false;  // false = the machine list failed to load (pickers then keep links as they are)
+const byNo = (a, b) => String(a || '').localeCompare(String(b || ''), 'th', { numeric: true });
+function machinesOf(group) { return machines.filter(m => (m.machine_group || '') === group); }
+// A typed group name → the existing group's spelling when it differs only in case / spaces.
+function canonGroup(g) {
+  g = (g || '').trim().replace(/\s+/g, ' ');
+  return machineGroups.find(x => x.toLowerCase() === g.toLowerCase()) || g;
+}
+// "เครื่องฉีด (ทุกเครื่อง) · Press: P-01, P-02 · เครื่อง M-09" — what an Item Part is used on
+// (machines without a group come last).
+function machineText(it) {
+  const gs = it?.machine_groups || [], ms = it?.machines || [];
+  const by = new Map(), loose = [];
+  gs.forEach(g => by.set(g, null));
+  ms.forEach(m => {
+    if (!m.machine_group) { loose.push(m.machine_no); return; }
+    if (by.get(m.machine_group) === null && gs.includes(m.machine_group)) return;   // whole group already
+    if (!by.has(m.machine_group)) by.set(m.machine_group, []);
+    by.get(m.machine_group).push(m.machine_no);
+  });
+  return [...by].sort((a, b) => byNo(a[0], b[0]))
+    .map(([g, nos]) => nos ? `${g}: ${nos.sort(byNo).join(', ')}` : `${g} (ทุกเครื่อง)`)
+    .concat(loose.length ? ['เครื่อง ' + loose.sort(byNo).join(', ')] : []).join(' · ');
+}
+function itemInGroup(it, g) {
+  return (it.machine_groups || []).includes(g) || (it.machines || []).some(m => m.machine_group === g);
+}
+// Group <select>: "" + every group. Machine <select>: "" + the group's machines (all when no group).
+function fillGroupSelect(id, emptyLabel) {
+  const sel = document.getElementById(id); if (!sel) return;
+  const v = sel.value;
+  sel.innerHTML = `<option value="">${emptyLabel}</option>` +
+    machineGroups.map(g => `<option value="${escHtml(g)}">${escHtml(g)}</option>`).join('');
+  sel.value = machineGroups.includes(v) ? v : '';
+}
+function fillMachineSelect(id, group, emptyLabel) {
+  const sel = document.getElementById(id); if (!sel) return;
+  const v = sel.value, ms = group ? machinesOf(group) : machines;
+  if (group) emptyLabel = 'ทุกเครื่องในกลุ่ม';
+  sel.innerHTML = `<option value="">${emptyLabel}</option>` + ms.map(m =>
+    `<option value="${m.id}">${escHtml(m.machine_no)}${!group && m.machine_group ? ' · ' + escHtml(m.machine_group) : ''}</option>`).join('');
+  sel.value = ms.some(m => String(m.id) === v) ? v : '';
+}
+function machineFilterQuery(groupId, machineId) {
+  const g = document.getElementById(groupId).value, m = document.getElementById(machineId).value;
+  return (g ? `&group=${encodeURIComponent(g)}` : '') + (m ? `&machine=${encodeURIComponent(m)}` : '');
+}
+// Refresh every machine-group control after the machine list (re)loads.
+function fillMachineFilters() {
+  const has = machineGroups.length > 0 || machines.length > 0;
+  fillGroupSelect('invGroup', '🏭 ทุกกลุ่มเครื่องจักร');
+  fillMachineSelect('invMachine', document.getElementById('invGroup').value, '🔧 ทุกเครื่อง');
+  document.getElementById('invMcBar').style.display = has ? '' : 'none';
+  const before = document.getElementById('reqGroup').value + '|' + document.getElementById('reqFindMachine').value;
+  fillGroupSelect('reqGroup', '🏭 เลือกกลุ่มเครื่องจักร');
+  fillMachineSelect('reqFindMachine', document.getElementById('reqGroup').value, '🔧 หรือเลือกหมายเลขเครื่อง');
+  document.getElementById('reqBrowseBox').style.display = has ? '' : 'none';
+  if (before !== document.getElementById('reqGroup').value + '|' + document.getElementById('reqFindMachine').value) reqBrowse();
+  fillGroupSelect('qrGroup', '🏭 ทุกกลุ่มเครื่อง');
+  document.getElementById('qrGroup').style.display = machineGroups.length ? '' : 'none';
+  const gl = document.getElementById('machineGroupList');
+  if (gl) gl.innerHTML = machineGroups.map(g => `<option value="${escHtml(g)}"></option>`).join('');
+  if (!_mp.newMachinePick) mpSet('newMachinePick', null); else mpRender('newMachinePick');
+  if (_mp.editMachinePick) mpRender('editMachinePick');
+}
+
+// ── Picker in the add / edit Item forms: tap "ทั้งกลุ่ม" or single machines ──
+const _mp = {};               // picker id → { groups: Set<name>, ids: Set<machine id> }
+function mpSet(pid, item) {
+  _mp[pid] = { groups: new Set(item?.machine_groups || []), ids: new Set((item?.machines || []).map(m => m.id)) };
+  mpRender(pid);
+}
+function mpRender(pid) {
+  const el = document.getElementById(pid), st = _mp[pid];
+  if (!el || !st) return;
+  const sum = document.getElementById(pid + 'Sum');
+  const groups = [...new Set([...machineGroups, ...st.groups])].sort(byNo);
+  const loose = machines.filter(m => !m.machine_group);
+  if (!groups.length && !loose.length) {
+    el.innerHTML = '<div class="text-sub" style="padding:10px 0">ยังไม่มีข้อมูลเครื่องจักร — เพิ่มเครื่องและกลุ่มที่การ์ด “🏭 ฐานข้อมูลเครื่องจักร” ด้านล่าง</div>';
+    if (sum) sum.textContent = '';
+    return;
+  }
+  const chip = (m, covered) => covered
+    ? `<button type="button" class="chip covered" disabled title="รวมอยู่ใน “ทั้งกลุ่ม” แล้ว">${escHtml(m.machine_no)}</button>`
+    : `<button type="button" class="chip${st.ids.has(m.id) ? ' active' : ''}" onclick="mpToggleMachine('${pid}', ${m.id})">${escHtml(m.machine_no)}</button>`;
+  el.innerHTML = groups.map(g => {
+    const all = st.groups.has(g), ms = machinesOf(g);
+    return `<div class="mp-group">
+      <div class="mp-head">🏷️ ${escHtml(g)} <small>· ${ms.length} เครื่อง</small></div>
+      <div class="chip-row">
+        <button type="button" class="chip mp-all${all ? ' active' : ''}" data-g="${escHtml(g)}" onclick="mpToggleGroup('${pid}', this.dataset.g)">${all ? '✔ ' : ''}ทั้งกลุ่ม</button>
+        ${ms.map(m => chip(m, all)).join('')}
+      </div>
+    </div>`;
+  }).join('') + (loose.length ? `<div class="mp-group">
+      <div class="mp-head">ยังไม่จัดกลุ่ม <small>· ${loose.length} เครื่อง</small></div>
+      <div class="chip-row">${loose.map(m => chip(m, false)).join('')}</div>
+    </div>` : '');
+  if (sum) {
+    const v = mpValue(pid);
+    const txt = machineText({ machine_groups: v.machine_groups,
+      machines: v.machine_ids.map(id => machines.find(m => m.id === id)).filter(Boolean) });
+    sum.innerHTML = txt ? `เลือกแล้ว: <b>${escHtml(txt)}</b>` : 'ยังไม่ได้เลือก — แตะ “ทั้งกลุ่ม” หรือหมายเลขเครื่อง';
+  }
+}
+function mpToggleGroup(pid, g) {
+  const s = _mp[pid].groups;
+  s.has(g) ? s.delete(g) : s.add(g);
+  mpRender(pid);
+}
+function mpToggleMachine(pid, id) {
+  const s = _mp[pid].ids;
+  s.has(id) ? s.delete(id) : s.add(id);
+  mpRender(pid);
+}
+// { machine_groups, machine_ids } to send. A machine already covered by its whole group is
+// dropped; a link to a machine the page doesn't know (list failed to load) is kept.
+function mpValue(pid) {
+  const st = _mp[pid] || { groups: new Set(), ids: new Set() };
+  return {
+    machine_groups: [...st.groups],
+    machine_ids: [...st.ids].filter(id => {
+      const m = machines.find(x => x.id === id);
+      return m ? !st.groups.has(m.machine_group || '') : !_machinesLoaded;
+    }),
+  };
+}
+
+// Requisition form: หมายเลขเครื่อง → แสดงกลุ่ม + Zone อัตโนมัติ
 function lookupMachine() {
   const no = document.getElementById('reqMachine').value.trim();
   const hint = document.getElementById('machineHint');
   clearFieldError('reqMachine', 'errMachine');
   const mc = machines.find(m => (m.machine_no || '').toLowerCase() === no.toLowerCase());
   if (mc) {
-    hint.textContent = '✅ ' + mc.machine_no + (mc.zone ? ' · ' + mc.zone : '');
+    hint.textContent = '✅ ' + [mc.machine_no, mc.machine_group, mc.zone].filter(Boolean).join(' · ');
     hint.style.color = 'var(--success)';
   } else {
     hint.textContent = no ? 'ℹ️ ไม่พบหมายเลขนี้ในระบบ — ส่งได้ Admin จะตรวจสอบ' : '';
@@ -1840,32 +2037,98 @@ async function deleteEmployee(id, name) {
 // ── Admin: manage machines ──
 async function addMachine() {
   const machine_no = document.getElementById('machineNo').value.trim();
+  const machine_group = canonGroup(document.getElementById('machineGroup').value);
   const zone = document.getElementById('machineZone').value.trim();
   if (!machine_no) { showToast('❌ กรอกหมายเลขเครื่องจักร', 'error'); return; }
   const btn = document.getElementById('btnAddMachine');
   btn.disabled = true;
   try {
-    await api('POST', '/api/machines', { machine_no, zone }, true);
+    await api('POST', '/api/machines', { machine_no, machine_group, zone }, true);
     showToast(`✅ เพิ่มเครื่อง "${machine_no}" แล้ว`);
     document.getElementById('machineNo').value = '';
-    document.getElementById('machineZone').value = '';
+    document.getElementById('machineZone').value = '';   // the group is kept: machines are usually added group by group
     await loadMasterData(); renderMachineList();
+    document.getElementById('machineNo').focus();
   } catch {} finally { btn.disabled = false; }
 }
+// Machines listed under their group; ✏️ edits a machine (or renames a group) in place.
+let _mcEdit = null;           // machine id being edited, or 'g:' + group name being renamed
 function renderMachineList() {
   const el = document.getElementById('machineListAdmin');
   if (!el) return;
   if (!machines.length) { el.innerHTML = '<div class="text-sub">ยังไม่มีข้อมูลเครื่องจักร</div>'; return; }
-  el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
-    <thead><tr><th>หมายเลขเครื่อง</th><th>Zone / พื้นที่</th><th style="text-align:center">ลบ</th></tr></thead>
-    <tbody>${machines.map(m => `<tr>
+  const groups = [...new Set(machines.map(m => m.machine_group || ''))].sort((a, b) => !a ? 1 : !b ? -1 : byNo(a, b));
+  const row = m => _mcEdit === m.id ? `<tr><td colspan="3">
+      <div class="mc-edit">
+        <input type="text" id="mcEditNo" value="${escHtml(m.machine_no)}" placeholder="หมายเลขเครื่อง" onkeydown="if(event.key==='Enter')saveMachine(${m.id})">
+        <input type="text" id="mcEditGroup" value="${escHtml(m.machine_group || '')}" list="machineGroupList" autocomplete="off" placeholder="กลุ่มเครื่องจักร" onkeydown="if(event.key==='Enter')saveMachine(${m.id})">
+        <input type="text" id="mcEditZone" value="${escHtml(m.zone || '')}" placeholder="Zone" onkeydown="if(event.key==='Enter')saveMachine(${m.id})">
+        <button class="btn btn-primary btn-sm" onclick="saveMachine(${m.id})">💾 บันทึก</button>
+        <button class="btn btn-gray btn-sm" onclick="editMachine(null)">ยกเลิก</button>
+      </div></td></tr>`
+    : `<tr>
       <td style="font-weight:700;color:var(--primary)">${escHtml(m.machine_no)}</td>
       <td>${escHtml(m.zone || '—')}</td>
-      <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="deleteMachine(${m.id},'${escHtml(m.machine_no)}')">🗑️</button></td>
-    </tr>`).join('')}</tbody></table></div>`;
+      <td style="text-align:center"><div class="actions" style="justify-content:center">
+        <button class="btn btn-warning btn-sm" title="แก้ไข" onclick="editMachine(${m.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" title="ลบ" onclick="deleteMachine(${m.id},'${escHtml(m.machine_no)}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  const head = g => {
+    const n = machinesOf(g).length;
+    if (!g) return `<tr class="mg-head"><td colspan="3">ยังไม่จัดกลุ่ม · ${n} เครื่อง</td></tr>`;
+    if (_mcEdit === 'g:' + g) return `<tr class="mg-head"><td colspan="3"><div class="mc-edit">
+        <input type="text" id="mcGroupName" value="${escHtml(g)}" list="machineGroupList" autocomplete="off" data-g="${escHtml(g)}" onkeydown="if(event.key==='Enter')renameGroup(this.dataset.g)">
+        <button class="btn btn-primary btn-sm" data-g="${escHtml(g)}" onclick="renameGroup(this.dataset.g)">💾 เปลี่ยนชื่อกลุ่ม</button>
+        <button class="btn btn-gray btn-sm" onclick="editMachine(null)">ยกเลิก</button>
+      </div></td></tr>`;
+    return `<tr class="mg-head"><td colspan="3">🏷️ ${escHtml(g)} · ${n} เครื่อง
+      <button class="btn-link" data-g="${escHtml(g)}" onclick="editMachine('g:' + this.dataset.g)">✏️ เปลี่ยนชื่อกลุ่ม</button></td></tr>`;
+  };
+  el.innerHTML = `<div style="overflow-x:auto"><table class="admin-table">
+    <thead><tr><th>หมายเลขเครื่อง</th><th>Zone / พื้นที่</th><th style="text-align:center">จัดการ</th></tr></thead>
+    <tbody>${groups.map(g => head(g) + machinesOf(g).map(row).join('')).join('')}</tbody></table></div>`;
+}
+function editMachine(key) {
+  _mcEdit = key;
+  renderMachineList();
+  const inp = document.getElementById(typeof key === 'number' ? 'mcEditNo' : 'mcGroupName');
+  if (inp) { inp.focus(); inp.select(); }
+}
+async function saveMachine(id) {
+  const machine_no = document.getElementById('mcEditNo').value.trim();
+  if (!machine_no) { showToast('❌ กรอกหมายเลขเครื่องจักร', 'error'); return; }
+  try {
+    await api('PUT', `/api/machines/${id}`, {
+      machine_no,
+      machine_group: canonGroup(document.getElementById('mcEditGroup').value),
+      zone: document.getElementById('mcEditZone').value.trim(),
+    }, true);
+    showToast(`✅ บันทึกเครื่อง "${machine_no}" แล้ว`);
+    _mcEdit = null;
+    await loadMasterData(); renderMachineList();
+  } catch {}
+}
+// Rename a group — its machines and the Parts linked to the whole group follow. Typing the
+// name of another existing group merges the two.
+async function renameGroup(from) {
+  const to = canonGroup(document.getElementById('mcGroupName').value);
+  if (!to) { showToast('❌ กรอกชื่อกลุ่มเครื่องจักร', 'error'); return; }
+  if (to === from) { editMachine(null); return; }
+  if (machineGroups.includes(to)) {
+    const ok = await showConfirm('🔀', `รวมกลุ่ม "${from}" เข้ากับ "${to}"?`,
+      `มีกลุ่ม "${to}" อยู่แล้ว — เครื่องและ Part ของ "${from}" จะย้ายไปอยู่ใน "${to}"`, 'รวมกลุ่ม', 'primary');
+    if (!ok) return;
+  }
+  try {
+    await api('POST', '/api/machine-groups/rename', { from, to }, true);
+    showToast(`✅ เปลี่ยนกลุ่ม "${from}" เป็น "${to}" แล้ว`);
+    _mcEdit = null;
+    await loadMasterData(); renderMachineList();
+  } catch {}
 }
 async function deleteMachine(id, no) {
-  const ok = await showConfirm('🗑️', `ลบเครื่อง "${no}"?`, 'จะลบออกจากฐานข้อมูลถาวร', 'ลบเลย', 'danger');
+  const ok = await showConfirm('🗑️', `ลบเครื่อง "${no}"?`, 'จะลบออกจากฐานข้อมูลถาวร — Part ที่ผูกกับเครื่องนี้โดยตรงจะไม่ผูกแล้ว', 'ลบเลย', 'danger');
   if (!ok) return;
   try {
     await api('DELETE', `/api/machines/${id}`, null, true);
@@ -2332,15 +2595,7 @@ async function pickReqCode(code, scanned) {
         _reqSuggest = {};
         list.forEach(it => { _reqSuggest[it.id] = it; });
         results.innerHTML = `<div class="text-sub" style="margin:10px 0 6px">ไม่พบรหัส “${escHtml(code)}” ตรงตัว — หมายถึงรายการนี้หรือเปล่า? แตะเพื่อเลือก</div>` +
-          list.map(it => `
-          <div class="link-item" onclick="setReqItem(_reqSuggest[${it.id}])">
-            <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
-            <div style="min-width:0;flex:1">
-              <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
-              <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · คงเหลือ ${fmtNum(it.stock_qty)} ${escHtml(it.unit || '')}</div>
-            </div>
-            <span style="color:var(--primary);font-weight:800;white-space:nowrap">เลือก ›</span>
-          </div>`).join('');
+          list.map(it => reqPickRow(it, `setReqItem(_reqSuggest[${it.id}])`)).join('');
         return;
       }
     }
@@ -2351,6 +2606,53 @@ async function pickReqCode(code, scanned) {
       e.textContent = msg; e.classList.add('show');
     } else showFieldError('reqCode', 'errCode', msg);
   } finally { btn.disabled = false; }
+}
+// One tappable Item row in the requisition page's search results.
+function reqPickRow(it, onclick) {
+  const mt = machineText(it);
+  return `
+    <div class="link-item" onclick="${onclick}">
+      <div class="link-thumb">${thumbSrc(it) ? `<img src="${thumbSrc(it)}" alt="" loading="lazy">` : '🔧'}</div>
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.name)}</div>
+        <div style="font-size:12px;color:var(--sub)">${escHtml(it.part_code)} · คงเหลือ ${fmtNum(it.stock_qty)} ${escHtml(it.unit || '')}</div>
+        ${mt ? `<div class="mc-line">🏭 ${escHtml(mt)}</div>` : ''}
+      </div>
+      <span style="color:var(--primary);font-weight:800;white-space:nowrap">เลือก ›</span>
+    </div>`;
+}
+// No label to scan: list the Parts used on a machine group / machine, tap one to request it.
+let _reqBrowse = {};          // id -> item listed by the machine-group search
+let _reqBrowseSeq = 0;
+function onReqGroup() {
+  fillMachineSelect('reqFindMachine', document.getElementById('reqGroup').value, '🔧 หรือเลือกหมายเลขเครื่อง');
+  reqBrowse();
+}
+async function reqBrowse() {
+  const el = document.getElementById('reqBrowseResults');
+  const q = machineFilterQuery('reqGroup', 'reqFindMachine');
+  const seq = ++_reqBrowseSeq;
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="loading" style="padding:14px"><div class="spinner"></div></div>';
+  try {
+    const d = await api('GET', `/api/items?limit=500${q}`);
+    if (seq !== _reqBrowseSeq) return;          // a newer choice is loading
+    const list = d.data || [];
+    _reqBrowse = {};
+    list.forEach(it => { _reqBrowse[it.id] = it; });
+    el.innerHTML = list.length
+      ? `<div class="text-sub" style="margin:2px 0 6px">พบ ${list.length} รายการ — แตะเพื่อเลือก</div>
+         <div class="mc-results">${list.map(it => reqPickRow(it, `pickBrowsed(${it.id})`)).join('')}</div>`
+      : '<div class="text-sub" style="padding:8px 2px">ยังไม่มี Part ที่ผูกกับกลุ่ม/เครื่องนี้ — สแกน QR หรือพิมพ์รหัสแทน หรือแจ้ง Admin ให้ผูก Part กับเครื่อง</div>';
+  } catch { if (seq === _reqBrowseSeq) el.innerHTML = '<div class="text-sub" style="padding:8px 2px">โหลดไม่สำเร็จ — ลองใหม่</div>'; }
+}
+// A machine chosen while searching is also the machine the Part is for.
+function pickBrowsed(id) {
+  const it = _reqBrowse[id]; if (!it) return;
+  const mid = document.getElementById('reqFindMachine').value;
+  const mc = mid && machines.find(m => String(m.id) === mid);
+  if (mc) { document.getElementById('reqMachine').value = mc.machine_no; lookupMachine(); }
+  setReqItem(it);
 }
 function setReqItem(item) {
   if (!item) return;
@@ -2386,6 +2688,7 @@ function renderReqItem() {
         <div class="ric-name">${escHtml(it.name)}</div>
         <div class="ric-code">${escHtml(it.part_code)}</div>
         ${meta ? `<div class="ric-meta">${meta}</div>` : ''}
+        ${machineText(it) ? `<div class="ric-meta">🏭 ใช้กับ: ${escHtml(machineText(it))}</div>` : ''}
         <span class="rv-stock ${cls}">${stockMsg}</span>
         ${it.description ? `<div class="ric-meta" style="margin-top:8px">${escHtml(it.description)}</div>` : ''}
       </div>
@@ -2600,18 +2903,28 @@ function openReqPhotos(reqId, i) {
 async function loadInventory() {
   const search = document.getElementById('invSearch').value.trim();
   const cat = document.getElementById('invCategory').value;
+  const mcq = machineFilterQuery('invGroup', 'invMachine');
   const grid = document.getElementById('inventoryGrid');
+  const countEl = document.getElementById('invCount');
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1"><div class="spinner"></div></div>';
   try {
-    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&category=${cat}&limit=1000`);
+    const data = await api('GET', `/api/items?q=${encodeURIComponent(search)}&category=${cat}&limit=1000${mcq}`);
     const items = data.data || [];
-    if (!items.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📦</div>ไม่พบอุปกรณ์</div>'; return; }
-    const countEl = document.getElementById('invCount');
-    if (countEl) countEl.textContent = `${items.length} รายการ`;
+    const banner = document.getElementById('invLowStockBanner');
+    if (!items.length) {
+      if (countEl) countEl.textContent = '';
+      banner.style.display = 'none';
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📦</div>ไม่พบอุปกรณ์${mcq ? '<br><small>ยังไม่มี Part ที่ผูกกับกลุ่ม/เครื่องนี้ — Admin ผูกได้ที่ “✏️ แก้ไข” อุปกรณ์</small>' : ''}</div>`;
+      return;
+    }
+    if (countEl) {
+      const g = document.getElementById('invGroup').value, mSel = document.getElementById('invMachine');
+      const by = mSel.value ? mSel.options[mSel.selectedIndex].text : g;
+      countEl.textContent = `${items.length} รายการ${by ? ' · ใช้กับ ' + by : ''}`;
+    }
 
     const lowItems = items.filter(i => i.stock_qty <= i.min_stock);
-    const banner = document.getElementById('invLowStockBanner');
-    if (lowItems.length > 0 && !search && !cat) {
+    if (lowItems.length > 0 && !search && !cat && !mcq) {
       banner.style.display = 'block';
       banner.style.marginBottom = '14px';
       banner.innerHTML = lowStockHtml(lowItems, isAdmin);
@@ -2627,6 +2940,7 @@ async function loadInventory() {
             <div class="item-card-name">${escHtml(item.name)}</div>
             <div class="item-card-code">${escHtml(item.part_code)}</div>
             <div class="item-card-stock ${isLow ? 'low' : ''}">📦 ${item.stock_qty} ${escHtml(item.unit)}</div>
+            ${machineText(item) ? `<div class="mc-line" title="${escHtml(machineText(item))}">🏭 ${escHtml(machineText(item))}</div>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -2634,6 +2948,10 @@ async function loadInventory() {
 }
 
 function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(loadInventory, 400); }
+function onInvGroup() {
+  fillMachineSelect('invMachine', document.getElementById('invGroup').value, '🔧 ทุกเครื่อง');
+  loadInventory();
+}
 // Stock check on the floor: scan a part's QR label → that Item's details (stock on hand).
 function scanInventory() {
   openQrScanner(async code => {
@@ -2665,6 +2983,7 @@ async function showItemDetail(id) {
           <div class="stock-bar-wrap"><div class="stock-bar-fill ${barCls}" style="width:${pct}%"></div></div>
         </td></tr>
         <tr><td style="padding:7px 0;color:var(--sub)">Stock ขั้นต่ำ</td><td>${item.min_stock} ${escHtml(item.unit)}</td></tr>
+        <tr><td style="padding:7px 0;color:var(--sub)">ใช้กับเครื่องจักร</td><td>${escHtml(machineText(item) || '—')}</td></tr>
         ${item.description ? `<tr><td style="padding:7px 0;color:var(--sub)">รายละเอียด</td><td>${escHtml(item.description)}</td></tr>` : ''}
       </table>`;
     document.getElementById('itemModalFooter').innerHTML = isAdmin
@@ -2798,8 +3117,10 @@ async function addItem() {
       min_stock: parseFloat(document.getElementById('newMinStock').value) || 0,
       image_b64: hasImg ? image_b64 : null,
       thumb_b64,
+      ...mpValue('newMachinePick'),
     }, true);
     showToast(`✅ เพิ่ม "${name}" สำเร็จ`);
+    mpSet('newMachinePick', null);
     ['newPartCode','newName','newDesc'].forEach(id => document.getElementById(id).value = '');
     prefillNextCode();
     document.getElementById('newUnit').value = 'ชิ้น';
@@ -2833,7 +3154,8 @@ async function loadAdminItems() {
         const isLow = item.stock_qty <= item.min_stock;
         return `<tr>
           <td style="font-weight:700;color:var(--primary)">${escHtml(item.part_code)}</td>
-          <td>${escHtml(item.name)}${isLow ? ' <span style="color:var(--danger);font-size:11px;font-weight:700">⚠️</span>' : ''}</td>
+          <td>${escHtml(item.name)}${isLow ? ' <span style="color:var(--danger);font-size:11px;font-weight:700">⚠️</span>' : ''}
+            ${machineText(item) ? `<div class="mc-line" style="white-space:normal">🏭 ${escHtml(machineText(item))}</div>` : ''}</td>
           <td style="text-align:center;font-weight:700;color:${isLow ? 'var(--danger)' : 'var(--success)'}">${item.stock_qty} ${escHtml(item.unit)}</td>
           <td style="text-align:center;color:var(--sub)">${item.min_stock}</td>
           <td style="text-align:center">
@@ -2917,6 +3239,7 @@ async function openEditItem(id) {
       document.getElementById('editImgZone').classList.remove('has-img');
     }
     document.getElementById('editFileInput').value = '';
+    mpSet('editMachinePick', item);
     openModal('editItemModal');
   } catch {}
 }
@@ -2941,10 +3264,12 @@ async function confirmEditItem() {
       min_stock: parseFloat(document.getElementById('editMinStock').value) || 0,
       description: document.getElementById('editDesc').value.trim(),
       ...(editImageB64 ? { image_b64: editImageB64, thumb_b64: editThumb } : {}),
+      ...mpValue('editMachinePick'),
     }, true);
     showToast(`✅ แก้ไข "${name}" สำเร็จ`);
     closeModal('editItemModal');
     loadAdminItems(); loadStats(); qrRefresh();
+    loadMasterData();             // a newly used / dropped whole-group link changes the group list
   } catch {} finally { btn.disabled = false; btn.textContent = '💾 บันทึกการแก้ไข'; }
 }
 
@@ -3509,7 +3834,8 @@ async function loadQrItems() {
 function qrVisible() {
   const q = document.getElementById('qrSearch').value.trim().toLowerCase();
   const cat = document.getElementById('qrCategory').value;
-  return (_qrItems || []).filter(it => (!cat || String(it.category_id) === cat)
+  const g = document.getElementById('qrGroup').value;
+  return (_qrItems || []).filter(it => (!cat || String(it.category_id) === cat) && (!g || itemInGroup(it, g))
     && (!q || it.part_code.toLowerCase().includes(q) || (it.name || '').toLowerCase().includes(q)));
 }
 function qrSelected() { return qrVisible().filter(it => !_qrOff.has(it.id)); }

@@ -10,10 +10,11 @@
  *  GET    /api/health
  *  POST   /api/login          { emp_code } → { user: { code, name, vsm } } via the PSIF roster
  *  GET    /api/categories
- *  GET    /api/items
+ *  GET    /api/items          ?q= &category= &group=<machine group> &machine=<machine id> &limit= &page=
+ *                             (each item carries machine_groups[] + machines[] — the machines it fits)
  *  GET    /api/items/lookup?code=  - one item by its exact code (QR label / typed code)
- *  POST   /api/items          (admin)
- *  PUT    /api/items/:id      (admin)
+ *  POST   /api/items          (admin) — optional machine_groups: [name], machine_ids: [id]
+ *  PUT    /api/items/:id      (admin) — machine links replaced when machine_groups / machine_ids are sent
  *  DELETE /api/items/:id      (admin)
  *  POST   /api/match          - AI image matching (legacy; no longer used by the app)
  *  POST   /api/stock/adjust   (admin)
@@ -31,10 +32,11 @@
  *  POST   /api/employees      (admin)
  *  PUT    /api/employees/:id  (admin)
  *  DELETE /api/employees/:id  (admin)
- *  GET    /api/machines
+ *  GET    /api/machines       → { data: [{ id, machine_no, zone, machine_group }], groups: [name] }
  *  POST   /api/machines       (admin)
  *  PUT    /api/machines/:id   (admin)
  *  DELETE /api/machines/:id   (admin)
+ *  POST   /api/machine-groups/rename (admin) { from, to } — machines + whole-group Item links follow
  */
 
 const CORS = {
@@ -150,6 +152,49 @@ function itemOut(r) {
     image_url: has_image ? `/api/items/${r.id}/image?v=${v}` : null,
     thumb_url: has_image ? `/api/items/${r.id}/thumb?v=${v}` : null,
   };
+}
+
+// ===== Machine links of Item Parts (item_machines) =====
+// A link row is either a whole machine group (machine_group set, machine_id NULL — also
+// covers machines added to that group later) or one specific machine (machine_id set).
+// Returns Map item_id → { machine_groups: [name], machines: [{ id, machine_no, machine_group }] }
+// for the given Item ids of this VSM (all active Items when ids is null).
+async function itemMachineLinks(env, vsm, ids) {
+  if (ids && !ids.length) return new Map();
+  const byIds = ids && ids.length <= 90;   // D1 caps bound parameters at 100
+  const rows = (await env.DB.prepare(`
+    SELECT im.item_id, im.machine_group AS grp, m.id AS mid, m.machine_no, m.machine_group AS m_group
+    FROM item_machines im JOIN items i ON i.id = im.item_id
+    LEFT JOIN machines m ON m.id = im.machine_id
+    WHERE i.vsm = ? ${byIds ? `AND im.item_id IN (${ids.map(() => '?').join(',')})` : 'AND i.is_active = 1'}
+    ORDER BY im.id
+  `).bind(vsm, ...(byIds ? ids : [])).all()).results || [];
+  const map = new Map();
+  for (const r of rows) {
+    let e = map.get(r.item_id);
+    if (!e) map.set(r.item_id, (e = { machine_groups: [], machines: [] }));
+    if (r.grp) { if (!e.machine_groups.includes(r.grp)) e.machine_groups.push(r.grp); }
+    else if (r.mid) e.machines.push({ id: r.mid, machine_no: r.machine_no, machine_group: r.m_group || null });
+  }
+  return map;
+}
+function withMachineLinks(item, map) {
+  const e = map.get(item.id);
+  return { ...item, machine_groups: e ? e.machine_groups : [], machines: e ? e.machines : [] };
+}
+const cleanGroup = g => String(g || '').trim().replace(/\s+/g, ' ');
+// Statements that replace an Item's machine links (run inside env.DB.batch()).
+// Machines are only linked when they belong to this VSM.
+function machineLinkStmts(env, vsm, itemId, groups, machineIds) {
+  const stmts = [env.DB.prepare('DELETE FROM item_machines WHERE item_id=?').bind(itemId)];
+  for (const g of new Set((groups || []).map(cleanGroup).filter(Boolean))) {
+    stmts.push(env.DB.prepare('INSERT INTO item_machines (item_id, machine_group) VALUES (?, ?)').bind(itemId, g));
+  }
+  for (const id of new Set((machineIds || []).map(n => parseInt(n, 10)).filter(n => n > 0))) {
+    stmts.push(env.DB.prepare('INSERT INTO item_machines (item_id, machine_id) SELECT ?, id FROM machines WHERE id=? AND vsm=?')
+      .bind(itemId, id, vsm));
+  }
+  return stmts;
 }
 
 // Statements that issue (deduct) stock for a requisition, one item at a time.
@@ -379,7 +424,7 @@ const NEG_PENALTY = 0.5;
 // The applied schema version is stored in `settings`, so after the first run a
 // cold start costs a single SELECT instead of re-running every migration.
 let _migrated = false;
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 async function ensureSchema(env) {
   if (_migrated || !env.DB) return;
   try {
@@ -417,6 +462,21 @@ async function ensureSchema(env) {
     }
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_items_vsm ON items(vsm, is_active)').run();
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_requisitions_vsm ON requisitions(vsm, status, created_at)').run();
+    // v4: machine groups — a machine belongs to a group; an Item Part is linked to whole
+    // groups and/or specific machines, so Parts can be searched by machine group / machine.
+    try { await env.DB.prepare('ALTER TABLE machines ADD COLUMN machine_group TEXT').run(); } catch {}
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS item_machines (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+         machine_id INTEGER REFERENCES machines(id) ON DELETE CASCADE,
+         machine_group TEXT,
+         created_at TEXT DEFAULT (datetime('now','localtime'))
+       )`
+    ).run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_item_machines_item ON item_machines(item_id)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_item_machines_machine ON item_machines(machine_id)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_item_machines_group ON item_machines(machine_group)').run();
     await env.DB.prepare(
       "INSERT INTO settings (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
     ).bind(SCHEMA_VERSION).run();
@@ -498,7 +558,7 @@ export default {
 
     // ── Health ──────────────────────────────────────────────
     if (path === '/api/health') {
-      return json({ ok: true, version: '3.1.0', vsms: VSMS, psif_roster: !!env.PSIF_DB, ts: new Date().toISOString() });
+      return json({ ok: true, version: '3.2.0', vsms: VSMS, psif_roster: !!env.PSIF_DB, ts: new Date().toISOString() });
     }
 
     // ── Employee login: code → name + VSM (the session is locked to that VSM) ──
@@ -567,7 +627,8 @@ export default {
       delete row.embedding;
       delete row.image_key;
       delete row.thumb_key;
-      return json({ ok: true, data: { ...row, has_embedding, has_image, image_url, thumb_url } });
+      const links = await itemMachineLinks(env, vsm, [row.id]);
+      return json({ ok: true, data: withMachineLinks({ ...row, has_embedding, has_image, image_url, thumb_url }, links) });
     }
 
     // ── Items: list ─────────────────────────────────────────
@@ -598,35 +659,57 @@ export default {
       if (!row) return err(`ไม่พบรหัส "${code}" ในระบบ`, 404);
       if (!row.is_active) return err(`รหัส ${row.part_code} ถูกลบออกจากระบบแล้ว — แจ้ง Admin`, 410);
       if (row.vsm !== vsm) return err(`รหัส ${row.part_code} เป็น Item ของ ${row.vsm} — ตอนนี้คุณอยู่ ${vsm}`, 403);
-      return json({ ok: true, data: itemOut(row) });
+      const links = await itemMachineLinks(env, vsm, [row.id]);
+      return json({ ok: true, data: withMachineLinks(itemOut(row), links) });
     }
 
+    // ?q= matches code / name / machine no / machine group; ?group= a machine group (Items
+    // linked to the whole group or to any machine in it); ?machine= a machine id (Items
+    // linked to that machine or to its whole group).
     if (path === '/api/items' && method === 'GET') {
       const search = url.searchParams.get('q') || '';
       const cat = url.searchParams.get('category') || '';
+      const group = cleanGroup(url.searchParams.get('group'));
+      const machine = parseInt(url.searchParams.get('machine') || '0', 10);
       const page = parseInt(url.searchParams.get('page') || '1');
       const limit = parseInt(url.searchParams.get('limit') || '50');
       const offset = (page - 1) * limit;
 
-      let sql = `
+      const where = ['i.is_active = 1', 'i.vsm = ?'];
+      const params = [vsm];
+      if (search) {
+        const like = `%${search}%`;
+        where.push(`(i.name LIKE ? OR i.part_code LIKE ? OR i.id IN (
+          SELECT im.item_id FROM item_machines im LEFT JOIN machines m ON m.id = im.machine_id
+          WHERE m.machine_no LIKE ? OR m.machine_group LIKE ? OR im.machine_group LIKE ?
+             OR im.machine_group IN (SELECT machine_group FROM machines WHERE vsm = ? AND machine_no LIKE ?)))`);
+        params.push(like, like, like, like, like, vsm, like);
+      }
+      if (cat) { where.push('i.category_id = ?'); params.push(cat); }
+      if (group) {
+        where.push(`i.id IN (SELECT im.item_id FROM item_machines im LEFT JOIN machines m ON m.id = im.machine_id
+          WHERE im.machine_group = ? OR (m.machine_group = ? AND m.vsm = ?))`);
+        params.push(group, group, vsm);
+      }
+      if (machine > 0) {
+        where.push(`i.id IN (SELECT item_id FROM item_machines WHERE machine_id = ?
+          OR machine_group = (SELECT machine_group FROM machines WHERE id = ? AND vsm = ?))`);
+        params.push(machine, machine, vsm);
+      }
+      const whereSql = where.join(' AND ');
+
+      const rows = await env.DB.prepare(`
         SELECT i.*, c.name as category_name
         FROM items i LEFT JOIN categories c ON i.category_id = c.id
-        WHERE i.is_active = 1 AND i.vsm = ?
-      `;
-      const params = [vsm];
-      if (search) { sql += ` AND (i.name LIKE ? OR i.part_code LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-      if (cat)    { sql += ` AND i.category_id = ?`; params.push(cat); }
-      sql += ` ORDER BY i.name LIMIT ? OFFSET ?`;
-      params.push(limit, offset);
-
-      const rows = await env.DB.prepare(sql).bind(...params).all();
-      const total = await env.DB.prepare(
-        `SELECT COUNT(*) as n FROM items WHERE is_active=1 AND vsm=? ${search ? 'AND (name LIKE ? OR part_code LIKE ?)' : ''}`
-      ).bind(vsm, ...(search ? [`%${search}%`, `%${search}%`] : [])).first();
+        WHERE ${whereSql} ORDER BY i.name LIMIT ? OFFSET ?
+      `).bind(...params, limit, offset).all();
+      const total = await env.DB.prepare(`SELECT COUNT(*) as n FROM items i WHERE ${whereSql}`).bind(...params).first();
 
       // Strip the heavy fields from the list: send a small image URL instead of
       // base64, so big inventories load fast.
-      const data = (rows.results || []).map(itemOut);
+      const list = rows.results || [];
+      const links = await itemMachineLinks(env, vsm, list.length > 90 ? null : list.map(r => r.id));
+      const data = list.map(r => withMachineLinks(itemOut(r), links));
       return json({ ok: true, data, total: total?.n ?? 0, page, limit });
     }
 
@@ -661,6 +744,9 @@ export default {
                 stock_qty || 0, min_stock || 0, imageB64Store, imageKey, thumbKey, null, phashStore, vsm).run();
 
         const newId = res.meta.last_row_id;
+        if (Array.isArray(body.machine_groups) || Array.isArray(body.machine_ids)) {
+          await env.DB.batch(machineLinkStmts(env, vsm, newId, body.machine_groups, body.machine_ids));
+        }
         if (stock_qty > 0) {
           await env.DB.prepare(`
             INSERT INTO stock_movements (item_id, movement, qty, balance, note, created_by)
@@ -716,7 +802,12 @@ export default {
       }
       vals.push(id);
 
-      await env.DB.prepare(`UPDATE items SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+      const stmts = [env.DB.prepare(`UPDATE items SET ${sets.join(',')} WHERE id=?`).bind(...vals)];
+      // Machine links are replaced only when the client sends them (older pages don't).
+      if (Array.isArray(body.machine_groups) || Array.isArray(body.machine_ids)) {
+        stmts.push(...machineLinkStmts(env, vsm, id, body.machine_groups, body.machine_ids));
+      }
+      await env.DB.batch(stmts);
       return json({ ok: true });
     }
 
@@ -1515,39 +1606,78 @@ export default {
     }
 
     // ── Machines (master data, per VSM) ──────────────────────
+    // `groups` = every machine group name in this VSM: the machines' groups plus groups
+    // Items are linked to (a group may have no machine left but still have Parts).
     if (path === '/api/machines' && method === 'GET') {
-      const rows = await env.DB.prepare('SELECT id, machine_no, zone FROM machines WHERE vsm=? ORDER BY machine_no')
+      const rows = await env.DB.prepare('SELECT id, machine_no, zone, machine_group FROM machines WHERE vsm=? ORDER BY machine_no')
         .bind(vsm).all();
-      return json({ ok: true, data: rows.results || [] });
+      const g = await env.DB.prepare(`
+        SELECT machine_group AS g FROM machines WHERE vsm=? AND machine_group IS NOT NULL AND machine_group <> ''
+        UNION
+        SELECT im.machine_group FROM item_machines im JOIN items i ON i.id = im.item_id
+        WHERE i.vsm=? AND i.is_active=1 AND im.machine_group IS NOT NULL AND im.machine_group <> ''
+      `).bind(vsm, vsm).all();
+      const groups = (g.results || []).map(r => r.g).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+      return json({ ok: true, data: rows.results || [], groups });
     }
+    const machineDupErr = async (machine_no) => {
+      const other = await env.DB.prepare('SELECT vsm FROM machines WHERE machine_no=?').bind(machine_no).first();
+      return err(other && other.vsm !== vsm ? `หมายเลขเครื่องนี้มีใน ${other.vsm} แล้ว` : 'หมายเลขเครื่องนี้มีในระบบแล้ว');
+    };
     if (path === '/api/machines' && method === 'POST') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      const { machine_no, zone } = await request.json();
+      const { machine_no, zone, machine_group } = await request.json();
       if (!machine_no) return err('กรุณากรอกหมายเลขเครื่องจักร');
       try {
-        const res = await env.DB.prepare('INSERT INTO machines (machine_no, zone, vsm) VALUES (?, ?, ?)')
-          .bind(machine_no, zone || null, vsm).run();
+        const res = await env.DB.prepare('INSERT INTO machines (machine_no, zone, machine_group, vsm) VALUES (?, ?, ?, ?)')
+          .bind(machine_no, zone || null, cleanGroup(machine_group) || null, vsm).run();
         return json({ ok: true, id: res.meta.last_row_id });
       } catch (e) {
-        if (e.message?.includes('UNIQUE')) {
-          const other = await env.DB.prepare('SELECT vsm FROM machines WHERE machine_no=?').bind(machine_no).first();
-          return err(other && other.vsm !== vsm ? `หมายเลขเครื่องนี้มีใน ${other.vsm} แล้ว` : 'หมายเลขเครื่องนี้มีในระบบแล้ว');
-        }
+        if (e.message?.includes('UNIQUE')) return machineDupErr(machine_no);
         throw e;
       }
     }
     const machineMatch = path.match(/^\/api\/machines\/(\d+)$/);
     if (machineMatch && method === 'PUT') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      const { machine_no, zone } = await request.json();
+      const body = await request.json();
+      const { machine_no, zone } = body;
       if (!machine_no) return err('ข้อมูลไม่ครบ');
-      await env.DB.prepare('UPDATE machines SET machine_no=?, zone=? WHERE id=? AND vsm=?')
-        .bind(machine_no, zone || null, machineMatch[1], vsm).run();
+      const sets = ['machine_no=?', 'zone=?'], vals = [machine_no, zone || null];
+      if ('machine_group' in body) { sets.push('machine_group=?'); vals.push(cleanGroup(body.machine_group) || null); }
+      try {
+        await env.DB.prepare(`UPDATE machines SET ${sets.join(', ')} WHERE id=? AND vsm=?`)
+          .bind(...vals, machineMatch[1], vsm).run();
+      } catch (e) {
+        if (e.message?.includes('UNIQUE')) return machineDupErr(machine_no);
+        throw e;
+      }
       return json({ ok: true });
     }
     if (machineMatch && method === 'DELETE') {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
-      await env.DB.prepare('DELETE FROM machines WHERE id=? AND vsm=?').bind(machineMatch[1], vsm).run();
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM item_machines WHERE machine_id IN (SELECT id FROM machines WHERE id=? AND vsm=?)')
+          .bind(machineMatch[1], vsm),
+        env.DB.prepare('DELETE FROM machines WHERE id=? AND vsm=?').bind(machineMatch[1], vsm),
+      ]);
+      return json({ ok: true });
+    }
+    // Rename a machine group (or merge it into another): its machines and the Items linked
+    // to the whole group move together.
+    if (path === '/api/machine-groups/rename' && method === 'POST') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      const { from, to } = await request.json().catch(() => ({}));
+      const f = cleanGroup(from), t = cleanGroup(to);
+      if (!f || !t) return err('กรุณาระบุชื่อกลุ่มเครื่องจักร');
+      await env.DB.batch([
+        env.DB.prepare('UPDATE machines SET machine_group=? WHERE vsm=? AND machine_group=?').bind(t, vsm, f),
+        env.DB.prepare('UPDATE item_machines SET machine_group=? WHERE machine_group=? AND item_id IN (SELECT id FROM items WHERE vsm=?)')
+          .bind(t, f, vsm),
+        // merging into an existing group can leave an Item linked to it twice
+        env.DB.prepare(`DELETE FROM item_machines WHERE machine_group IS NOT NULL AND id NOT IN (
+          SELECT MIN(id) FROM item_machines WHERE machine_group IS NOT NULL GROUP BY item_id, machine_group)`),
+      ]);
       return json({ ok: true });
     }
 

@@ -97,14 +97,28 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
--- ตารางเครื่องจักร (master data — หมายเลขเครื่อง ↔ zone/พื้นที่)
+-- ตารางเครื่องจักร (master data — หมายเลขเครื่อง ↔ กลุ่มเครื่องจักร ↔ zone/พื้นที่)
 CREATE TABLE IF NOT EXISTS machines (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  machine_no TEXT NOT NULL UNIQUE,
-  zone       TEXT,
-  vsm        TEXT NOT NULL DEFAULT 'VSM4',
-  created_at TEXT DEFAULT (datetime('now','localtime'))
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  machine_no    TEXT NOT NULL UNIQUE,
+  zone          TEXT,
+  machine_group TEXT,              -- กลุ่มเครื่องจักร (เช่น เครื่องฉีด / Press) — ใช้ค้นหา Part ตามกลุ่ม
+  vsm           TEXT NOT NULL DEFAULT 'VSM4',
+  created_at    TEXT DEFAULT (datetime('now','localtime'))
 );
+
+-- Part ใช้กับเครื่องไหน: 1 แถว = ทั้งกลุ่มเครื่องจักร (machine_group, machine_id NULL — รวมเครื่องที่เพิ่มเข้ากลุ่มทีหลังด้วย)
+-- หรือ = เครื่องเฉพาะ 1 เครื่อง (machine_id) — Item 1 ชิ้นผูกได้หลายกลุ่ม/หลายเครื่อง
+CREATE TABLE IF NOT EXISTS item_machines (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id       INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  machine_id    INTEGER REFERENCES machines(id) ON DELETE CASCADE,
+  machine_group TEXT,
+  created_at    TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_item_machines_item ON item_machines(item_id);
+CREATE INDEX IF NOT EXISTS idx_item_machines_machine ON item_machines(machine_id);
+CREATE INDEX IF NOT EXISTS idx_item_machines_group ON item_machines(machine_group);
 
 -- ตารางตัวอย่างที่ผู้ใช้ยืนยัน (machine-learning feedback / online k-NN)
 -- ทุกครั้งที่ผู้ใช้สแกนรูปแล้วยืนยันว่าเป็นอุปกรณ์ชิ้นใด เก็บ fingerprint ของรูปนั้น
